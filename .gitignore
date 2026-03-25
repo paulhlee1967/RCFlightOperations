@@ -1,0 +1,30 @@
+# Local config (DB credentials) – never commit
+/config.php
+
+# Composer (vendor not committed; lock is committed for reproducible installs)
+vendor/
+composer.phar
+
+# Uploaded files (logos, favicons, member photos)
+uploads/*
+!uploads/.htaccess
+
+# OS and editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Database dump (used when migrating test data to cPanel – do not commit)
+export_for_cpanel.sql
+
+# Logs and temp
+*.log
+.env
+.env.local
+.env.*.local
+
+# Deployment / host upload (do not commit)
+Archive.zip

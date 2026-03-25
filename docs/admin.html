@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<!--
+  RC Flight Operations Documentation — Administration
+  docs/admin.html
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administration — RC Flight Operations Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
+</head>
+<body>
+
+<nav class="docs-navbar">
+  <a href="../index.php" class="brand">✈ RC Flight Operations</a>
+  <span class="badge-docs">Docs</span>
+  <button class="btn btn-sm sidebar-toggle ms-2"
+          style="display:none;background:rgba(255,255,255,.18);color:#fff;border:none;"
+          onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="../index.php" class="back-link"><i class="bi bi-arrow-left"></i> Back to app</a>
+</nav>
+
+<div class="docs-breadcrumb">
+  <a href="index.html">Docs</a><span class="sep">›</span>Administration
+</div>
+
+<div class="docs-layout">
+
+  <nav class="docs-sidebar">
+    <div class="sidebar-title">On this page</div>
+    <a href="#users">Users &amp; Roles</a>
+    <a href="#add-user">Adding a User</a>
+    <a href="#roles-detail">Role Permissions Detail</a>
+    <a href="#config">Club Configuration</a>
+    <a href="#general">General Settings</a>
+    <a href="#design">Design Settings</a>
+    <a href="#dues">Dues Rules</a>
+    <a href="#email">Email Configuration</a>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Other Docs</div>
+    <a href="index.html">← Docs home</a>
+    <a href="install.html">Installation</a>
+    <a href="badges.html">Badge Designer</a>
+    <a href="reports.html">Reports</a>
+    <a href="incidents.html">Incidents</a>
+  </nav>
+
+  <main class="docs-content">
+
+    <h1>Administration</h1>
+    <p class="page-lead">Manage who can log in and what they can do, customize your club's branding, and configure dues rates.</p>
+
+    <div class="callout callout-info">
+      <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+      <div class="callout-body">
+        Most of this section requires the <strong>Admin</strong> role. The Badge Designer
+        is also accessible to Editors. Other roles won't see the Administration menu.
+      </div>
+    </div>
+
+    <!-- ── Users ── -->
+    <h2 id="users">Users &amp; Roles</h2>
+    <p>
+      Go to <strong>Administration → Users</strong>. This lists every account that can log
+      into RC Flight Operations for your club. Each account has an email (used to log in), a display
+      name, a role, and an active/inactive flag.
+    </p>
+    <p>
+      Users are separate from members — a board member who logs in to run reports has a
+      user account, but may or may not also be in the member database.
+    </p>
+
+    <!-- ── Add user ── -->
+    <h2 id="add-user">Adding a User</h2>
+    <ol class="step-list">
+      <li>Go to <strong>Administration → Users → Add user</strong>.</li>
+      <li>Enter their email address — this is what they use to log in.</li>
+      <li>Enter their display name (shown in the top-right nav badge).</li>
+      <li>Choose a role (see below).</li>
+      <li>Set a temporary password — they should change it after first login.</li>
+      <li>Make sure <strong>Active</strong> is checked.</li>
+      <li>Save.</li>
+    </ol>
+    <p>
+      To deactivate a user (e.g., board member who has left), edit their account and
+      uncheck Active. Their login is disabled but their account is kept for audit history.
+    </p>
+
+    <!-- ── Roles ── -->
+    <h2 id="roles-detail">Role Permissions — Detailed</h2>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead>
+          <tr>
+            <th>Permission</th>
+            <th>Admin</th>
+            <th>Editor</th>
+            <th>Treasurer</th>
+            <th>Viewer</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>View dashboard</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>View member list</td><td>✅</td><td>✅</td><td>✅ (read only)</td><td>❌</td></tr>
+          <tr><td>Add/edit members</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td>Delete members</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td>Record renewals</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td></tr>
+          <tr><td>Import members</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td>Export CSV</td><td>✅</td><td>✅</td><td>✅</td><td>❌</td></tr>
+          <tr><td>View reports</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>Export/email reports</td><td>✅</td><td>✅</td><td>✅</td><td>✅</td></tr>
+          <tr><td>Badge designer</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td>Print badges</td><td>✅</td><td>✅</td><td>❌</td><td>❌</td></tr>
+          <tr><td>Manage users</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+          <tr><td>Club configuration</td><td>✅</td><td>❌</td><td>❌</td><td>❌</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Config ── -->
+    <h2 id="config">Club Configuration</h2>
+    <p>
+      Go to <strong>Administration → Configuration</strong>. Settings are organized into
+      three tabs: General, Design, and Dues Rules.
+    </p>
+
+    <!-- ── General ── -->
+    <h2 id="general">General Settings</h2>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Setting</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Club name</td><td>Appears in the navbar and on the login page</td></tr>
+          <tr><td>Club slug</td><td>Short URL-friendly identifier — used internally; don't change after initial setup</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Design ── -->
+    <h2 id="design">Design Settings</h2>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Setting</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Logo</td><td>Upload a PNG/JPEG — shown in the navbar next to the club name. Recommended: horizontal logo, max 300px wide, transparent background.</td></tr>
+          <tr><td>Favicon</td><td>Upload a small square icon (ideally 32×32 or 64×64 PNG) — appears in browser tabs.</td></tr>
+          <tr><td>Primary color</td><td>Main accent color: nav bar background, buttons, links. Use a hex code (e.g., <code>#6f7c3d</code>).</td></tr>
+          <tr><td>Primary dark color</td><td>Hover/active state of the primary color — usually 15–20% darker.</td></tr>
+          <tr><td>Background color</td><td>Page background — light gray (<code>#f5f5f5</code>) works well.</td></tr>
+          <tr><td>Muted color</td><td>Used for borders, dividers, and subtle separators.</td></tr>
+          <tr><td>Text color</td><td>Main body text — should have high contrast with the background.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout callout-tip">
+      <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
+      <div class="callout-body">
+        Changes to design settings take effect immediately on save. Do a hard refresh
+        (Ctrl+Shift+R / ⌘+Shift+R) if you don't see the new colors right away.
+      </div>
+    </div>
+
+    <!-- ── Dues ── -->
+    <h2 id="dues">Dues Rules</h2>
+    <p>
+      The Dues Rules tab lets you set rates per membership type. Each type (Adult, Youth,
+      Senior, Spouse) has independent settings:
+    </p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Setting</th><th>Description</th></tr></thead>
+        <tbody>
+          <tr><td>Annual dues</td><td>Full-year renewal amount in dollars</td></tr>
+          <tr><td>Initiation fee</td><td>One-time fee added to a new member's first payment (set to 0 if not applicable)</td></tr>
+          <tr><td>Late fee</td><td>Added when a renewal is recorded as "Late"</td></tr>
+          <tr><td>Prorate months</td><td>Members joining during the last N months of the year pay a prorated amount. Set to 0 to disable proration.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>See <a href="renewals.html#dues">Renewals — Configuring Dues</a> for more detail on how proration is calculated.</p>
+
+    <!-- ── Email ── -->
+    <h2 id="email">Email Configuration</h2>
+    <p>
+      Outgoing mail is configured in <code>config.php</code> (SMTP or PHP <code>mail()</code>). The app uses it for
+      <strong>Email report</strong> (one formatted message to an address you choose), <strong>Email members</strong>
+      (individual messages per member from selected reports), and other features that send mail.
+    </p>
+    <p>
+      <strong>Member preferences:</strong> Each member has <strong>Allow email from the club</strong> on the
+      <a href="members.html#communication">Contact tab</a>. When unchecked, they are excluded from report-based email sends,
+      the “Email only” CSV export, and scheduled reminders run by your host (AMA/FAA expiry notices). Officers should still
+      follow your club’s policies for any communication outside the app.
+    </p>
+    <p>
+      By default the app uses the server's built-in mail, which works on many hosts but sometimes lands in spam.
+    </p>
+    <p>
+      For reliable delivery, your club's webmaster needs to configure SMTP (outgoing mail)
+      in the server configuration. Good free options for club volumes:
+    </p>
+    <ul>
+      <li><strong>Brevo (formerly Sendinblue)</strong> — free up to 300 emails/day, SMTP included</li>
+      <li><strong>Gmail SMTP</strong> — use a club Gmail account with an App Password</li>
+      <li><strong>Your host's SMTP</strong> — most cPanel hosts provide an outgoing mail server</li>
+    </ul>
+    <p>
+      If you don't have access to the server config, ask whoever installed RC Flight Operations for
+      your club to set up SMTP. Technical documentation in the project repository includes
+      an example configuration for developers.
+    </p>
+
+  </main>
+</div>
+
+<footer class="docs-footer">
+  <span>RC Flight Operations — open-source, MIT licensed</span>
+  <span>
+    <a href="import-export.html">← Import &amp; Export</a>
+    &nbsp;·&nbsp;
+    <a href="install.html">Next: Installation →</a>
+  </span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script>
+  const headings = document.querySelectorAll('.docs-content h2[id], .docs-content h3[id]');
+  const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    headings.forEach(h => { if (window.scrollY >= h.offsetTop - 80) current = h.id; });
+    sidebarLinks.forEach(a => { a.classList.toggle('active', a.getAttribute('href') === '#' + current); });
+  }, { passive: true });
+</script>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<!--
+  RC Flight Operations Documentation — Members
+  docs/members.html
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Members — RC Flight Operations Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
+</head>
+<body>
+
+<nav class="docs-navbar">
+  <a href="../index.php" class="brand">✈ RC Flight Operations</a>
+  <span class="badge-docs">Docs</span>
+  <button class="btn btn-sm sidebar-toggle ms-2"
+          style="display:none;background:rgba(255,255,255,.18);color:#fff;border:none;"
+          onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="../index.php" class="back-link"><i class="bi bi-arrow-left"></i> Back to app</a>
+</nav>
+
+<div class="docs-breadcrumb">
+  <a href="index.html">Docs</a><span class="sep">›</span>Members
+</div>
+
+<div class="docs-layout">
+
+  <nav class="docs-sidebar">
+    <div class="sidebar-title">On this page</div>
+    <a href="#member-list">Member List</a>
+    <a href="#search">Search &amp; Filter</a>
+    <a href="#add">Adding a Member</a>
+    <a href="#contact">Contact Tab</a>
+    <a href="#communication">Email &amp; postal preferences</a>
+    <a href="#compliance">Compliance Tab</a>
+    <a href="#membership">Membership Tab</a>
+    <a href="#payments">Payment History Tab</a>
+    <a href="#status">Status Flags</a>
+    <a href="#photo">Member Photo</a>
+    <a href="#delete">Deleting a Member</a>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Other Docs</div>
+    <a href="index.html">← Docs home</a>
+    <a href="renewals.html">Renewals &amp; Dues</a>
+    <a href="compliance.html">AMA &amp; FAA</a>
+    <a href="badges.html">Badge Designer</a>
+    <a href="reports.html">Reports</a>
+    <a href="import-export.html">Import &amp; Export</a>
+    <a href="admin.html">Administration</a>
+  </nav>
+
+  <main class="docs-content">
+
+    <h1>Members</h1>
+    <p class="page-lead">Everything about adding, editing, and managing your club's member records.</p>
+
+    <!-- ── Member list ── -->
+    <h2 id="member-list">Member List</h2>
+    <p>
+      Go to <strong>Members</strong> in the top nav. You'll see a paginated list of all members
+      with quick-glance info: name, membership type, renewal year, AMA status, and badge print status.
+    </p>
+    <p>From the list you can:</p>
+    <ul>
+      <li>Click any member's name to open their full record</li>
+      <li>Click <strong>Renew</strong> to go straight to the renewal workflow</li>
+      <li>Click <strong>Print card</strong> to print their ID badge</li>
+      <li>Use the <strong>Export CSV</strong> dropdown to download the list</li>
+    </ul>
+
+    <!-- ── Search ── -->
+    <h2 id="search">Search &amp; Filter</h2>
+    <p>The filter bar above the list lets you narrow members by:</p>
+    <ul>
+      <li><strong>Status chips:</strong> All, Active, Not renewed, Inactive, Suspended</li>
+      <li><strong>Membership type:</strong> Adult, Youth, Senior, Spouse</li>
+      <li><strong>Search box:</strong> Searches first name, last name, and email in real time (press Enter or click Search)</li>
+    </ul>
+    <div class="callout callout-tip">
+      <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
+      <div class="callout-body">
+        Filters are additive — you can combine status + type + search to get exactly the list you need.
+        The URL updates as you filter, so you can bookmark a particular view.
+      </div>
+    </div>
+
+    <!-- ── Adding a member ── -->
+    <h2 id="add">Adding a Member</h2>
+    <ol class="step-list">
+      <li>Click <strong>New member</strong> (top right of the Members page).</li>
+      <li>Fill in the <strong>Contact</strong> tab — at minimum, first and last name.</li>
+      <li>Switch to <strong>Compliance</strong> and enter their AMA number and expiration date.</li>
+      <li>Switch to <strong>Membership</strong> and set their type (Adult, Youth, Senior, Spouse) and date joined.</li>
+      <li>Click <strong>Save member</strong>.</li>
+      <li>Once saved, go to <strong>Renew</strong> to record their first dues payment.</li>
+    </ol>
+    <div class="callout callout-info">
+      <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+      <div class="callout-body">
+        <strong>Save before renewing</strong>
+        The member record must be saved before you can record a payment. The Renew button
+        appears on the member record after the first save.
+      </div>
+    </div>
+
+    <!-- ── Contact tab ── -->
+    <h2 id="contact">Contact Tab</h2>
+    <p>Stores everything about how to reach the member:</p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Field</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>First / Last name</td><td>Required. Used on badges and reports.</td></tr>
+          <tr><td>Title</td><td>Mr., Ms., Dr., etc. — optional, shown on some reports.</td></tr>
+          <tr><td>Email</td><td>Member’s address; required for club emails when the member has opted in (see below).</td></tr>
+          <tr><td>Birthday</td><td>Used by the Birthdays This Month report.</td></tr>
+          <tr><td>Notes</td><td>Free-text internal notes — not shown on badges.</td></tr>
+          <tr><td>Photo</td><td>Upload a headshot; appears on the badge front if your template includes it.</td></tr>
+          <tr><td>Phones</td><td>Add multiple — Home, Work, Cell, Other. At least the type label is required.</td></tr>
+          <tr><td>Addresses</td><td>Add multiple — Home, Work, Other. Used on badge back, envelopes, and printed letters.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 id="communication">Email &amp; postal preferences</h3>
+    <p>
+      On the Contact tab, two checkboxes control how your club may use this member’s contact information
+      for routine outreach. Both default to <strong>on</strong> for new members.
+    </p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Setting</th><th>What it controls</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Allow email from the club</strong></td>
+            <td>
+              When checked, the member may receive club emails, including report-based “email members” messages,
+              scheduled expiry reminders (if your host runs them), and similar automated messages.
+              When unchecked, the app excludes them from those sends and from the “Email only” CSV export.
+            </td>
+          </tr>
+          <tr>
+            <td><strong>Allow postal mail</strong></td>
+            <td>
+              When unchecked, the member has opted out of postal mailings (newsletters, renewal packets, etc.).
+              Envelope and mailing letter views still show the address so you can send something required by law
+              or policy, but they display a clear <strong>postal opt-out</strong> notice so you can confirm before mailing.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout callout-info">
+      <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+      <div class="callout-body">
+        These are preferences stored on the member record. They do not replace your club’s own policies or
+        consent processes — they help officers use the app in line with what each member agreed to.
+      </div>
+    </div>
+
+    <!-- ── Compliance tab ── -->
+    <h2 id="compliance">Compliance Tab</h2>
+    <p>
+      Tracks AMA and FAA registration. See the full
+      <a href="compliance.html">AMA &amp; FAA Compliance</a> doc for detailed guidance including
+      how to use the live AMA lookup.
+    </p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Field</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>AMA number</td><td>Required before recording a renewal.</td></tr>
+          <tr><td>AMA expiration</td><td>Must be on or after Dec 31 of the renewal year.</td></tr>
+          <tr><td>Verify AMA membership</td><td>Button — looks up the number live on AMA's website.</td></tr>
+          <tr><td>AMA life member</td><td>Checkbox — marks lifetime AMA status; no expiration needed.</td></tr>
+          <tr><td>FAA number</td><td>TRUST/Part 107 registration number.</td></tr>
+          <tr><td>FAA expiration</td><td>Part 107 licenses expire every 24 months.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Membership tab ── -->
+    <h2 id="membership">Membership Tab</h2>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Field</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>Date joined</td><td>Used for "Member since" on badges; used to calculate prorated dues.</td></tr>
+          <tr><td>Membership type</td><td>Adult, Youth, Senior, Spouse — controls which dues rate applies.</td></tr>
+          <tr><td>Renewal year</td><td>Set automatically when you record a renewal. Do not edit manually.</td></tr>
+          <tr><td>Gate key number</td><td>Field key or code assigned to this member.</td></tr>
+          <tr><td>Inactive</td><td>Hides from active counts; keeps record in the database.</td></tr>
+          <tr><td>Suspended</td><td>Blocks renewal recording; shows warning on record.</td></tr>
+          <tr><td>Life member</td><td>Marks a club life member (separate from AMA life member).</td></tr>
+          <tr><td>Free membership</td><td>Marks complimentary membership — no dues required.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Payments tab ── -->
+    <h2 id="payments">Payment History Tab</h2>
+    <p>
+      A read-only log of every payment recorded for this member. Columns: date paid,
+      membership year, dues amount, initiation fee, late fee, and whether it was a
+      complementary (comp) payment.
+    </p>
+    <p>
+      To add a payment, use the <strong>Renew</strong> workflow rather than editing this tab
+      directly. See <a href="renewals.html">Renewals &amp; Dues</a>.
+    </p>
+
+    <!-- ── Status flags ── -->
+    <h2 id="status">Status Flags Explained</h2>
+    <p>
+      A member's status is shown as a badge in the list and on their record. Here's what
+      each one means:
+    </p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Status shown</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="badge bg-success">Active</span></td>
+            <td>Renewed for the current year, and not marked inactive or suspended</td>
+          </tr>
+          <tr>
+            <td><span class="badge bg-warning text-dark">Not renewed</span></td>
+            <td>Had a renewal in a previous year but has not yet renewed for the current year</td>
+          </tr>
+          <tr>
+            <td><span class="badge bg-secondary">Inactive</span></td>
+            <td>Marked inactive on the Membership tab — kept in the system but excluded from active counts</td>
+          </tr>
+          <tr>
+            <td><span class="badge bg-danger">Suspended</span></td>
+            <td>Marked suspended on the Membership tab — renewals cannot be recorded until this is cleared</td>
+          </tr>
+          <tr>
+            <td><span class="badge" style="background:#6f42c1">Life</span></td>
+            <td>Club life member — shown in addition to Active or Not renewed</td>
+          </tr>
+          <tr>
+            <td><span class="badge bg-info text-dark">Free</span></td>
+            <td>Free or complimentary membership — shown in addition to other status</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Photo ── -->
+    <h2 id="photo">Member Photo</h2>
+    <p>
+      Upload a headshot on the Contact tab. Supported formats: JPEG, PNG, GIF. Photos are
+      stored securely and only used for badges and internal display.
+    </p>
+    <p>
+      The photo appears on the badge front when your club's badge template includes a photo
+      element. It does not appear anywhere else in the app.
+    </p>
+
+    <!-- ── Delete ── -->
+    <h2 id="delete">Deleting a Member</h2>
+    <div class="callout callout-danger">
+      <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+      <div class="callout-body">
+        <strong>Deletion is permanent</strong>
+        Deleting a member removes all their data — contact info, payments, and photos.
+        Consider marking them <strong>Inactive</strong> instead to preserve history.
+      </div>
+    </div>
+    <p>
+      To delete: open the member's record, scroll to the bottom, and click
+      <strong>Delete member</strong>. You'll be asked to confirm. Admin and Editor roles only.
+    </p>
+
+  </main>
+</div>
+
+<footer class="docs-footer">
+  <span>RC Flight Operations — open-source, MIT licensed</span>
+  <span>
+    <a href="overview.html">← App Overview</a>
+    &nbsp;·&nbsp;
+    <a href="renewals.html">Next: Renewals →</a>
+  </span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script>
+  const headings = document.querySelectorAll('.docs-content h2[id], .docs-content h3[id]');
+  const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    headings.forEach(h => { if (window.scrollY >= h.offsetTop - 80) current = h.id; });
+    sidebarLinks.forEach(a => { a.classList.toggle('active', a.getAttribute('href') === '#' + current); });
+  }, { passive: true });
+</script>
+</body>
+</html>

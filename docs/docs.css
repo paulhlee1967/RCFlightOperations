@@ -1,0 +1,415 @@
+/*
+ * docs/docs.css — shared styles for all RC Flight Operations documentation pages
+ * Open-source stack only: Bootstrap 5, Bootstrap Icons, Google Fonts (Nunito + Inter).
+ *
+ * Design intent: professional but approachable; default theme is a warm 1970s
+ * “sunroom” palette (olive/avocado, cream, harvest gold + terracotta accents).
+ */
+
+/*
+ * ── Design tokens ────────────────────────────────────────────────────────────
+ *
+ * LIVE THEME: docs-theme.php (served as CSS) overrides these variables with
+ * the logged-in club's colours from the database.  The values below are the
+ * static fallback used when docs-theme.php is unavailable (e.g. viewing the
+ * HTML file directly without PHP, or before the shim loads).
+ *
+ * Default — retro earth tones: olive primary, cream surfaces (see docs-theme.php).
+ */
+ :root {
+  --club-primary:      #6f7c3d;
+  --club-primary-dark: #556030;
+  --club-primary-rgb:  111, 124, 61;
+  --club-primary-dark-rgb: 85, 96, 48;
+  --club-bg:           #f3efe4;
+  --club-card:         #faf7f0;
+  --club-text:         #252018;
+  --club-muted:        #665e52;
+  --club-border:       #e0d8ca;
+  --club-accent:       rgba(111,124,61,.09);
+  --club-on-primary:     #faf7f0;
+  --club-on-primary-rgb: 250,247,240;
+  --club-on-primary-muted: rgba(var(--club-on-primary-rgb), 0.72);
+  --sidebar-width:     240px;
+
+  /* Bootstrap 5: align links, .btn-primary, radios, focus rings, sliders with palette */
+  --bs-primary: var(--club-primary);
+  --bs-primary-rgb: var(--club-primary-rgb);
+  --bs-link-color: var(--club-primary);
+  --bs-link-hover-color: var(--club-primary-dark);
+  /* Reboot uses rgba(var(--bs-link-color-rgb), …) for <a> — without these, links stay blue */
+  --bs-link-color-rgb: var(--club-primary-rgb);
+  --bs-link-hover-color-rgb: var(--club-primary-dark-rgb);
+  --bs-focus-ring-color: rgba(var(--club-primary-rgb), 0.28);
+}
+
+/* Theme utility for docs (icons, etc.) */
+.text-club-primary { color: var(--club-primary) !important; }
+
+/*
+ * Bootstrap 5.3’s .btn-primary sets hard-coded --bs-btn-* (not var(--bs-primary)).
+ * Redefine those custom properties so focus rings and radio-style .btn-check match the theme.
+ */
+.btn-primary {
+  --bs-btn-color: var(--club-on-primary);
+  --bs-btn-bg: var(--club-primary);
+  --bs-btn-border-color: var(--club-primary);
+  --bs-btn-hover-color: var(--club-on-primary);
+  --bs-btn-hover-bg: var(--club-primary-dark);
+  --bs-btn-hover-border-color: var(--club-primary-dark);
+  --bs-btn-active-color: var(--club-on-primary);
+  --bs-btn-active-bg: var(--club-primary-dark);
+  --bs-btn-active-border-color: var(--club-primary-dark);
+  --bs-btn-disabled-color: var(--club-on-primary);
+  --bs-btn-disabled-bg: var(--club-primary);
+  --bs-btn-disabled-border-color: var(--club-primary);
+  --bs-btn-focus-shadow-rgb: var(--club-primary-rgb);
+}
+.btn-outline-primary {
+  --bs-btn-color: var(--club-primary);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: var(--club-primary);
+  --bs-btn-hover-color: var(--club-on-primary);
+  --bs-btn-hover-bg: var(--club-primary);
+  --bs-btn-hover-border-color: var(--club-primary);
+  --bs-btn-active-color: var(--club-on-primary);
+  --bs-btn-active-bg: var(--club-primary-dark);
+  --bs-btn-active-border-color: var(--club-primary-dark);
+  --bs-btn-disabled-color: var(--club-primary);
+  --bs-btn-disabled-border-color: var(--club-primary);
+  --bs-btn-focus-shadow-rgb: var(--club-primary-rgb);
+}
+
+/* Bootstrap 5.3 min.css hard-codes blue on these — override after load */
+.form-check-input:focus {
+  border-color: var(--club-primary);
+  box-shadow: 0 0 0 0.25rem rgba(var(--club-primary-rgb), 0.22);
+}
+.form-check-input:checked,
+.form-check-input[type=checkbox]:indeterminate {
+  background-color: var(--club-primary);
+  border-color: var(--club-primary);
+}
+.form-switch .form-check-input:focus {
+  border-color: var(--club-primary);
+  box-shadow: 0 0 0 0.25rem rgba(var(--club-primary-rgb), 0.22);
+  /* Default focus thumb is #86b7fe — use neutral gray (theme-agnostic) */
+  --bs-form-switch-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='-4 -4 8 8'%3e%3ccircle r='3' fill='%235c564c'/%3e%3c/svg%3e");
+}
+.form-switch .form-check-input:checked {
+  background-color: var(--club-primary);
+  border-color: var(--club-primary);
+}
+.form-range::-webkit-slider-thumb {
+  background-color: var(--club-primary);
+}
+.form-range::-moz-range-thumb {
+  background-color: var(--club-primary);
+}
+.form-range:focus::-webkit-slider-thumb {
+  box-shadow: 0 0 0 1px var(--club-bg), 0 0 0 0.25rem rgba(var(--club-primary-rgb), 0.22);
+}
+.form-range:focus::-moz-range-thumb {
+  box-shadow: 0 0 0 1px var(--club-bg), 0 0 0 0.25rem rgba(var(--club-primary-rgb), 0.22);
+}
+
+/* ── Base ──────────────────────────────────────────────────────────────────── */
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--club-bg);
+  color: var(--club-text);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+/* ── Top nav bar ───────────────────────────────────────────────────────────── */
+.docs-navbar {
+  background: var(--club-primary);
+  padding: 0.6rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+}
+.docs-navbar .brand {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 1.15rem;
+  color: var(--club-on-primary);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+.docs-navbar .badge-docs {
+  background: rgba(var(--club-on-primary-rgb), .15);
+  color: var(--club-on-primary);
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.5rem;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+.docs-navbar .back-link {
+  margin-left: auto;
+  color: var(--club-on-primary-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  transition: color .15s;
+  white-space: nowrap;
+}
+.docs-navbar .back-link:hover { color: var(--club-on-primary); }
+
+/* ── Breadcrumb ────────────────────────────────────────────────────────────── */
+.docs-breadcrumb {
+  background: var(--club-card);
+  border-bottom: 1px solid var(--club-border);
+  padding: .55rem 1.5rem;
+  font-size: .82rem;
+}
+.docs-breadcrumb a { color: var(--club-primary); text-decoration: none; }
+.docs-breadcrumb a:hover { text-decoration: underline; }
+.docs-breadcrumb .sep { color: var(--club-muted); margin: 0 .4rem; }
+
+/* ── Page layout: sidebar + content ───────────────────────────────────────── */
+.docs-layout {
+  display: flex;
+  min-height: calc(100vh - 90px);
+}
+
+/* Sidebar */
+.docs-sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  background: var(--club-card);
+  border-right: 1px solid var(--club-border);
+  padding: 1.5rem 0;
+  position: sticky;
+  top: 45px;          /* height of navbar */
+  height: calc(100vh - 45px);
+  overflow-y: auto;
+}
+.docs-sidebar .sidebar-title {
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--club-muted);
+  padding: .6rem 1.25rem .3rem;
+  margin-top: .5rem;
+}
+.docs-sidebar a {
+  display: block;
+  padding: .35rem 1.25rem;
+  font-size: .875rem;
+  text-decoration: none;
+  color: var(--club-text);
+  border-left: 3px solid transparent;
+  transition: background .12s, color .12s;
+}
+.docs-sidebar a:hover {
+  background: var(--club-accent);
+  color: var(--club-primary);
+}
+.docs-sidebar a.active {
+  background: var(--club-accent);
+  color: var(--club-primary);
+  border-left-color: var(--club-primary);
+  font-weight: 600;
+}
+.docs-sidebar .sidebar-divider {
+  border: none;
+  border-top: 1px solid var(--club-border);
+  margin: .75rem 0;
+}
+
+/* Main content */
+.docs-content {
+  flex: 1;
+  min-width: 0;
+  padding: 2.5rem 2.5rem 4rem;
+  max-width: 780px;
+}
+
+/* ── Typography ────────────────────────────────────────────────────────────── */
+.docs-content h1 {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+  letter-spacing: -.02em;
+  margin-bottom: .25rem;
+}
+.docs-content .page-lead {
+  color: var(--club-muted);
+  font-size: 1.05rem;
+  margin-bottom: 2rem;
+}
+.docs-content h2 {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 800;
+  font-size: 1.3rem;
+  margin-top: 2.5rem;
+  margin-bottom: .75rem;
+  padding-bottom: .4rem;
+  border-bottom: 2px solid var(--club-border);
+}
+.docs-content h3 {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-top: 1.5rem;
+  margin-bottom: .5rem;
+}
+.docs-content p { margin-bottom: .9rem; }
+.docs-content ul, .docs-content ol { margin-bottom: .9rem; padding-left: 1.4rem; }
+.docs-content li { margin-bottom: .3rem; }
+.docs-content a { color: var(--club-primary); }
+.docs-content a:hover { color: var(--club-primary-dark); }
+
+/* ── Code ──────────────────────────────────────────────────────────────────── */
+.docs-content code {
+  background: #ebe6dc;
+  border: 1px solid #d2c9ba;
+  border-radius: 4px;
+  padding: .1rem .38rem;
+  font-size: .85em;
+  color: var(--club-primary); /* follows theme palette */
+}
+.docs-content pre {
+  background: #2c2820;
+  color: #e6e1d6;
+  border-radius: 8px;
+  padding: 1.1rem 1.3rem;
+  overflow-x: auto;
+  font-size: .85rem;
+  margin-bottom: 1.2rem;
+}
+.docs-content pre code {
+  background: none;
+  border: none;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+}
+
+/* ── Callout boxes ─────────────────────────────────────────────────────────── */
+.callout {
+  border-radius: 8px;
+  padding: 1rem 1.2rem;
+  margin-bottom: 1.2rem;
+  display: flex;
+  gap: .75rem;
+  align-items: flex-start;
+  border-left: 4px solid;
+}
+.callout-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: .05rem; }
+.callout-body { flex: 1; font-size: .9rem; line-height: 1.55; }
+.callout-body strong { display: block; margin-bottom: .2rem; }
+
+.callout-info    { background: #e8ebe4; border-color: #5a6b52; color: #2d3328; }
+.callout-warning { background: #f7efd9; border-color: #a67c1a; color: #4a3a12; }
+.callout-tip     { background: #e6ebe0; border-color: #4d6b40; color: #24341f; }
+.callout-danger  { background: #f3e4db; border-color: #a86f42; color: #4a2f24; }
+
+/* ── Step list ─────────────────────────────────────────────────────────────── */
+.step-list { counter-reset: step; list-style: none; padding: 0; }
+.step-list li {
+  counter-increment: step;
+  display: flex;
+  gap: .85rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--club-border);
+}
+.step-list li:last-child { border-bottom: none; margin-bottom: 0; }
+.step-list li::before {
+  content: counter(step);
+  min-width: 28px;
+  height: 28px;
+  background: var(--club-primary);
+  color: var(--club-on-primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: .8rem;
+  flex-shrink: 0;
+}
+
+/* ── Tables ────────────────────────────────────────────────────────────────── */
+.docs-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.2rem;
+  font-size: .875rem;
+}
+.docs-table th {
+  background: var(--club-primary);
+  color: var(--club-on-primary);
+  font-weight: 600;
+  padding: .6rem 1rem;
+  text-align: left;
+  font-size: .8rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.docs-table td {
+  padding: .55rem 1rem;
+  border-bottom: 1px solid var(--club-border);
+  vertical-align: top;
+}
+.docs-table tr:last-child td { border-bottom: none; }
+.docs-table tr:hover td { background: var(--club-accent); }
+.docs-table-wrap {
+  border: 1px solid var(--club-border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Section anchor offset (so sticky nav doesn't cover headings) ──────────── */
+.docs-content h2[id], .docs-content h3[id] {
+  scroll-margin-top: 64px;
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────────── */
+.docs-footer {
+  background: var(--club-card);
+  border-top: 1px solid var(--club-border);
+  padding: 1.5rem 2.5rem;
+  font-size: .82rem;
+  color: var(--club-muted);
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.docs-footer a { color: var(--club-primary); text-decoration: none; }
+
+/* ── Mobile: collapse sidebar ──────────────────────────────────────────────── */
+@media (max-width: 767px) {
+  .docs-sidebar {
+    display: none;           /* hidden by default; toggled via JS */
+    position: fixed;
+    z-index: 900;
+    top: 45px;
+    left: 0;
+    height: calc(100vh - 45px);
+    box-shadow: 4px 0 16px rgba(0,0,0,.12);
+  }
+  .docs-sidebar.open { display: block; }
+  .docs-content { padding: 1.5rem 1.1rem 3rem; }
+  .docs-layout { flex-direction: column; }
+  .sidebar-toggle { display: flex !important; }
+}
+@media (min-width: 768px) {
+  .sidebar-toggle { display: none !important; }
+}

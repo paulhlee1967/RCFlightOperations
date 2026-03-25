@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<!--
+  RC Flight Operations Documentation — Installation & Setup
+  docs/install.html
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Installation &amp; Setup — RC Flight Operations Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
+</head>
+<body>
+
+<nav class="docs-navbar">
+  <a href="../index.php" class="brand">✈ RC Flight Operations</a>
+  <span class="badge-docs">Docs</span>
+  <button class="btn btn-sm sidebar-toggle ms-2"
+          style="display:none;background:rgba(255,255,255,.18);color:#fff;border:none;"
+          onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="../index.php" class="back-link"><i class="bi bi-arrow-left"></i> Back to app</a>
+</nav>
+
+<div class="docs-breadcrumb">
+  <a href="index.html">Docs</a><span class="sep">›</span>Installation &amp; Setup
+</div>
+
+<div class="docs-layout">
+
+  <nav class="docs-sidebar">
+    <div class="sidebar-title">On this page</div>
+    <a href="#requirements">Requirements</a>
+    <a href="#local">Local Development (Mac)</a>
+    <a href="#cpanel">cPanel Shared Hosting</a>
+    <a href="#first-login">First Login</a>
+    <a href="#next-steps">Next Steps</a>
+    <a href="#file-layout">File Layout</a>
+    <a href="#maintenance">Maintenance Scripts</a>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Other Docs</div>
+    <a href="index.html">← Docs home</a>
+    <a href="admin.html">Administration</a>
+    <a href="overview.html">App Overview</a>
+  </nav>
+
+  <main class="docs-content">
+
+    <h1>Installation &amp; Setup</h1>
+    <p class="page-lead">This page is for the person who installs RC Flight Operations — your club's webmaster or the person with server access. It covers requirements, database setup, and first login.</p>
+
+    <!-- ── Requirements ── -->
+    <h2 id="requirements">Requirements</h2>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Requirement</th><th>Version</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>PHP</td><td>8.0 or higher</td><td>PDO and PDO_MySQL extensions required</td></tr>
+          <tr><td>MySQL / MariaDB</td><td>5.7+ / 10.3+</td><td>MariaDB 10.x (common on cPanel) works great</td></tr>
+          <tr><td>Web server</td><td>Apache or Nginx</td><td>Apache with mod_rewrite, or PHP's built-in server for local dev</td></tr>
+          <tr><td>Composer</td><td>Any recent version</td><td>Required to install Dompdf (PDF export)</td></tr>
+          <tr><td>Storage</td><td>~50 MB + uploads</td><td>Member photos stored in <code>uploads/</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      The free tier on most shared hosting providers (Hostinger, SiteGround, etc.) meets
+      all these requirements. If your club already pays for web hosting, RC Flight Operations will
+      likely run there at no extra cost.
+    </p>
+
+    <!-- ── Local dev ── -->
+    <h2 id="local">Local Development (Mac)</h2>
+    <p>Full details are in <code>LOCAL_DEV.md</code> in the project root. The quick version:</p>
+    <ol class="step-list">
+      <li>
+        Install <a href="https://brew.sh" target="_blank" rel="noopener">Homebrew</a>,
+        then run:<br>
+        <code>brew install php mysql composer</code>
+      </li>
+      <li>
+        Start MySQL and create the database:<br>
+        <pre><code>mysql.server start
+mysql -u root -e "CREATE DATABASE flightops CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u root flightops &lt; schema_full.sql</code></pre>
+      </li>
+      <li>
+        Copy <code>config.php.example</code> to <code>config.php</code> and fill in your
+        local database credentials.
+      </li>
+      <li>
+        Install Composer dependencies:<br>
+        <code>composer install</code>
+      </li>
+      <li>
+        Set the admin password:<br>
+        <code>php scripts/set_password.php</code>
+      </li>
+      <li>
+        Start the built-in PHP server from the project root:<br>
+        <code>php -S localhost:8080</code>
+      </li>
+      <li>
+        Open <a href="http://localhost:8080/login.php" target="_blank">http://localhost:8080/login.php</a>
+        and log in with <code>admin@yourclub.local</code> and the password you set.
+      </li>
+    </ol>
+
+    <!-- ── cPanel ── -->
+    <h2 id="cpanel">cPanel Shared Hosting Deployment</h2>
+    <p>Full details are in <code>DEPLOY.md</code> (section <em>Moving local data to cPanel</em>). The summary:</p>
+    <ol class="step-list">
+      <li>
+        <strong>Export your local database</strong> (if migrating from local dev):<br>
+        <code>php scripts/export_db_for_cpanel.php</code><br>
+        This produces <code>export_for_cpanel.sql</code> ready for import.
+      </li>
+      <li>
+        <strong>Upload the project files</strong> via FTP or cPanel File Manager into a
+        folder on your host (e.g., <code>public_html/flightops/</code>).
+        Do <em>not</em> upload your local <code>config.php</code>.
+      </li>
+      <li>
+        <strong>Create a MySQL database and user</strong> in cPanel → MySQL Databases.
+        Note the database name, username, and password — they'll have your cPanel username
+        as a prefix (e.g., <code>youruser_flightops</code>).
+      </li>
+      <li>
+        <strong>Import the SQL file</strong> via phpMyAdmin (Databases → your DB → Import).
+      </li>
+      <li>
+        <strong>Create <code>config.php</code> on the server</strong> with your cPanel
+        database credentials (copy from <code>config.php.example</code> and edit).
+      </li>
+      <li>
+        <strong>Install Composer dependencies on the server</strong> via SSH:<br>
+        <code>cd /path/to/flightops &amp;&amp; composer install</code><br>
+        Or upload your local <code>vendor/</code> folder if SSH isn't available.
+      </li>
+      <li>
+        <strong>Set the admin password</strong> if not already set:<br>
+        <code>php scripts/set_password.php</code>
+      </li>
+    </ol>
+
+    <!-- ── First login ── -->
+    <h2 id="first-login">First Login</h2>
+    <p>
+      Navigate to <code>https://yourdomain.com/flightops/login.php</code>. Log in with:
+    </p>
+    <ul>
+      <li><strong>Email:</strong> <code>admin@yourclub.local</code> (change this after login)</li>
+      <li><strong>Password:</strong> the one you set with <code>set_password.php</code></li>
+    </ul>
+    <p>After first login, go to <strong>Administration → Users</strong> and update the
+       admin email to your real address.</p>
+
+    <!-- ── Next steps ── -->
+    <h2 id="next-steps">Next Steps After Install</h2>
+    <ol>
+      <li>Update club name, logo, and colors in <strong>Administration → Configuration → Design</strong>.</li>
+      <li>Set dues rates in <strong>Administration → Configuration → Dues Rules</strong>.</li>
+      <li>Add your board members as users in <strong>Administration → Users</strong>.</li>
+      <li>Import existing member records via <strong>Members → Import</strong>.</li>
+      <li>Design your ID badge template in <strong>Administration → Badge design</strong>.</li>
+      <li>Run the <strong>Membership Snapshot</strong> report to confirm your data looks right.</li>
+    </ol>
+
+    <!-- ── File layout ── -->
+    <h2 id="file-layout">File Layout (Reference)</h2>
+    <p>Quick reference for where key pieces live. For detailed technical documentation (what each file does, how the app is wired together), see <strong>TECHNICAL.md</strong> in the project repository.</p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Path</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td><code>schema_full.sql</code></td><td>Full database schema + seed data (fresh install). Treat this as the complete baseline for new databases. If you pull updates that mention migrations, check release notes or <code>TECHNICAL.md</code> — the full schema file is usually updated in lockstep so you are not left guessing which extra scripts to run.</td></tr>
+          <tr><td><code>config.php.example</code></td><td>Config template — copy to config.php</td></tr>
+          <tr><td><code>config.php</code></td><td>Your DB credentials (never commit this)</td></tr>
+          <tr><td><code>includes/db.php</code></td><td>PDO database connection</td></tr>
+          <tr><td><code>includes/auth.php</code></td><td>Login helpers, roles, permission functions</td></tr>
+          <tr><td><code>includes/header.php</code></td><td>Shared layout, navbar, theme CSS</td></tr>
+          <tr><td><code>includes/footer.php</code></td><td>Closing layout tags</td></tr>
+          <tr><td><code>index.php</code></td><td>Dashboard</td></tr>
+          <tr><td><code>members.php</code></td><td>Member list</td></tr>
+          <tr><td><code>member_edit.php</code></td><td>Add/edit member</td></tr>
+          <tr><td><code>member_process.php</code></td><td>Renewal workflow</td></tr>
+          <tr><td><code>badge_design.php</code></td><td>Badge template designer</td></tr>
+          <tr><td><code>badge_print.php</code></td><td>Print member ID card</td></tr>
+          <tr><td><code>reports.php</code></td><td>All reports</td></tr>
+          <tr><td><code>import.php / export.php</code></td><td>CSV import/export</td></tr>
+          <tr><td><code>users.php / user_edit.php</code></td><td>User management (Admin only)</td></tr>
+          <tr><td><code>config_site.php</code></td><td>Club configuration (Admin only)</td></tr>
+          <tr><td><code>uploads/</code></td><td>Member photo storage (writable by web server)</td></tr>
+          <tr><td><code>docs/</code></td><td>This documentation</td></tr>
+          <tr><td><code>vendor/</code></td><td>Composer dependencies (Dompdf)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Maintenance ── -->
+    <h2 id="maintenance">Maintenance Scripts</h2>
+    <p>Run these from the project root via command line:</p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Script</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>php scripts/set_password.php</code></td>
+            <td>Interactively set or reset the admin account password. Use this if you get locked out.</td>
+          </tr>
+          <tr>
+            <td><code>php scripts/verify_db.php</code></td>
+            <td>Checks that your live database schema matches <code>schema_full.sql</code>. Run after pulling updates.</td>
+          </tr>
+          <tr>
+            <td><code>php scripts/export_db_for_cpanel.php</code></td>
+            <td>Exports a clean SQL dump compatible with cPanel's phpMyAdmin import (strips local-only settings).</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+
+<footer class="docs-footer">
+  <span>RC Flight Operations — open-source, MIT licensed</span>
+  <span>
+    <a href="admin.html">← Administration</a>
+    &nbsp;·&nbsp;
+    <a href="index.html">Docs home →</a>
+  </span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script>
+  const headings = document.querySelectorAll('.docs-content h2[id], .docs-content h3[id]');
+  const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    headings.forEach(h => { if (window.scrollY >= h.offsetTop - 80) current = h.id; });
+    sidebarLinks.forEach(a => { a.classList.toggle('active', a.getAttribute('href') === '#' + current); });
+  }, { passive: true });
+</script>
+</body>
+</html>

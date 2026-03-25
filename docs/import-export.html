@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<!--
+  RC Flight Operations Documentation — Import & Export
+  docs/import-export.html
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Import &amp; Export — RC Flight Operations Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
+</head>
+<body>
+
+<nav class="docs-navbar">
+  <a href="../index.php" class="brand">✈ RC Flight Operations</a>
+  <span class="badge-docs">Docs</span>
+  <button class="btn btn-sm sidebar-toggle ms-2"
+          style="display:none;background:rgba(255,255,255,.18);color:#fff;border:none;"
+          onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="../index.php" class="back-link"><i class="bi bi-arrow-left"></i> Back to app</a>
+</nav>
+
+<div class="docs-breadcrumb">
+  <a href="index.html">Docs</a><span class="sep">›</span>Import &amp; Export
+</div>
+
+<div class="docs-layout">
+
+  <nav class="docs-sidebar">
+    <div class="sidebar-title">On this page</div>
+    <a href="#import">CSV Import</a>
+    <a href="#import-steps">Import Steps</a>
+    <a href="#import-fields">Importable Fields</a>
+    <a href="#import-tips">Import Tips</a>
+    <a href="#export">CSV Export</a>
+    <a href="#export-formats">Export Formats</a>
+    <a href="#pdf">PDF Export</a>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Other Docs</div>
+    <a href="index.html">← Docs home</a>
+    <a href="members.html">Members</a>
+    <a href="reports.html">Reports</a>
+    <a href="admin.html">Administration</a>
+  </nav>
+
+  <main class="docs-content">
+
+    <h1>Import &amp; Export</h1>
+    <p class="page-lead">Bring your existing member data in from a spreadsheet, and export your roster in multiple formats for newsletters, AMA filings, and backups.</p>
+
+    <!-- ── Import ── -->
+    <h2 id="import">CSV Import</h2>
+    <p>
+      If you're migrating from another system (a spreadsheet, an old database, another
+      membership app), you can import members in bulk using a CSV file. Go to
+      <strong>Members → Import</strong> (Editor or Admin role required).
+    </p>
+    <div class="callout callout-tip">
+      <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
+      <div class="callout-body">
+        Download the <strong>sample CSV</strong> on the import page to see the expected
+        column format before preparing your own file.
+      </div>
+    </div>
+
+    <!-- ── Import steps ── -->
+    <h2 id="import-steps">Import Steps</h2>
+    <ol class="step-list">
+      <li>
+        <strong>Prepare your CSV.</strong> Your file needs at minimum a first name and
+        last name column. All other columns are optional. Comma or semicolon delimiters
+        are both accepted. UTF-8 encoding (with or without BOM) is recommended.
+        Max file size: 2 MB.
+      </li>
+      <li>
+        <strong>Upload.</strong> On the Import page, choose your file and click
+        <strong>Upload and map columns</strong>.
+      </li>
+      <li>
+        <strong>Map columns.</strong> RC Flight Operations shows your CSV column headers and asks
+        you to match each one to a member field. First name and last name are required.
+        Leave "Don't map" for columns you don't want to import.
+      </li>
+      <li>
+        <strong>Preview.</strong> You'll see a preview of the first several rows showing
+        how the data will be mapped. Check for obvious errors before proceeding.
+      </li>
+      <li>
+        <strong>Import.</strong> Click <strong>Import members</strong>. The system processes
+        each row: new members are added; if "Update existing" is checked, the importer looks
+        up a <strong>unique</strong> existing member using tiered matching (strictest first:
+        first + last + email + birthday when those columns are mapped and filled; else
+        first + last + email; then first + last only when exactly one member shares that name).
+      </li>
+    </ol>
+
+    <!-- ── Import fields ── -->
+    <h2 id="import-fields">Importable Fields</h2>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Field</th><th>Required</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td>first_name</td><td>✅ Yes</td><td>Required for name-based matching tiers</td></tr>
+          <tr><td>last_name</td><td>✅ Yes</td><td></td></tr>
+          <tr><td>email</td><td>No</td><td>Recommended for safer updates (name+email match)</td></tr>
+          <tr><td>title</td><td>No</td><td>Mr., Ms., Dr., etc.</td></tr>
+          <tr><td>birthday</td><td>No</td><td>Accepts MM/DD/YYYY or YYYY-MM-DD</td></tr>
+          <tr><td>notes</td><td>No</td><td>Free text internal notes</td></tr>
+          <tr><td>date_joined</td><td>No</td><td>YYYY-MM-DD preferred</td></tr>
+          <tr><td>membership_type</td><td>No</td><td>Adult, Youth, Senior, or Spouse</td></tr>
+          <tr><td>membership_renewal_year</td><td>No</td><td>4-digit year (e.g., 2025)</td></tr>
+          <tr><td>gate_key_number</td><td>No</td><td></td></tr>
+          <tr><td>ama_number</td><td>No</td><td></td></tr>
+          <tr><td>AMA Expiry</td><td>No</td><td>YYYY-MM-DD preferred</td></tr>
+          <tr><td>FAA Number</td><td>No</td><td></td></tr>
+          <tr><td>FAA Expiry</td><td>No</td><td></td></tr>
+          <tr><td>Phone (Home/Mobile/Work)</td><td>No</td><td>Three separate columns for phone types</td></tr>
+          <tr><td>Address fields</td><td>No</td><td>street, street2, city, state, postal_code; plus Address 2 variants</td></tr>
+          <tr><td>payment_year, payment_date, amount_dues, amount_initiation</td><td>No</td><td>Adds one payment record per row if present</td></tr>
+          <tr><td>Member Inactive / Suspended / Life Member / Free Membership</td><td>No</td><td>0 or 1</td></tr>
+          <tr><td>Allow email / Allow postal mail</td><td>No</td><td>
+            Map from columns such as <code>allow_email</code> and <code>allow_postal</code> (or the sample CSV headers
+            “Allow email” / “Allow postal mail”). Accepts typical true/false values. If omitted on import, new members default to allowed.
+          </td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── Import tips ── -->
+    <h2 id="import-tips">Import Tips</h2>
+    <ul>
+      <li>
+        <strong>Existing member matching</strong> (when "Update existing" is checked) tries
+        the strictest keys first: all of first, last, email, and birthday when those CSV columns
+        are mapped and the row has email + a parsed birthday; otherwise first+last+email when
+        email is present; otherwise first+last only if <em>exactly one</em> member in your
+        club already has that name. Multiple matches are skipped (counted as ambiguous) and a
+        new row may still be inserted — review the import summary.
+      </li>
+      <li>
+        <strong>Rows with no name</strong> (both first and last name empty) are silently
+        skipped.
+      </li>
+      <li>
+        <strong>Membership type values</strong> are normalized — "Adult Member", "ADULT",
+        and "adult" all map to "Adult".
+      </li>
+      <li>
+        <strong>Date formats:</strong> The importer accepts MM/DD/YYYY, M/D/YYYY,
+        YYYY-MM-DD, and most common date formats. When in doubt, use YYYY-MM-DD.
+      </li>
+      <li>
+        <strong>Large imports:</strong> Files over 500 rows may time out on some shared
+        hosts. Split into smaller batches if needed.
+      </li>
+      <li>
+        <strong>Photos cannot be imported</strong> via CSV. Upload photos individually
+        on each member's Contact tab.
+      </li>
+    </ul>
+
+    <!-- ── Export ── -->
+    <h2 id="export">CSV Export</h2>
+    <p>
+      Go to <strong>Members → Export CSV</strong> (dropdown button) or
+      <strong>Members → More export options</strong>. Also accessible from any report's
+      export toolbar.
+    </p>
+
+    <!-- ── Export formats ── -->
+    <h2 id="export-formats">Export Formats</h2>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Format</th><th>Columns included</th><th>Best for</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Full</strong></td>
+            <td>All member fields — same structure as the import file (including <strong>Allow email</strong> and <strong>Allow postal mail</strong>)</td>
+            <td>Backups, round-trip import to another RC Flight Operations instance, data analysis</td>
+          </tr>
+          <tr>
+            <td><strong>Short</strong></td>
+            <td>First/Last name, Email, AMA number &amp; expiry, FAA number &amp; expiry, Gate key</td>
+            <td>AMA charter renewal filings, field safety records</td>
+          </tr>
+          <tr>
+            <td><strong>Email only</strong></td>
+            <td>Last name, First name, Email</td>
+            <td>
+              Newsletter or campaign tools. <strong>Only includes members with “Allow email from the club” enabled</strong>
+              (same rule as report-based email lists). See <a href="members.html#communication">Members → Email &amp; postal preferences</a>.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Each format can be filtered by:</p>
+    <ul>
+      <li><strong>All members</strong> — every member in the database</li>
+      <li><strong>Members for year</strong> — only members who renewed in a specific year</li>
+      <li><strong>Not renewed for year</strong> — members who had last year's renewal but not the selected year</li>
+    </ul>
+
+    <!-- ── PDF ── -->
+    <h2 id="pdf">PDF Export</h2>
+    <p>
+      PDF export is available from the Reports page export toolbar. It uses
+      <strong>Dompdf</strong> (free, open-source, MIT licensed) — no external service
+      required. PDFs include the report title, stat cards summary, and the full data table.
+    </p>
+    <div class="callout callout-info">
+      <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+      <div class="callout-body">
+        PDF generation for very large reports (1,000+ rows) can be slow on shared hosting.
+        For large datasets, CSV export is faster and more practical.
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<footer class="docs-footer">
+  <span>RC Flight Operations — open-source, MIT licensed</span>
+  <span>
+    <a href="reports.html">← Reports</a>
+    &nbsp;·&nbsp;
+    <a href="admin.html">Next: Administration →</a>
+  </span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script>
+  const headings = document.querySelectorAll('.docs-content h2[id], .docs-content h3[id]');
+  const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    headings.forEach(h => { if (window.scrollY >= h.offsetTop - 80) current = h.id; });
+    sidebarLinks.forEach(a => { a.classList.toggle('active', a.getAttribute('href') === '#' + current); });
+  }, { passive: true });
+</script>
+</body>
+</html>

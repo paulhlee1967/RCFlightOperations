@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<!--
+  RC Flight Operations Documentation — Incidents
+  docs/incidents.html
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Incidents — RC Flight Operations Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
+</head>
+<body>
+
+<nav class="docs-navbar">
+  <a href="../index.php" class="brand">✈ RC Flight Operations</a>
+  <span class="badge-docs">Docs</span>
+  <button class="btn btn-sm sidebar-toggle ms-2"
+          style="display:none;background:rgba(255,255,255,.18);color:#fff;border:none;"
+          onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="../index.php" class="back-link"><i class="bi bi-arrow-left"></i> Back to app</a>
+</nav>
+
+<div class="docs-breadcrumb">
+  <a href="index.html">Docs</a><span class="sep">›</span>Incidents
+</div>
+
+<div class="docs-layout">
+
+  <nav class="docs-sidebar">
+    <div class="sidebar-title">On this page</div>
+    <a href="#overview">Overview</a>
+    <a href="#who">Who can use it</a>
+    <a href="#add">Add or edit</a>
+    <a href="#filters">Search &amp; filters</a>
+    <a href="#ama">AMA reporting</a>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Other Docs</div>
+    <a href="index.html">← Docs home</a>
+    <a href="overview.html">App overview</a>
+    <a href="compliance.html">AMA &amp; FAA</a>
+  </nav>
+
+  <main class="docs-content">
+
+    <h1>Incident log</h1>
+    <p class="page-lead">
+      Use <strong>Incidents</strong> in the top navigation to record safety or field events
+      for your club. Each incident belongs to your club only.
+    </p>
+
+    <h2 id="overview">Overview</h2>
+    <p>
+      The incident log helps boards and safety officers keep a dated record of what happened,
+      where it occurred, and how it was handled. Common uses include near-misses, equipment or
+      airframe damage, injuries, property issues, and notes for AMA or insurance follow-up.
+    </p>
+
+    <h2 id="who">Who can use it</h2>
+    <ul>
+      <li><strong>Admin and Editor</strong> — open the list, <strong>add</strong> new incidents, and <strong>edit</strong> existing records.</li>
+      <li><strong>Treasurer and Viewer</strong> — open the list and review incidents <strong>read-only</strong> (no add/edit).</li>
+    </ul>
+    <p>
+      If you do not see <strong>Incidents</strong> in the nav, your role may not include it. Ask an admin to review your account in <a href="admin.html#users">Users &amp; roles</a>.
+    </p>
+
+    <h2 id="add">Add or edit</h2>
+    <p>
+      From <strong>Incidents</strong>, use <strong>Add incident</strong> (or open an existing row).
+      Fill in the incident date, location, type, severity, and status. You can optionally link a
+      <strong>member</strong> when a specific person is involved. Use the description and
+      <strong>Action taken</strong> fields for what the club did in response.
+    </p>
+    <div class="callout callout-tip">
+      <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
+      <div class="callout-body">
+        <strong>Consistency helps later</strong>
+        Using the same location wording (e.g. “Main field — north pit”) and picking severity
+        carefully makes year-end summaries and board reviews easier.
+      </div>
+    </div>
+
+    <h2 id="filters">Search &amp; filters</h2>
+    <p>
+      The list supports filters for type, severity, status, and calendar year, plus a text search
+      across description, location, and linked member name. Use pagination at the bottom for long histories.
+    </p>
+
+    <h2 id="ama">AMA reporting</h2>
+    <p>
+      When your organization files with the AMA or needs an internal paper trail, use the
+      <strong>AMA reported</strong> and <strong>AMA reference</strong> fields on the incident
+      form. These are optional; your club defines its own policy for when to check them.
+    </p>
+    <p>
+      AMA membership and expiration tracking for individuals is handled on each member record
+      and in <a href="compliance.html">AMA &amp; FAA Compliance</a> — the incident log is separate
+      from those compliance reports.
+    </p>
+
+  </main>
+</div>
+
+<footer class="docs-footer">
+  <span>RC Flight Operations — open-source, MIT licensed</span>
+  <span><a href="index.html">← Docs home</a> &nbsp;·&nbsp; <a href="reports.html">Reports →</a></span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script>
+  const headings = document.querySelectorAll('.docs-content h2[id]');
+  const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    headings.forEach(h => { if (window.scrollY >= h.offsetTop - 80) current = h.id; });
+    sidebarLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  }, { passive: true });
+</script>
+</body>
+</html>

@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+
+<!--
+  RC Flight Operations Documentation — App Overview
+  docs/overview.html
+-->
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>App Overview — RC Flight Operations Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
+</head>
+<body>
+
+<!-- ── Nav ──────────────────────────────────────────────────────────────────── -->
+
+<nav class="docs-navbar">
+  <a href="../index.php" class="brand">✈ RC Flight Operations</a>
+  <span class="badge-docs">Docs</span>
+  <button class="btn btn-sm sidebar-toggle ms-2"
+          style="display:none;background:rgba(255,255,255,.18);color:#fff;border:none;"
+          onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="../index.php" class="back-link"><i class="bi bi-arrow-left"></i> Back to app</a>
+</nav>
+
+<!-- ── Breadcrumb ───────────────────────────────────────────────────────────── -->
+
+<div class="docs-breadcrumb">
+  <a href="index.html">Docs</a>
+  <span class="sep">›</span>
+  App Overview
+</div>
+
+<!-- ── Layout ───────────────────────────────────────────────────────────────── -->
+
+<div class="docs-layout">
+
+  <!-- Sidebar -->
+
+  <nav class="docs-sidebar">
+    <div class="sidebar-title">On this page</div>
+    <a href="#what-is-it">What is RC Flight Operations?</a>
+    <a href="#payments">A Note on Payments</a>
+    <a href="#dashboard">The Dashboard</a>
+    <a href="#navigation">Navigation</a>
+    <a href="#roles">User Roles</a>
+    <a href="#deployment">One club per installation</a>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Other Docs</div>
+    <a href="index.html">← Docs home</a>
+    <a href="members.html">Members</a>
+    <a href="renewals.html">Renewals &amp; Dues</a>
+    <a href="compliance.html">AMA &amp; FAA</a>
+    <a href="badges.html">Badge Designer</a>
+    <a href="reports.html">Reports</a>
+    <a href="incidents.html">Incidents</a>
+    <a href="import-export.html">Import &amp; Export</a>
+    <a href="admin.html">Administration</a>
+    <a href="install.html">Installation</a>
+  </nav>
+
+  <!-- Content -->
+
+  <main class="docs-content">
+
+<h1>App Overview</h1>
+<p class="page-lead">A plain-English tour of what RC Flight Operations does and how to find your way around.</p>
+
+<!-- ── What is it ── -->
+<h2 id="what-is-it">What is RC Flight Operations?</h2>
+<p>
+  RC Flight Operations is a membership management tool built specifically for
+  AMA-affiliated RC flying clubs. It gives your club secretary, membership coordinator,
+  and board members one organized place to handle everything membership-related —
+  without spreadsheets, paper logs, or pieced-together systems.
+</p>
+<p>Here's what it handles in one place:</p>
+<ul>
+  <li><strong>Member records</strong> — contact info, photos, phones, addresses, and optional email/postal preferences</li>
+  <li><strong>AMA &amp; FAA compliance</strong> — track numbers, expiration dates, and verify AMA membership with one click</li>
+  <li><strong>Dues &amp; renewals</strong> — record on-time, late, prorated, and complimentary renewals; handle life members and special cases</li>
+  <li><strong>CR80 ID badge design &amp; printing</strong> — design your club's card once, print personalized badges for every member</li>
+  <li><strong>Reports</strong> — membership snapshots, revenue summaries, compliance lists, gate key audits, and birthday reminders</li>
+  <li><strong>CSV import &amp; export</strong> — bring in your existing member list and export it in formats for AMA filings, newsletters, and backups</li>
+  <li><strong>Safety incident log</strong> — keep a dated record of field incidents for your club's safety records</li>
+  <li><strong>Multiple users with roles</strong> — give board members access at the right level without sharing a single login</li>
+</ul>
+
+<div class="callout callout-tip">
+  <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
+  <div class="callout-body">
+    <strong>Built for clubs like yours</strong>
+    RC Flight Operations is designed around how AMA-chartered clubs actually work —
+    annual renewals, compliance checks before flying, ID badge printing at renewal time,
+    and a small volunteer team doing the work.
+  </div>
+</div>
+
+<!-- ── Payments note ── -->
+<h2 id="payments">A Note on Payments</h2>
+<p>
+  RC Flight Operations <strong>does not process payments</strong> of any kind. It has no
+  connection to credit card processors, PayPal, bank accounts, or any other payment
+  system. There is no way to pay dues through this app.
+</p>
+<p>
+  What it <em>does</em> do is let you <strong>record payments that you've already received</strong>
+  through your club's normal channels — whether that's cash at a meeting, a check in
+  the mail, or a transfer through a service your club already uses. Once you've collected
+  dues by whatever method works for your club, you log the payment here so your records
+  stay accurate and members show up as renewed.
+</p>
+<div class="callout callout-info">
+  <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+  <div class="callout-body">
+    Think of it like a ledger. Money changes hands offline; you write it down here.
+    Reports and renewal status are based entirely on what you've recorded —
+    so keep your records current and they'll stay accurate.
+  </div>
+</div>
+
+<!-- ── Dashboard ── -->
+<h2 id="dashboard">The Dashboard</h2>
+<p>
+  After logging in you land on the <strong>Home</strong> page — the dashboard. It gives
+  you a quick health check on the club at a glance, without having to run a report:
+</p>
+
+<div class="docs-table-wrap">
+  <table class="docs-table">
+    <thead><tr><th>Card</th><th>What it shows</th><th>Click to go to…</th></tr></thead>
+    <tbody>
+      <tr><td>Active members</td><td>Members renewed for the current year, compared to the same time last year</td><td>Members list</td></tr>
+      <tr><td>Not yet renewed</td><td>Members who were active last year but haven't renewed yet this year</td><td>Not Yet Renewed report</td></tr>
+      <tr><td>Badges unprinted</td><td>Members who have renewed this year but whose ID card hasn't been printed yet</td><td>Members list</td></tr>
+      <tr><td>AMA/FAA alerts</td><td>Members with expired or expiring compliance records</td><td>AMA/FAA Compliance report</td></tr>
+      <tr><td>Birthdays this week</td><td>Members with a birthday this calendar week — great for meeting shoutouts</td><td>Birthdays report</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p>
+  Each stat card is a live link — click it to jump straight to the relevant report or
+  member list. The <strong>Needs Attention</strong> section below the cards calls out
+  anything that needs action, like members with missing AMA numbers or no email on file.
+</p>
+
+<!-- ── Navigation ── -->
+<h2 id="navigation">Navigation</h2>
+<p>The top navigation bar is always visible. Here's what each item does:</p>
+
+<div class="docs-table-wrap">
+  <table class="docs-table">
+    <thead><tr><th>Nav item</th><th>Who sees it</th><th>What's there</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Home</strong></td><td>Everyone</td><td>Dashboard with stat cards and attention items</td></tr>
+      <tr><td><strong>Members</strong></td><td>Admin, Editor, Treasurer</td><td>Member list, search and filtering, add/edit members, import from spreadsheet</td></tr>
+      <tr><td><strong>Reports</strong></td><td>All roles</td><td>Eight built-in reports with CSV and PDF export</td></tr>
+      <tr><td><strong>Incidents</strong></td><td>Admin and Editor (add/edit); Treasurer and Viewer (read-only)</td><td>Safety and field incident log</td></tr>
+      <tr><td><strong>Badge Design</strong></td><td>Admin, Editor (when feature is enabled)</td><td>Design your club's CR80 ID card template</td></tr>
+      <tr><td><strong>Administration</strong></td><td>Admin only</td><td>Users, club configuration, and audit log</td></tr>
+      <tr><td><strong>Your name (top right)</strong></td><td>Everyone</td><td>Change your password, access help docs, log out</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="callout callout-info">
+  <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+  <div class="callout-body">
+    <strong>Don't see a section?</strong>
+    Nav items are filtered by your role. If you don't see Members or Administration,
+    your account doesn't have access to those sections. Ask your club's Admin to
+    review your role. See <a href="admin.html#users">Users &amp; Roles</a> for details.
+  </div>
+</div>
+
+<!-- ── Roles ── -->
+<h2 id="roles">User Roles at a Glance</h2>
+<p>
+  Each person who logs in has a role that controls what they can see and do.
+  Assigning roles thoughtfully means your treasurer can run reports and record payments
+  without accidentally editing member records, and a board member can pull a membership
+  snapshot without seeing things they shouldn't change.
+</p>
+
+<div class="docs-table-wrap">
+  <table class="docs-table">
+    <thead><tr><th>Role</th><th>Best for</th><th>What they can do</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Admin</strong></td>
+        <td>Club secretary, webmaster</td>
+        <td>Full access — members, renewals, reports, badge design, users, and club configuration</td>
+      </tr>
+      <tr>
+        <td><strong>Editor</strong></td>
+        <td>Membership coordinator</td>
+        <td>Add and edit members, record renewals, run reports, design and print badges — everything except managing other users or changing club settings</td>
+      </tr>
+      <tr>
+        <td><strong>Treasurer</strong></td>
+        <td>Club treasurer</td>
+        <td>Record renewals, view and export member lists, run all reports — cannot edit member contact details</td>
+      </tr>
+      <tr>
+        <td><strong>Viewer</strong></td>
+        <td>Board member wanting report access</td>
+        <td>View and export reports only — no member data changes</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<p>→ Full details on what each role can and can't do: <a href="admin.html#roles-detail">Administration — Users &amp; Roles</a>.</p>
+
+<!-- ── Deployment model ── -->
+<h2 id="deployment">One Club Per Installation</h2>
+<p>
+  RC Flight Operations is built for a <strong>single club</strong> per database: your members,
+  users, badge design, and settings all belong to that one organization. There is no shared
+  hosting of multiple separate clubs in one app instance.
+</p>
+<p>
+  If you need completely separate clubs, run a separate copy of the app with its own database
+  and <code>config.php</code> (or separate virtual host / subdomain per club).
+</p>
+
+  </main>
+</div>
+
+<!-- ── Footer ───────────────────────────────────────────────────────────────── -->
+
+<footer class="docs-footer">
+  <span>RC Flight Operations — open-source, MIT licensed</span>
+  <span><a href="index.html">← Docs home</a> &nbsp;·&nbsp; <a href="members.html">Next: Members →</a></span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+<script>
+  const headings = document.querySelectorAll('.docs-content h2[id], .docs-content h3[id]');
+  const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    headings.forEach(h => { if (window.scrollY >= h.offsetTop - 80) current = h.id; });
+    sidebarLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  }, { passive: true });
+</script>
+
+</body>
+</html>

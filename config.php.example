@@ -1,0 +1,61 @@
+<?php
+/**
+ * config.php.example
+ *
+ * Copy this file to config.php and fill in your details.
+ * config.php is listed in .gitignore — never commit it.
+ *
+ * Sections:
+ *   db               — MySQL / MariaDB connection (required)
+ *   email            — Default mail driver (optional; overridden by SMTP in
+ *                      Administration → Installation when set in the database)
+ */
+
+return [
+
+    // ── Application ───────────────────────────────────────────────────────
+    // When true, PDO connection errors include the exception message (development only).
+    // Omit or false in production — errors are still written to the server log.
+    // 'debug' => false,
+    //
+    // When true, treat X-Forwarded-Proto: https as HTTPS for session cookies and
+    // password-reset links. Use only behind a reverse proxy you control (OWASP: do not
+    // trust forwarded headers from arbitrary clients).
+    // 'trust_forwarded_https' => false,
+    //
+    // When trust_forwarded_https is true, list the IP address(es) of the proxy that
+    // connects to PHP (as seen in REMOTE_ADDR), e.g. 127.0.0.1 or an IPv4 CIDR.
+    // If omitted or empty, forwarded proto is still honored (typical single-proxy setup).
+    // For defense in depth, set explicit values:
+    // 'trusted_proxies' => ['127.0.0.1', '10.0.0.0/8'],
+
+    // ── Database ──────────────────────────────────────────────────────────
+    'db' => [
+        'host'     => 'localhost',
+        'name'     => 'your_cpanel_dbname',
+        'user'     => 'your_cpanel_dbuser',
+        'password' => 'your_cpanel_dbpassword',
+        'charset'  => 'utf8mb4',
+    ],
+
+    // ── Default email driver ──────────────────────────────────────────────
+    // Used as a fallback when no SMTP config is stored in the database.
+    // Set driver to 'smtp' and fill in smtp details to use a relay service
+    // (e.g. Brevo, SendGrid, cPanel SMTP). Set to 'mail' to use PHP mail().
+    //
+    // Club admins override SMTP in Administration → Installation; values are
+    // stored in system_config and take priority over this file.
+    'email' => [
+        'driver'       => 'mail',           // 'mail' or 'smtp'
+        'from_address' => 'noreply@yourclub.org',
+        'from_name'    => 'Your Club Name',
+        'smtp' => [
+            'host'       => 'smtp-relay.brevo.com',
+            'port'       => 587,
+            'encryption' => 'tls',          // 'tls', 'ssl', or ''
+            'username'   => 'your-smtp-login@example.com',
+            'password'   => 'your-smtp-key-or-password',
+        ],
+    ],
+
+];

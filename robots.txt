@@ -1,0 +1,4 @@
+# Intentional: this is a private member portal — do not index authenticated content.
+User-agent: *
+Disallow: /
+

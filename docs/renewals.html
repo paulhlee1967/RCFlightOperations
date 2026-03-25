@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<!--
+  RC Flight Operations Documentation — Renewals & Dues
+  docs/renewals.html
+-->
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Renewals &amp; Dues — RC Flight Operations Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
+</head>
+<body>
+
+<nav class="docs-navbar">
+  <a href="../index.php" class="brand">✈ RC Flight Operations</a>
+  <span class="badge-docs">Docs</span>
+  <button class="btn btn-sm sidebar-toggle ms-2"
+          style="display:none;background:rgba(255,255,255,.18);color:#fff;border:none;"
+          onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="../index.php" class="back-link"><i class="bi bi-arrow-left"></i> Back to app</a>
+</nav>
+
+<div class="docs-breadcrumb">
+  <a href="index.html">Docs</a><span class="sep">›</span>Renewals &amp; Dues
+</div>
+
+<div class="docs-layout">
+
+  <nav class="docs-sidebar">
+    <div class="sidebar-title">On this page</div>
+    <a href="#about-payments">About Payments</a>
+    <a href="#how-it-works">How It Works</a>
+    <a href="#record">Recording a Renewal</a>
+    <a href="#new-member">New Member Signup</a>
+    <a href="#late">Late Renewals</a>
+    <a href="#prorated">Prorated Dues</a>
+    <a href="#comps">Comps &amp; Free Members</a>
+    <a href="#life">Life Members</a>
+    <a href="#dues">Configuring Dues Rates</a>
+    <a href="#checklist">Renewal Checklist</a>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Other Docs</div>
+    <a href="index.html">← Docs home</a>
+    <a href="members.html">Members</a>
+    <a href="compliance.html">AMA &amp; FAA</a>
+    <a href="badges.html">Badge Designer</a>
+    <a href="reports.html">Reports</a>
+    <a href="admin.html">Administration</a>
+  </nav>
+
+  <main class="docs-content">
+
+<h1>Renewals &amp; Dues</h1>
+<p class="page-lead">How to record membership payments, handle special cases, and configure your club's dues structure.</p>
+
+<!-- ── Payment clarification — most important thing to understand first ── -->
+<h2 id="about-payments">About Payments</h2>
+<p>
+  Before anything else, it's worth being clear about what this section of the app does
+  and doesn't do.
+</p>
+<div class="callout callout-warning">
+  <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+  <div class="callout-body">
+    <strong>RC Flight Operations does not process payments.</strong>
+    There is no connection to credit cards, PayPal, Venmo, bank accounts, or any
+    payment service — no money moves through this app, and members cannot pay dues
+    through it. What you are doing here is <strong>recording dues payments your club
+    has already collected</strong> through your normal channels (cash at a meeting,
+    a check in the mail, a bank transfer, etc.). Once the money is in hand, you log
+    it here so your member records stay current.
+  </div>
+</div>
+<p>
+  Your club decides how to collect dues — that's entirely up to you. RC Flight Operations
+  just keeps track of the fact that you did.
+</p>
+
+<!-- ── How it works ── -->
+<h2 id="how-it-works">How It Works</h2>
+<p>
+  RC Flight Operations separates the <em>member record</em> from <em>payment history</em>.
+  A member exists in the system year-round; a payment ties them to a specific
+  calendar year. When you record a renewal, RC Flight Operations:
+</p>
+<ol>
+  <li>Creates a payment record (amount, date, year, fees).</li>
+  <li>Updates the member's renewal year to the paid year.</li>
+  <li>Clears the "badge printed" flag so you're reminded to print a new card.</li>
+</ol>
+<p>
+  A member is considered <strong>Active</strong> when their renewal year matches the
+  current calendar year.
+</p>
+
+<!-- ── Record a renewal ── -->
+<h2 id="record">Recording a Renewal</h2>
+<ol class="step-list">
+  <li>Open the member's record from the <strong>Members</strong> list.</li>
+  <li>Click <strong>Process Signup / Renewal</strong> (button near the top of the page).</li>
+  <li>
+    Select the <strong>year</strong> you're renewing for using the year buttons
+    (previous year, current year, or next year are shown).
+  </li>
+  <li>
+    Review <strong>Step 1 — Review Member Info</strong>. Any warnings (missing AMA,
+    suspended status, etc.) appear here with links to fix them.
+  </li>
+  <li>
+    In <strong>Step 2 — Record Signup / Renewal</strong>, choose the renewal type:
+    <ul>
+      <li><strong>New / Late Renewal</strong> — full dues + initiation fee (use for new members and late renewals)</li>
+      <li><strong>On-Time Renewal</strong> — regular annual dues, no extra fees</li>
+      <li><strong>New Member (Prorated)</strong> — dues prorated based on join month</li>
+      <li><strong>Complementary</strong> — check the "Complementary" box for zero-cost renewals</li>
+    </ul>
+  </li>
+  <li>Confirm and click <strong>Record Signup / Renewal</strong>.</li>
+  <li>
+    <strong>Step 3 — Print &amp; Mail Checklist</strong> appears: print the badge,
+    prepare a mailing packet, and mark each task as done.
+  </li>
+</ol>
+
+<div class="callout callout-warning">
+  <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+  <div class="callout-body">
+    <strong>AMA required before renewal</strong>
+    You cannot record a renewal if the member has no AMA number on file, or if their
+    AMA expiration is before December 31 of the renewal year.
+    Fix it on the <a href="compliance.html">Compliance tab</a> first.
+  </div>
+</div>
+
+<!-- ── New member signup ── -->
+<h2 id="new-member">New Member Signup</h2>
+<p>
+  When someone joins mid-year, use the <strong>New / Late Renewal</strong> type to charge
+  full dues plus the initiation fee, or <strong>New Member (Prorated)</strong> if your
+  club offers a reduced rate for members joining in the second half of the year.
+  RC Flight Operations calculates the prorated amount based on:
+</p>
+<ul>
+  <li>The member's date joined (set on the Membership tab)</li>
+  <li>The prorate rules configured for their membership type</li>
+</ul>
+<p>
+  An initiation fee can be included — configure it under
+  <a href="admin.html#dues">Administration → Configuration → Dues Rules</a>.
+</p>
+
+<!-- ── Late renewals ── -->
+<h2 id="late">Late Renewals</h2>
+<p>
+  Use <strong>New / Late Renewal</strong> when a member renews after your club's
+  normal renewal window. This type includes both the annual dues and the initiation
+  fee as a late charge. You can adjust the displayed amount before confirming if
+  your club handles late fees differently.
+</p>
+
+<!-- ── Prorated ── -->
+<h2 id="prorated">Prorated Dues</h2>
+<p>
+  Prorated dues are calculated per membership type. In
+  <strong>Administration → Configuration → Dues Rules</strong>, each membership type has:
+</p>
+<ul>
+  <li><strong>Annual dues</strong> — the full-year renewal amount</li>
+  <li><strong>Prorated dues</strong> — the reduced amount for members joining later in the year</li>
+  <li><strong>Prorate start/end month</strong> — the window during which the prorated rate applies</li>
+</ul>
+
+<!-- ── Comps ── -->
+<h2 id="comps">Complementary &amp; Free Members</h2>
+<p>Two ways to handle members who don't pay dues:</p>
+<div class="docs-table-wrap">
+  <table class="docs-table">
+    <thead><tr><th>Method</th><th>When to use</th><th>How to set</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Complementary renewal</strong></td>
+        <td>One-time complimentary year (e.g., club officer courtesy)</td>
+        <td>Check the "Complementary" box when recording the renewal — records $0</td>
+      </tr>
+      <tr>
+        <td><strong>Free membership flag</strong></td>
+        <td>Permanent free membership (e.g., honorary member)</td>
+        <td>Check "Free membership" on the Membership tab; a renewal still needs to be recorded each year</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ── Life members ── -->
+<h2 id="life">Life Members</h2>
+<p>
+  Check <strong>Life member</strong> on the Membership tab. Life members still need a
+  renewal recorded each year (as complementary) to show as "Active" — but the
+  system will remind you. The <em>Waived / Free Memberships</em> report shows all
+  life and free members.
+</p>
+
+<!-- ── Dues config ── -->
+<h2 id="dues">Configuring Dues Rates</h2>
+<p>
+  Go to <strong>Administration → Configuration → Dues Rules</strong>
+  (Admin role required). Each membership type (Adult, Youth, Senior, Spouse — or
+  whatever labels your club uses) has its own row:
+</p>
+<div class="docs-table-wrap">
+  <table class="docs-table">
+    <thead><tr><th>Setting</th><th>What it does</th></tr></thead>
+    <tbody>
+      <tr><td>Annual dues</td><td>Full-year renewal amount in dollars</td></tr>
+      <tr><td>Prorated dues</td><td>Reduced amount for members joining later in the year</td></tr>
+      <tr><td>Initiation fee</td><td>One-time fee for new members and late renewals</td></tr>
+      <tr><td>Prorate start month</td><td>First month of the year when the prorated rate applies (e.g., July = 7)</td></tr>
+      <tr><td>Prorate end month</td><td>Last month when prorated rate applies</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="callout callout-info">
+  <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+  <div class="callout-body">
+    Changes to dues rates apply to future renewals only — they don't retroactively
+    change existing payment records.
+  </div>
+</div>
+
+<!-- ── Checklist ── -->
+<h2 id="checklist">Post-Renewal Checklist</h2>
+<p>
+  After recording a renewal, the app shows a fulfillment checklist in Step 3.
+  Here's what each item means:
+</p>
+<ul>
+  <li><strong>Print ID Card</strong> — opens the badge print view in a new tab; mark as done once printed</li>
+  <li><strong>Print Mailing Packet</strong> — opens the letter and envelope print view; mark as done once sent</li>
+</ul>
+<p>
+  If the member has <strong>unchecked</strong> “Allow postal mail” on their
+  <a href="members.html#communication">Contact tab</a>, the envelope and letter screens show a
+  <strong>postal opt-out</strong> notice. The address still appears so you can send legally required mail
+  or make a one-off exception; confirm with the member before routine postal mailings.
+</p>
+<p>
+  Checking off items records the date and who completed each task. The dashboard's
+  "Badges unprinted" count resets to zero for a member once their card has been
+  printed and marked done.
+</p>
+
+  </main>
+</div>
+
+<footer class="docs-footer">
+  <span>RC Flight Operations — open-source, MIT licensed</span>
+  <span>
+    <a href="members.html">← Members</a>
+    &nbsp;·&nbsp;
+    <a href="compliance.html">Next: AMA &amp; FAA →</a>
+  </span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+<script>
+  const headings = document.querySelectorAll('.docs-content h2[id], .docs-content h3[id]');
+  const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    headings.forEach(h => { if (window.scrollY >= h.offsetTop - 80) current = h.id; });
+    sidebarLinks.forEach(a => { a.classList.toggle('active', a.getAttribute('href') === '#' + current); });
+  }, { passive: true });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<!--
+  RC Flight Operations Documentation — Reports
+  docs/reports.html
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reports — RC Flight Operations Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
+</head>
+<body>
+
+<nav class="docs-navbar">
+  <a href="../index.php" class="brand">✈ RC Flight Operations</a>
+  <span class="badge-docs">Docs</span>
+  <button class="btn btn-sm sidebar-toggle ms-2"
+          style="display:none;background:rgba(255,255,255,.18);color:#fff;border:none;"
+          onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="../index.php" class="back-link"><i class="bi bi-arrow-left"></i> Back to app</a>
+</nav>
+
+<div class="docs-breadcrumb">
+  <a href="index.html">Docs</a><span class="sep">›</span>Reports
+</div>
+
+<div class="docs-layout">
+
+  <nav class="docs-sidebar">
+    <div class="sidebar-title">On this page</div>
+    <a href="#overview">Overview</a>
+    <a href="#membership">Membership Reports</a>
+    <a href="#compliance-reports">Compliance Reports</a>
+    <a href="#finance">Finance Reports</a>
+    <a href="#people">People Reports</a>
+    <a href="#export">Export &amp; Email</a>
+    <a href="#print">Printing Reports</a>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Other Docs</div>
+    <a href="index.html">← Docs home</a>
+    <a href="members.html">Members</a>
+    <a href="import-export.html">Import &amp; Export</a>
+  </nav>
+
+  <main class="docs-content">
+
+    <h1>Reports</h1>
+    <p class="page-lead">Eight built-in reports give you a clear picture of your club's membership health, finances, and compliance — all exportable to CSV or PDF.</p>
+
+    <!-- ── Overview ── -->
+    <h2 id="overview">Overview</h2>
+    <p>
+      All roles can access Reports (<strong>Reports</strong> in the top nav). Reports are
+      grouped in the left sidebar by category. Select a report, optionally adjust filters
+      (year, membership type), and the data loads immediately — no page reload.
+    </p>
+    <p>
+      Stat cards above each report give you the headline numbers at a glance before you
+      read the table.
+    </p>
+
+    <!-- ── Membership ── -->
+    <h2 id="membership">Membership Reports</h2>
+
+    <h3>Membership Snapshot</h3>
+    <p>
+      Your go-to overview report. Shows total members broken down by type (Adult, Youth,
+      Senior, Spouse), renewal status, and flags (life members, free members, inactive).
+      Includes a chart for quick visualization.
+    </p>
+
+    <h3>Member Type Breakdown</h3>
+    <p>
+      A detailed view of how many members fall into each type. Useful for AMA charter
+      reporting, which often requires member counts by category.
+    </p>
+
+    <h3>Not Yet Renewed</h3>
+    <p>
+      Lists all members who have a previous year's renewal but have not yet renewed for
+      the selected year. Filter by membership type to focus your outreach. Export this
+      list as CSV to mail or email renewal reminders.
+    </p>
+    <div class="callout callout-tip">
+      <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
+      <div class="callout-body">
+        Use <strong>Email members</strong> (or the <strong>Download email CSV instead</strong> link on that page) for renewal outreach —
+        both use the same opted-in list. For postal campaigns, export the full CSV from
+        <a href="import-export.html#export">Members → Export</a> and filter or review <strong>Allow postal mail</strong> in the spreadsheet.
+      </div>
+    </div>
+
+    <!-- ── Compliance ── -->
+    <h2 id="compliance-reports">Compliance Reports</h2>
+
+    <h3>AMA/FAA Compliance</h3>
+    <p>
+      Shows members whose AMA or FAA registrations have expired or will expire within
+      60 days. Split into four sections: AMA expired, AMA expiring soon, FAA expired,
+      FAA expiring soon. Each row links directly to that member's Compliance tab.
+    </p>
+
+    <h3>Gate Key Compliance</h3>
+    <p>
+      Lists all members who have a gate key number on file. Useful for auditing field
+      access and recovering keys from members who haven't renewed.
+    </p>
+    <div class="callout callout-info">
+      <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+      <div class="callout-body">
+        Cross-reference Gate Key Compliance with Not Yet Renewed to find members who
+        still have a key but haven't paid for the current year.
+      </div>
+    </div>
+
+    <!-- ── Finance ── -->
+    <h2 id="finance">Finance Reports</h2>
+
+    <h3>Revenue by Year</h3>
+    <p>
+      Shows total dues collected, broken down by year. Includes dues, initiation fees,
+      late fees, and complementary count. A bar chart makes year-over-year trends easy
+      to spot. Filter by membership type to compare Adult vs. Youth revenue.
+    </p>
+
+    <h3>Waived / Free Memberships</h3>
+    <p>
+      Lists all members with the "Free membership" or "Life member" flag, plus any
+      complementary renewals recorded in a given year. Useful for board reporting and
+      budget planning.
+    </p>
+
+    <!-- ── People ── -->
+    <h2 id="people">People Reports</h2>
+
+    <h3>Birthdays This Month</h3>
+    <p>
+      Lists members whose birthday falls in the current calendar month. A fun one for
+      club newsletters and meeting announcements. The callout at the top highlights the
+      count for quick reference.
+    </p>
+
+    <!-- ── Export ── -->
+    <h2 id="export">Export &amp; Email</h2>
+    <p>Every report has export options in the top-right toolbar:</p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Option</th><th>Output</th><th>Best for</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Export CSV</strong></td>
+            <td>.csv file download</td>
+            <td>Spreadsheet analysis, mail merge, AMA filings</td>
+          </tr>
+          <tr>
+            <td><strong>Export PDF</strong></td>
+            <td>.pdf file download</td>
+            <td>Board meeting handouts, printed records</td>
+          </tr>
+          <tr>
+            <td><strong>Email report</strong> (toolbar → modal)</td>
+            <td>Sends <em>one</em> formatted HTML email to an address you type (stat summary + table)</td>
+            <td>Sending a snapshot to yourself, the treasurer, or the board</td>
+          </tr>
+          <tr>
+            <td><strong>Email members</strong> (when shown)</td>
+            <td>
+              Opens a compose screen to message each member in the report who has an email and
+              <strong>Allow email from the club</strong> checked. On that screen you can also use
+              <strong>Download email CSV instead</strong> for the same recipient list (for mail merge or external tools).
+            </td>
+            <td>Broadcast-style reminders tied to that report (e.g. not yet renewed, birthdays, compliance)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout callout-info">
+      <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+      <div class="callout-body">
+        <strong>Who gets “email members” and email CSV exports</strong>
+        Only members with <strong>Allow email from the club</strong> enabled on their
+        <a href="members.html#communication">Contact tab</a> are included. The count on the button reflects that filtered list.
+      </div>
+    </div>
+    <div class="callout callout-warning">
+      <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+      <div class="callout-body">
+        <strong>Outbound mail settings</strong>
+        Email report and email members use the server’s mail configuration. If messages don’t arrive
+        or land in spam, ask your club’s webmaster to configure SMTP. See
+        <a href="admin.html#email">Administration → Email Configuration</a>.
+      </div>
+    </div>
+
+    <!-- ── Print ── -->
+    <h2 id="print">Printing Reports</h2>
+    <p>
+      Use your browser's print function (Ctrl+P / ⌘+P). Reports have a built-in print
+      stylesheet that hides the navigation, sidebar, and export buttons — only the title,
+      stat cards, and table will appear on the printed page.
+    </p>
+
+  </main>
+</div>
+
+<footer class="docs-footer">
+  <span>RC Flight Operations — open-source, MIT licensed</span>
+  <span>
+    <a href="badges.html">← Badge Designer</a>
+    &nbsp;·&nbsp;
+    <a href="import-export.html">Next: Import &amp; Export →</a>
+  </span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script>
+  const headings = document.querySelectorAll('.docs-content h2[id], .docs-content h3[id]');
+  const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    headings.forEach(h => { if (window.scrollY >= h.offsetTop - 80) current = h.id; });
+    sidebarLinks.forEach(a => { a.classList.toggle('active', a.getAttribute('href') === '#' + current); });
+  }, { passive: true });
+</script>
+</body>
+</html>

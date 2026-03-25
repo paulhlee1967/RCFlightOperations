@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<!--
+  RC Flight Operations Documentation — AMA & FAA Compliance
+  docs/compliance.html
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AMA &amp; FAA Compliance — RC Flight Operations Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
+</head>
+<body>
+
+<nav class="docs-navbar">
+  <a href="../index.php" class="brand">✈ RC Flight Operations</a>
+  <span class="badge-docs">Docs</span>
+  <button class="btn btn-sm sidebar-toggle ms-2"
+          style="display:none;background:rgba(255,255,255,.18);color:#fff;border:none;"
+          onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="../index.php" class="back-link"><i class="bi bi-arrow-left"></i> Back to app</a>
+</nav>
+
+<div class="docs-breadcrumb">
+  <a href="index.html">Docs</a><span class="sep">›</span>AMA &amp; FAA Compliance
+</div>
+
+<div class="docs-layout">
+
+  <nav class="docs-sidebar">
+    <div class="sidebar-title">On this page</div>
+    <a href="#overview">Overview</a>
+    <a href="#ama">AMA Numbers</a>
+    <a href="#ama-lookup">AMA Live Lookup</a>
+    <a href="#ama-status">AMA Status Colors</a>
+    <a href="#faa">FAA Numbers</a>
+    <a href="#report">Compliance Report</a>
+    <a href="#renewal-block">Renewal Blocking</a>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Other Docs</div>
+    <a href="index.html">← Docs home</a>
+    <a href="members.html">Members</a>
+    <a href="renewals.html">Renewals &amp; Dues</a>
+    <a href="reports.html">Reports</a>
+  </nav>
+
+  <main class="docs-content">
+
+    <h1>AMA &amp; FAA Compliance</h1>
+    <p class="page-lead">Track AMA membership and FAA registration for every member — with live lookup to verify AMA numbers without leaving the app.</p>
+
+    <!-- ── Overview ── -->
+    <h2 id="overview">Overview</h2>
+    <p>
+      AMA-chartered clubs are required to verify that members hold current AMA membership
+      before they fly. RC Flight Operations makes this straightforward:
+    </p>
+    <ul>
+      <li>Store each member's AMA number and expiration date</li>
+      <li>Verify AMA membership live without leaving the app</li>
+      <li>Block renewals for members whose AMA has expired</li>
+      <li>Run a compliance report to see who's expiring soon or already expired</li>
+      <li>Optionally track FAA TRUST/Part 107 registration numbers and expiry</li>
+    </ul>
+    <p>
+      Compliance fields live on the <strong>Compliance tab</strong> of each member's
+      edit page (<strong>Members → [member name] → Edit → Compliance</strong>).
+    </p>
+
+    <!-- ── AMA numbers ── -->
+    <h2 id="ama">AMA Numbers</h2>
+    <p>Enter the member's AMA membership number in the <strong>AMA number</strong> field.
+       This is the number on their AMA card — typically 5–7 digits.</p>
+    <p>
+      The <strong>AMA expiration</strong> date is the date their current AMA membership expires.
+      AMA memberships run calendar year (January 1 – December 31), so most members will have
+      an expiration of December 31 of the current or next year.
+    </p>
+    <div class="callout callout-tip">
+      <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
+      <div class="callout-body">
+        <strong>AMA life member?</strong>
+        Check the <strong>AMA life member</strong> checkbox. This suppresses expiration
+        warnings for that member — no expiration date is needed.
+      </div>
+    </div>
+
+    <!-- ── Live lookup ── -->
+    <h2 id="ama-lookup">AMA Live Lookup</h2>
+    <p>
+      On the Compliance tab, click <strong>Verify AMA membership</strong>. RC Flight Operations
+      queries the AMA member lookup API and returns:
+    </p>
+    <ul>
+      <li>Member name on file with AMA</li>
+      <li>Current membership status (active / expired)</li>
+      <li>Expiration date — which is automatically filled into the AMA expiration field</li>
+    </ul>
+    <ol class="step-list">
+      <li>Enter the AMA number in the field.</li>
+      <li>Click <strong>Verify AMA membership</strong>.</li>
+      <li>Review the returned info — name should match your member.</li>
+      <li>Click <strong>Save member</strong> to persist the expiration date.</li>
+    </ol>
+    <div class="callout callout-warning">
+      <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+      <div class="callout-body">
+        <strong>Name mismatch?</strong>
+        If the AMA lookup returns a name that doesn't match your member, double-check the
+        number. Don't record a renewal until you've confirmed it's the correct AMA number.
+      </div>
+    </div>
+
+    <!-- ── Status colors ── -->
+    <h2 id="ama-status">AMA Status Colors</h2>
+    <p>A colored indicator appears next to the AMA expiration field:</p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Color</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span style="display:inline-block;width:14px;height:14px;background:#198754;border-radius:2px;vertical-align:middle;margin-right:6px;"></span>Green</td>
+            <td>AMA expiration is more than 60 days away — all good</td>
+          </tr>
+          <tr>
+            <td><span style="display:inline-block;width:14px;height:14px;background:#ffc107;border-radius:2px;vertical-align:middle;margin-right:6px;"></span>Yellow</td>
+            <td>AMA expiration within 60 days — remind the member to renew AMA</td>
+          </tr>
+          <tr>
+            <td><span style="display:inline-block;width:14px;height:14px;background:#dc3545;border-radius:2px;vertical-align:middle;margin-right:6px;"></span>Red</td>
+            <td>AMA has expired — member cannot fly; renewal will be blocked</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── FAA ── -->
+    <h2 id="faa">FAA Registration Numbers</h2>
+    <p>Two types of FAA registrations your members may have:</p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Type</th><th>Who needs it</th><th>Expiry</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>TRUST certificate</strong></td>
+            <td>Recreational flyers flying under 49 CFR Part 44809 (community-based)</td>
+            <td>Does not expire</td>
+          </tr>
+          <tr>
+            <td><strong>Part 107 Remote Pilot Certificate</strong></td>
+            <td>Members flying commercially or outside recreational rules</td>
+            <td>Expires every 24 months — track this in the FAA expiration field</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      RC Flight Operations stores one FAA number and expiration per member. If a member has both a
+      TRUST number and a Part 107 license, store whichever is more relevant for your club
+      and note the other in the member's Notes field.
+    </p>
+
+    <!-- ── Report ── -->
+    <h2 id="report">Compliance Report</h2>
+    <p>
+      Go to <strong>Reports → AMA/FAA Compliance</strong>. This report shows members split
+      into sections:
+    </p>
+    <ul>
+      <li><strong>AMA expired</strong> — members whose AMA expiration has already passed</li>
+      <li><strong>AMA expiring soon</strong> — expiring within the next 60 days</li>
+      <li><strong>FAA expired</strong> — members with an FAA expiration in the past</li>
+      <li><strong>FAA expiring soon</strong> — FAA expiring within 60 days</li>
+    </ul>
+    <p>
+      Each row links directly to the member's Compliance tab for quick updating. The report
+      can be exported to CSV or emailed to your club's compliance officer.
+    </p>
+
+    <!-- ── Renewal blocking ── -->
+    <h2 id="renewal-block">How AMA Blocks Renewals</h2>
+    <p>When you try to record a renewal, RC Flight Operations checks two things:</p>
+    <ol>
+      <li>Does the member have an AMA number on file? (Or are they an AMA life member?)</li>
+      <li>Is the AMA expiration date on or after December 31 of the renewal year?</li>
+    </ol>
+    <p>
+      If either check fails, the renewal is blocked and you'll see a warning with a link
+      to the Compliance tab. Fix the AMA info, save, then come back to record the renewal.
+    </p>
+    <div class="callout callout-info">
+      <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+      <div class="callout-body">
+        This check exists because AMA requires clubs to verify current membership before
+        allowing members to fly at sanctioned fields. Recording renewals for members with
+        expired AMA would put your club's charter at risk.
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<footer class="docs-footer">
+  <span>RC Flight Operations — open-source, MIT licensed</span>
+  <span>
+    <a href="renewals.html">← Renewals</a>
+    &nbsp;·&nbsp;
+    <a href="badges.html">Next: Badge Designer →</a>
+  </span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script>
+  const headings = document.querySelectorAll('.docs-content h2[id], .docs-content h3[id]');
+  const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    headings.forEach(h => { if (window.scrollY >= h.offsetTop - 80) current = h.id; });
+    sidebarLinks.forEach(a => { a.classList.toggle('active', a.getAttribute('href') === '#' + current); });
+  }, { passive: true });
+</script>
+</body>
+</html>

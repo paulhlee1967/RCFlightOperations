@@ -1,0 +1,31 @@
+# uploads/.htaccess
+#
+# Prevent execution of PHP (and other server-side scripts) in the uploads
+# directory. Member photos and badge backgrounds are served as static files.
+#
+# Apache / LiteSpeed / cPanel: this file is used automatically.
+# Nginx: .htaccess is ignored — configure your vhost to deny script execution
+# under /uploads/ (see DEPLOY.md).
+#
+# Note: The repository historically included a misnamed `uploads/htaccess`.
+# This file is the correct `.htaccess` for Apache.
+
+# Disable PHP execution (works when mod_php/php_flag is available).
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+
+# Extra belt-and-suspenders: deny direct access to PHP files.
+<FilesMatch "\.php$">
+    Require all denied
+</FilesMatch>
+
+# Extra belt-and-suspenders for older Apache versions.
+<FilesMatch "\.php$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# Disable directory listing.
+Options -Indexes
+
