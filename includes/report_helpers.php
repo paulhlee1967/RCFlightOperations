@@ -79,6 +79,30 @@ function buildChartHtml(array $chartConfig, string $altText, string $fallbackUrl
 }
 
 /**
+ * Render a simple HTML table for report output (used by reports.php).
+ */
+function renderReportTable(array $headers, array $rows, string $tableClass = ''): void {
+    if (empty($rows)) {
+        echo '<p class="text-muted small py-2 mb-0 ps-1">No data for this selection.</p>';
+        return;
+    }
+    echo '<div class="table-responsive"><table class="table table-hover table-sm mb-0 ' . htmlspecialchars($tableClass) . '">';
+    echo '<thead class="table-light"><tr>';
+    foreach ($headers as $h) {
+        echo '<th>' . htmlspecialchars($h) . '</th>';
+    }
+    echo '</tr></thead><tbody>';
+    foreach ($rows as $row) {
+        echo '<tr>';
+        foreach ($row as $cell) {
+            echo '<td>' . htmlspecialchars((string) $cell) . '</td>';
+        }
+        echo '</tr>';
+    }
+    echo '</tbody></table></div>';
+}
+
+/**
  * Fetch a URL and return the response body, or null on failure.
  */
 function fetchUrl(string $url, int $timeout = 8): ?string
@@ -95,10 +119,12 @@ function fetchUrl(string $url, int $timeout = 8): ?string
         ]);
         $body = curl_exec($ch);
         $err  = curl_errno($ch);
+        $errMsg = $err !== 0 ? curl_error($ch) : '';
         curl_close($ch);
         if ($err === 0 && $body !== false && $body !== '') {
             return $body;
         }
+        error_log('fetchUrl: HTTP fetch failed (curl) ' . $err . ($errMsg !== '' ? ' ' . $errMsg : '') . ' url=' . $url);
         return null;
     }
 
@@ -109,8 +135,13 @@ function fetchUrl(string $url, int $timeout = 8): ?string
             'user_agent'      => 'RCFlightOperations/1.0',
         ]]);
         $body = @file_get_contents($url, false, $ctx);
-        return ($body !== false && $body !== '') ? $body : null;
+        if ($body !== false && $body !== '') {
+            return $body;
+        }
+        error_log('fetchUrl: HTTP fetch failed (file_get_contents) url=' . $url);
+        return null;
     }
 
+    error_log('fetchUrl: no cURL and allow_url_fopen is off url=' . $url);
     return null;
 }

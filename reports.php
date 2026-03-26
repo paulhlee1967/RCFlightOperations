@@ -373,28 +373,6 @@ if ($export === 'pdf') {
 // ── Page render ───────────────────────────────────────────────────────────────
 $pageTitle = 'Reports — ' . ($reportTypes[$report] ?? 'Report');
 require_once __DIR__ . '/includes/header.php';
-
-/** Render a single data table from headers + rows arrays */
-function renderTable(array $headers, array $rows, string $tableClass = ''): void {
-    if (empty($rows)) {
-        echo '<p class="text-muted small py-2 mb-0 ps-1">No data for this selection.</p>';
-        return;
-    }
-    echo '<div class="table-responsive"><table class="table table-hover table-sm mb-0 ' . htmlspecialchars($tableClass) . '">';
-    echo '<thead class="table-light"><tr>';
-    foreach ($headers as $h) {
-        echo '<th>' . htmlspecialchars($h) . '</th>';
-    }
-    echo '</tr></thead><tbody>';
-    foreach ($rows as $row) {
-        echo '<tr>';
-        foreach ($row as $cell) {
-            echo '<td>' . htmlspecialchars((string) $cell) . '</td>';
-        }
-        echo '</tr>';
-    }
-    echo '</tbody></table></div>';
-}
 ?>
 
 <!-- ── Layout: sidebar + main ────────────────────────────────────────────────── -->
@@ -553,7 +531,7 @@ function renderTable(array $headers, array $rows, string $tableClass = ''): void
                     <span class="badge bg-light text-dark border ms-1"><?= count($section['rows']) ?></span>
                 </div>
                 <div class="card-body p-0">
-                    <?php renderTable($section['headers'], $section['rows']); ?>
+                    <?php renderReportTable($section['headers'], $section['rows']); ?>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -580,7 +558,7 @@ function renderTable(array $headers, array $rows, string $tableClass = ''): void
         <?php if (!empty($result['rows'])): ?>
         <div class="card shadow-sm mb-3">
             <div class="card-body p-0">
-                <?php renderTable($result['headers'], $result['rows']); ?>
+                <?php renderReportTable($result['headers'], $result['rows']); ?>
             </div>
         </div>
 
@@ -593,7 +571,7 @@ function renderTable(array $headers, array $rows, string $tableClass = ''): void
                 </span>
             </div>
             <div class="card-body p-0">
-                <?php renderTable(
+                <?php renderReportTable(
                     $result['extra']['waived_members']['headers'],
                     $result['extra']['waived_members']['rows']
                 ); ?>

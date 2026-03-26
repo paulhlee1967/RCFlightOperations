@@ -112,21 +112,27 @@ require_once __DIR__ . '/includes/header.php';
     justify-content: center;
 }
 
-/* Hero panel (left) — club colour + branding */
+/* Hero panel (left) — neutral surface so the PNG logo (often red) stays readable */
 .login-hero {
-    background: var(--club-primary);
+    background: var(--club-bg);
     border-radius: 16px 0 0 16px;
+    border-right: 1px solid rgba(var(--club-primary-rgb), 0.14);
+    box-shadow: inset 4px 0 0 var(--club-primary);
     padding: 2.5rem 1.75rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    color: #fff;
+    color: var(--club-text);
     min-height: 460px;
 }
 .login-hero .fo-brand img {
-    filter: drop-shadow(0 2px 8px rgba(0,0,0,.2));
+    filter: drop-shadow(0 2px 10px rgba(0,0,0,.1));
+}
+/* Wordmark uses --club-on-primary-muted (for coloured navbars); override on this light panel */
+.login-hero .fo-wordmark-sub {
+    color: var(--club-muted) !important;
 }
 
 /* Form panel (right) */

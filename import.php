@@ -2,6 +2,9 @@
 /**
  * Import members (and optional payments) from CSV.
  * Steps: Upload → Map columns → Preview → Import.
+ *
+ * Field rules align with includes/validation.php (dates, lengths, etc.) where
+ * applicable; CSV parsing uses import-specific helpers (parseDateForDb, etc.).
  */
 ob_start();
 
@@ -163,6 +166,8 @@ function normalizeMembershipTypeSlot(?string $v, array $enabledLabels): ?int {
 }
 
 /** Above this count, parsed rows are stored in a temp file instead of $_SESSION (avoids session size limits). */
+// Above this row count, parsed CSV is stored in a temp file instead of $_SESSION
+// to avoid exceeding PHP session size limits on shared hosts.
 const IMPORT_ROWS_SESSION_THRESHOLD = 400;
 
 function import_clear_row_blob(): void {
@@ -270,7 +275,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Match tiers (try strictest first; ambiguous multi-match stops fallbacks):
             // 1) first + last + email + birthday
             // 2) first + last + email
-            // 3) first + last only when exactly one row (unique name)
+            // 3) first + last only — only when the query returns exactly one id.
+            //    Two people with the same name would return two rows; we treat that
+            //    as ambiguous and do not auto-match (avoids updating the wrong member).
             $findExisting4 = $pdo->prepare('
                 SELECT id FROM members
                 WHERE first_name = ? AND last_name = ? AND email <=> ? AND birthday <=> ?

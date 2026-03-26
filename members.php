@@ -2,6 +2,8 @@
 /**
  * Member list — polished v1.0.
  *
+ * Quick-view offcanvas loads JSON from member_detail.php (same app, paired endpoint).
+ *
  * Changes from original:
  *  - SELECT now fetches photo_path, inactive, suspended, life_member,
  *    free_membership, gate_key_number, badge_printed_at for display.

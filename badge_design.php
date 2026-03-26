@@ -537,6 +537,9 @@ $dataFields = [
 (function () {
 'use strict';
 
+/** Single source for badge field metadata (same keys as PHP $dataFields). */
+var BADGE_DATA_FIELDS = <?= json_encode($dataFields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+
 /* ── Constants ──────────────────────────────────────────────────────────────── */
 var CARD_W_L = <?= $cardWidthLandscape ?>;
 var CARD_H_L = <?= $cardHeightLandscape ?>;
@@ -546,6 +549,7 @@ var CARD_H_P = <?= $cardHeightPortrait ?>;
 var dataFieldProp = 'dataField';   // custom Fabric property key
 var previewMode   = false;         // true when showing a real member's data
 
+/* ── Undo / redo stack (design mode; preview mode bypasses history) ─────── */
 var undoStack = [];
 var redoStack = [];
 var UNDO_MAX = 35;
@@ -896,12 +900,8 @@ function syncPropsPanel(obj) {
     propsPanel.style.display = '';
     var field = obj[dataFieldProp] || '';
 
-    // Look up a human label for the field
-    var fieldLabels = <?= json_encode(array_combine(
-        array_keys($dataFields),
-        array_column($dataFields, 'label')
-    )) ?>;
-    propsLabel.textContent = fieldLabels[field] || field || '';
+    var fi = BADGE_DATA_FIELDS[field];
+    propsLabel.textContent = (fi && fi.label) ? fi.label : (field || '');
 
     propFontSize.value       = obj.fontSize || 14;
     propBold.checked         = obj.fontWeight === 'bold';
@@ -1025,12 +1025,9 @@ function updateBackPreview() {
     var html = backHtmlEl.value;
     // Replace {{tokens}} with placeholder spans for preview
     var display = html.replace(/\{\{(\w+)\}\}/g, function (_, field) {
-        var labels = <?= json_encode(array_combine(
-            array_keys($dataFields),
-            array_column($dataFields, 'placeholder')
-        )) ?>;
+        var ph = BADGE_DATA_FIELDS[field] && BADGE_DATA_FIELDS[field].placeholder;
         return '<span style="background:#ffe8a1;padding:1px 3px;border-radius:3px;">' +
-               (labels[field] || field) + '</span>';
+               (ph || field) + '</span>';
     });
     backPreview.innerHTML = display;
     if (typeof requestAnimationFrame !== 'undefined') {

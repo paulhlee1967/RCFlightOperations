@@ -307,7 +307,8 @@ INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
   ('smtp_password',   ''),
   ('smtp_from_email', ''),
   ('smtp_from_name',  ''),
-  ('maintenance_mode','0');
+  ('maintenance_mode','0'),
+  ('renewal_prebook_start_month', '10');
 
 CREATE TABLE IF NOT EXISTS `operator_messages` (
   `id`              int unsigned  NOT NULL AUTO_INCREMENT,

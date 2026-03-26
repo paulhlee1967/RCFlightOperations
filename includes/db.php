@@ -53,7 +53,7 @@ try {
     die('Database connection failed. Check server logs and configuration.');
 }
 
-// ── Feature flags (session-cached; safe to include before session_start) ─────
+// ── Feature registry (see features.php for behaviour) ────────────────────────
 // features.php defines FEATURES constant and featureEnabled()/requireFeature().
 // Including here ensures every page has the functions available.
 require_once __DIR__ . '/features.php';

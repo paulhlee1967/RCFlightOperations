@@ -16,6 +16,7 @@
  * All validators return an array: [bool $ok, string $error].
  * validate_member_input() and validate_payment_input() return
  * [array $errors, array $clean] where $errors is field => message.
+ * Member clean data includes allow_email and allow_postal (0/1).
  */
 
 /**
@@ -159,6 +160,9 @@ function validate_member_input(array $post): array {
     $clean['emergency_contact_name']     = trim($post['emergency_contact_name'] ?? '') ?: null;
     $clean['emergency_contact_relationship'] = trim($post['emergency_contact_relationship'] ?? '') ?: null;
     $clean['emergency_contact_phone']    = trim($post['emergency_contact_phone'] ?? '') ?: null;
+
+    $clean['allow_email']  = !empty($post['allow_email']) ? 1 : 0;
+    $clean['allow_postal'] = !empty($post['allow_postal']) ? 1 : 0;
 
     return [$errors, $clean];
 }

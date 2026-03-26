@@ -13,6 +13,10 @@
  *
  * Requires config.php and optional email config (smtp or mail).
  * Templates in templates/email/.
+ *
+ * Each reminder is sent with a separate send_mail() call (no bulk API). For a
+ * typical club this is fine; if your host SMTP throttles connections, insert a
+ * short usleep() between sends or lower cron frequency.
  */
 
 require_once __DIR__ . '/../includes/cli_only_script.php';

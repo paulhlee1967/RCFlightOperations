@@ -43,7 +43,8 @@ function render_email_template(string $templateKey, array $vars = [], ?PDO $pdo 
     $obHtml = ob_get_clean();
 
     // Prefer $bodyHtml set by template (branded templates use emailWrap())
-    // Fall back to ob-captured output (simple/legacy templates that echo HTML)
+    // Fall back to ob-captured output (simple/legacy templates that echo HTML).
+    // If both assign $bodyHtml and echo content, $bodyHtml wins (non-empty).
     $html = ($bodyHtml !== null && $bodyHtml !== '') ? $bodyHtml : $obHtml;
 
     if ($subject === '') {

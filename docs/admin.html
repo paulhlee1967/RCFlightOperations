@@ -132,6 +132,12 @@
       Go to <strong>Administration → Configuration</strong>. Settings are organized into
       three tabs: General, Design, and Dues Rules.
     </p>
+    <p>
+      Separately, <strong>Administration → Installation</strong> covers app-wide email and maintenance, plus
+      <strong>Renewal year default — pre-book starts</strong>: the first month when “next calendar year” becomes the
+      default renewal year in <strong>Process Signup / Renewal</strong> (default October). Adjust if your club’s
+      renewal cycle starts in a different month.
+    </p>
 
     <!-- ── General ── -->
     <h2 id="general">General Settings</h2>
@@ -191,7 +197,9 @@
     <!-- ── Email ── -->
     <h2 id="email">Email Configuration</h2>
     <p>
-      Outgoing mail is configured in <code>config.php</code> (SMTP or PHP <code>mail()</code>). The app uses it for
+      Prefer <strong>Administration → Installation</strong> in the app to test email and review SMTP-related options
+      when your build exposes them. Under the hood, outgoing mail is still driven by <code>config.php</code>
+      (SMTP or PHP <code>mail()</code>) on most installs. The app uses it for
       <strong>Email report</strong> (one formatted message to an address you choose), <strong>Email members</strong>
       (individual messages per member from selected reports), and other features that send mail.
     </p>

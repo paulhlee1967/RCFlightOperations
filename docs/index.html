@@ -20,80 +20,11 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap"
         rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
 
   <style>
-    :root {
-      --club-primary:      #6f7c3d;
-      --club-primary-dark: #556030;
-      --club-primary-rgb:  111, 124, 61;
-      --club-primary-dark-rgb: 85, 96, 48;
-      --club-on-primary:     #faf7f0;
-      --club-on-primary-rgb: 250, 247, 240;
-      --club-on-primary-muted: rgba(var(--club-on-primary-rgb), 0.72);
-      --club-bg:           #f3efe4;
-      --club-card:         #faf7f0;
-      --club-text:         #252018;
-      --club-muted:        #665e52;
-      --club-border:       #e0d8ca;
-      --club-accent:       rgba(111,124,61,.09);
-
-      --bs-primary: var(--club-primary);
-      --bs-primary-rgb: var(--club-primary-rgb);
-      --bs-link-color: var(--club-primary);
-      --bs-link-hover-color: var(--club-primary-dark);
-      --bs-link-color-rgb: var(--club-primary-rgb);
-      --bs-link-hover-color-rgb: var(--club-primary-dark-rgb);
-      --bs-focus-ring-color: rgba(var(--club-primary-rgb), 0.28);
-    }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background: var(--club-bg);
-      color: var(--club-text);
-      margin: 0;
-    }
-
-    /* ── Top nav ── */
-    .docs-navbar {
-      background: linear-gradient(135deg, var(--club-primary) 0%, var(--club-primary-dark) 100%);
-      color: var(--club-on-primary);
-      padding: .6rem 1.5rem;
-      display: flex;
-      align-items: center;
-      gap: .75rem;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-      box-shadow: 0 2px 8px rgba(0,0,0,.15);
-    }
-    .docs-navbar .brand {
-      font-family: 'Nunito', sans-serif;
-      font-weight: 800;
-      font-size: 1.15rem;
-      color: var(--club-on-primary);
-      text-decoration: none;
-      letter-spacing: -.01em;
-    }
-    .docs-navbar .badge-docs {
-      background: rgba(var(--club-on-primary-rgb), .15);
-      color: var(--club-on-primary);
-      font-size: .7rem;
-      font-weight: 700;
-      padding: .2rem .55rem;
-      border-radius: 20px;
-      letter-spacing: .04em;
-      text-transform: uppercase;
-    }
-    .docs-navbar .back-link {
-      margin-left: auto;
-      color: var(--club-on-primary-muted);
-      text-decoration: none;
-      font-size: .875rem;
-      display: flex;
-      align-items: center;
-      gap: .3rem;
-    }
-    .docs-navbar .back-link:hover { color: var(--club-on-primary); }
+    /* Hub page only — colours come from docs.css fallbacks + docs-theme.php (club). */
 
     /* ── Hero ── */
     .docs-hero {
@@ -248,8 +179,6 @@
       margin-top: 2.5rem;
     }
   </style>
-
-  <link rel="stylesheet" href="docs-theme.php">
 </head>
 <body>
 
@@ -322,7 +251,7 @@
     <h3>Renewals &amp; Dues</h3>
     <p>Record dues payments your club has already collected. Handle on-time, late, prorated, and complimentary renewals.</p>
     <div class="card-links">
-      <a href="renewals.html#record">Record a renewal</a>
+      <a href="renewals.html#record">Process Signup / Renewal</a>
       <a href="renewals.html#dues">Dues config</a>
       <a href="renewals.html#comps">Comps &amp; free</a>
     </div>

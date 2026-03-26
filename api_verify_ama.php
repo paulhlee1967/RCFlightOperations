@@ -34,8 +34,9 @@ $lastName  = trim($_POST['lastname'] ?? '');
 $amaNumber = trim($_POST['ama_number'] ?? '');
 
 // Per-user, per-minute throttle (session-backed). Clearing cookies or switching
-// browsers resets the counter — acceptable for a self-hosted club tool; for
-// stricter abuse resistance, add IP- or DB-backed limits.
+// browsers resets the counter. That is acceptable here: single-club deployment,
+// authenticated users only, and the response is non-sensitive AMA validity metadata.
+// For stricter abuse resistance (public multi-tenant APIs), use IP- or DB-backed limits.
 $userId  = currentUserId();
 $now     = time();
 $rateKey = 'ama_verify_rl_' . $userId;
@@ -66,6 +67,11 @@ sendAmaJson($result);
 
 // ---------------------------------------------------------------------------
 // Helpers: query AMA site and return JSON (no redirects)
+//
+// This integration scrapes the AMA public verification page HTML to obtain
+// Drupal form_build_id (and related tokens). If the AMA site is redesigned,
+// verification may fail until this code is updated — form_build_id extraction
+// is the most likely breakage point.
 // ---------------------------------------------------------------------------
 
 function getAmaFormBuildID() {

@@ -17,6 +17,29 @@ function installation_save_config_key(PDO $pdo, string $key, string $value): voi
 }
 
 /**
+ * First calendar month (1–12) when the club “pre-books” into the next renewal year for
+ * default year pickers. Default 10 (October): current month >= that month uses next calendar year.
+ */
+function renewal_prebook_start_month(PDO $pdo): int {
+    $default = 10;
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT config_value FROM system_config WHERE config_key = ? LIMIT 1'
+        );
+        $stmt->execute(['renewal_prebook_start_month']);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && isset($row['config_value']) && $row['config_value'] !== '') {
+            $t = (int) $row['config_value'];
+            if ($t >= 1 && $t <= 12) {
+                return $t;
+            }
+        }
+    } catch (Throwable $e) {
+    }
+    return $default;
+}
+
+/**
  * Effective outbound mail settings: DB system_config overrides config.php email block.
  */
 function installation_mail_config(PDO $pdo, ?array $sysConfig = null): array {

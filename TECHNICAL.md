@@ -48,7 +48,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | File | Purpose |
 |------|--------|
 | **db.php** | Loads `config.php`, creates PDO `$pdo`, bootstraps `helpers.php`, `session_ini.php` (session cookie defaults), and `features.php`. Defines `flightops_refresh_maintenance_mode_global()`; **`includes/auth.php` calls it after `session_start()`** so the maintenance banner sees the logged-in session. **Include first** on any page that needs the database. |
-| **helpers.php** | Common utilities: `h()` (HTML escape), `checked()`, `selected()`, `formatMoney()`, `formatDate()`, `defaultRenewalYear()`, `memberStatusBadge()`. Required by `db.php` so they are available everywhere. |
+| **helpers.php** | Common utilities: `h()` (HTML escape), `checked()`, `selected()`, `formatMoney()`, `formatDate()`, `defaultRenewalYear(?PDO)` (uses `renewal_prebook_start_month` from `system_config` when `$pdo` passed), `memberStatusBadge()`. Required by `db.php` so they are available everywhere. |
 | **flash.php** | One-time messages after redirects: `flash($message, $type)`. Messages stored in `$_SESSION['flash']`; `header.php` renders them as Bootstrap toasts and clears them. `getFlash()` returns one message for simple inline use. |
 | **auth.php** | Session and permissions. `requireLogin()`, `requireAdmin()`, `currentUserId()`, `isAdmin()`, `canEditMembers()`, `canProcessMemberships()`, `canManagePayments()` (void mistaken payments: editors and treasurers). Uses `safe_redirect.php` for redirect URLs. Include **after** `db.php`. |
 | **csrf.php** | CSRF token: `csrf_token()`, `csrf_field()`, `csrf_validate($options)` — use `csrf_validate(['json' => true])` for `fetch` JSON endpoints so errors stay machine-readable. |

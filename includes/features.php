@@ -1,10 +1,14 @@
 <?php
 /**
- * Feature registry for optional modules (single-club install: all enabled when logged in).
+ * Feature registry for optional modules.
  *
- *   FEATURES constant       — canonical slug → display name
- *   featureEnabled()        — check if a feature is available
- *   requireFeature()        — gate a page; redirects if not enabled
+ * featureEnabled() is intentionally permissive for typical single-club installs:
+ * every registered feature returns true for logged-in users. The FEATURES map
+ * documents which areas of the app correspond to which capability names.
+ *
+ * To add real toggles later, read from the existing system_config (or similar)
+ * and return false when a feature is disabled — do not leave a stub that looks
+ * like it gates code paths unless it actually does.
  */
 
 const FEATURES = [
@@ -36,7 +40,4 @@ function requireFeature(string $feature): void {
         header('Location: index.php');
         exit;
     }
-}
-
-function clearFeatureCache(): void {
 }

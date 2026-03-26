@@ -4,6 +4,10 @@
  *
  * All SQL and row shaping for each report type. Included by reports.php after
  * auth is established.
+ *
+ * Maintenance: runReport() is a large switch — adding a report means a new case
+ * here (and often a label in reports.php). Splitting into one function per report
+ * is a reasonable future refactor if this file becomes hard to test or navigate.
  */
 
 /**
@@ -11,14 +15,16 @@
  * summary array of stat cards to display above the table.
  *
  * @param PDO        $pdo
- * @param string     $report
- * @param int        $year
+ * @param string     $report  One of: membership_snapshot, birthdays_this_month, renewal_not_renewed,
+ *                            revenue_by_year, ama_faa_expiring, gate_key_compliance, member_type_breakdown,
+ *                            waived_analysis (must match keys in reports.php $reportTypes).
+ * @param int        $year    Selected report year (meaning varies by report; e.g. renewal year filter).
  * @param array<int, string> $membershipTypeLabels slot => label from enabledMembershipTypeLabels()
- * @param array      $options  ['member_type_slot' => ?int]
+ * @param array      $options  ['member_type_slot' => ?int] optional filter for applicable reports
  * @return array{title:string, headers:array, rows:array, summary:array, extra:array, emails:array}
  *   summary items: ['label'=>'...', 'value'=>'...', 'sub'=>'...', 'colour'=>'success|warning|danger|secondary']
- *   extra: arbitrary data passed to the template (e.g. chart datasets)
- *   emails: flat array of ['name'=>'...','email'=>'...'] for reports that include email addresses
+ *   extra: arbitrary data passed to the template (e.g. chart datasets, sectioned AMA/FAA tables)
+ *   emails: rows for CSV/email export — each item includes name, first_name, last_name, email when available
  */
 function runReport(
     PDO $pdo,
@@ -141,7 +147,12 @@ function runReport(
             ');
             $stmt2->execute([$thisMonth]);
             while ($eRow = $stmt2->fetch(PDO::FETCH_ASSOC)) {
-                $emails[] = ['name' => trim($eRow['first_name'] . ' ' . $eRow['last_name']), 'email' => $eRow['email']];
+                $emails[] = [
+                    'name'       => trim($eRow['first_name'] . ' ' . $eRow['last_name']),
+                    'first_name' => $eRow['first_name'] ?? '',
+                    'last_name'  => $eRow['last_name'] ?? '',
+                    'email'      => $eRow['email'] ?? '',
+                ];
             }
             break;
         }
@@ -179,7 +190,12 @@ function runReport(
                 ];
                 $emailVal = trim((string) ($row['email'] ?? ''));
                 if ($emailVal !== '' && !empty($row['allow_email'])) {
-                    $emails[] = ['name' => trim($row['first_name'] . ' ' . $row['last_name']), 'email' => $emailVal];
+                    $emails[] = [
+                        'name'       => trim($row['first_name'] . ' ' . $row['last_name']),
+                        'first_name' => $row['first_name'] ?? '',
+                        'last_name'  => $row['last_name'] ?? '',
+                        'email'      => $emailVal,
+                    ];
                 }
             }
 
@@ -343,7 +359,12 @@ function runReport(
                 $e = trim($r['email'] ?? '');
                 if ($e !== '' && !isset($emailsSeen[$e]) && !empty($r['allow_email'])) {
                     $emailsSeen[$e] = true;
-                    $emails[] = ['name' => trim(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? '')), 'email' => $e];
+                    $emails[] = [
+                        'name'       => trim(($r['first_name'] ?? '') . ' ' . ($r['last_name'] ?? '')),
+                        'first_name' => $r['first_name'] ?? '',
+                        'last_name'  => $r['last_name'] ?? '',
+                        'email'      => $e,
+                    ];
                 }
             }
 
@@ -385,7 +406,12 @@ function runReport(
                 }
                 $e = trim($row['email'] ?? '');
                 if ($e !== '' && !empty($row['allow_email'])) {
-                    $emails[] = ['name' => trim($row['last_name'] . ', ' . $row['first_name']), 'email' => $e];
+                    $emails[] = [
+                        'name'       => trim($row['last_name'] . ', ' . $row['first_name']),
+                        'first_name' => $row['first_name'] ?? '',
+                        'last_name'  => $row['last_name'] ?? '',
+                        'email'      => $e,
+                    ];
                 }
             }
 
@@ -526,8 +552,10 @@ function runReport(
                 $email = trim((string) ($row['email'] ?? ''));
                 if ($email !== '' && !empty($row['allow_email'])) {
                     $emails[] = [
-                        'name'  => trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? '')),
-                        'email' => $email,
+                        'name'       => trim(($row['first_name'] ?? '') . ' ' . ($row['last_name'] ?? '')),
+                        'first_name' => $row['first_name'] ?? '',
+                        'last_name'  => $row['last_name'] ?? '',
+                        'email'      => $email,
                     ];
                 }
             }
@@ -541,4 +569,30 @@ function runReport(
     }
 
     return ['title' => $title, 'headers' => $headers, 'rows' => $rows, 'summary' => $summary, 'extra' => $extra, 'emails' => $emails];
+}
+
+/**
+ * Recipient rows for report_email.php — derived from runReport() so bulk email
+ * lists match the on-screen report and email CSV export for the same parameters.
+ *
+ * @param array $options Same as runReport() (e.g. member_type_slot filter).
+ * @return array<int, array{first_name:string, last_name:string, email:string}>
+ */
+function reportEmailRecipientRows(
+    PDO $pdo,
+    string $report,
+    int $year,
+    array $membershipTypeLabels,
+    array $options = []
+): array {
+    $result = runReport($pdo, $report, $year, $membershipTypeLabels, $options);
+    $out    = [];
+    foreach ($result['emails'] as $e) {
+        $out[] = [
+            'first_name' => (string) ($e['first_name'] ?? ''),
+            'last_name'  => (string) ($e['last_name'] ?? ''),
+            'email'      => trim((string) ($e['email'] ?? '')),
+        ];
+    }
+    return $out;
 }

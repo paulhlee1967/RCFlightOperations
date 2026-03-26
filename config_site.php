@@ -183,14 +183,12 @@ require_once __DIR__ . '/includes/header.php';
     <div>
         <div class="text-muted mb-1" style="font-size:0.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;text-align:right;">Platform</div>
         <div class="d-flex align-items-center gap-2 rounded px-3 py-2 border bg-light">
-            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
-                <circle cx="50" cy="50" r="50" fill="#6f7c3d"/>
-                <path d="M50,50 m-30,0 a30,30 0 0,1 21.2,-21.2" fill="none" stroke="#c9a852" stroke-width="7" stroke-linecap="round"/>
-                <path d="M50,50 m30,0 a30,30 0 0,1 -8.8,28.5" fill="none" stroke="#9d6b4a" stroke-width="7" stroke-linecap="round"/>
-                <g transform="translate(50,50) rotate(-35) translate(-12,-12)">
-                    <path d="M12 2 L20 18 L12 15 L4 18 Z" fill="#faf7f0"/>
-                </g>
-            </svg>
+            <img src="<?= htmlspecialchars(flightops_logo_asset_src()) ?>"
+                 alt="RC Flight Operations"
+                 width="22"
+                 height="22"
+                 decoding="async"
+                 style="height:22px;width:auto;display:block;object-fit:contain;">
             <div>
                 <div style="font-weight:700;font-size:0.82rem;color:#252018;line-height:1.2;">RC Flight Operations</div>
                 <div style="font-size:0.67rem;color:#868e96;letter-spacing:.06em;line-height:1.2;">Member Management</div>

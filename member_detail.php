@@ -2,6 +2,9 @@
 /**
  * Member detail — lightweight JSON endpoint for the quick-view offcanvas panel.
  *
+ * Paired with members.php (offcanvas fetches this URL). Keep response fields in sync
+ * with the panel markup in members.php when changing either file.
+ *
  * GET /member_detail.php?id=N&format=json
  *
  * Returns a JSON object with the fields needed by the offcanvas panel in

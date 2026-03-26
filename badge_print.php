@@ -568,6 +568,8 @@ if (templateData.backgroundPath) {
         return new URL(path, base).href;
     }
 
+    // Backgrounds loaded from external URLs need CORS; same-origin URLs (e.g.
+    // badge_photo.php or relative uploads/) avoid taint. Prefer those over hotlinking.
     function setBackground(done) {
         if (!bgUrl) { done(); return; }
         fabric.Image.fromURL(bgUrl, function(img) {

@@ -8,8 +8,8 @@
  *
  * URL: report_email.php?report=renewal_not_renewed&year=2025
  *
- * The same query logic used in reports.php is re-used here to build the
- * recipient list, ensuring the two stay in sync. Only reports that have
+ * Recipients come from reportEmailRecipientRows() in includes/run_report.php
+ * (same data as the on-screen report). Only reports that have
  * email addresses are supported; others redirect back.
  *
  * Auth: requires canViewReports() (editor, treasurer, admin, viewer).
@@ -22,6 +22,7 @@ require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/flash.php';
 require_once __DIR__ . '/includes/mail.php';
 require_once __DIR__ . '/includes/email_templates.php';
+require_once __DIR__ . '/includes/run_report.php';
 
 requireLogin();
 if (!canViewReports()) {
@@ -57,94 +58,8 @@ $stmt = $pdo->query('SELECT name FROM club WHERE id = 1');
 $clubRow  = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
 $clubName = $clubRow['name'] ?? 'RC Flight Operations';
 
-// ── Build recipient list (mirrors runReport() queries in reports.php) ─────────
-/**
- * Returns array of ['first_name', 'last_name', 'email'] for the given report.
- * Only members with a non-empty email address are included.
- */
-function getReportRecipients(PDO $pdo, string $report, int $year): array {
-    $today = date('Y-m-d');
-    $in60  = date('Y-m-d', strtotime('+60 days'));
-    $recipients = [];
-
-    switch ($report) {
-
-        case 'renewal_not_renewed': {
-            $prevYear = $year - 1;
-            $stmt = $pdo->prepare('
-                SELECT first_name, last_name, email
-                FROM members
-                WHERE membership_renewal_year = ? AND inactive = 0
-                  AND allow_email = 1
-                  AND id NOT IN (
-                      SELECT member_id FROM payments
-                      WHERE year = ? AND (voided_at IS NULL)
-                  )
-                  AND email IS NOT NULL AND TRIM(email) != \'\'
-                ORDER BY last_name, first_name
-            ');
-            $stmt->execute([$prevYear, $year]);
-            $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            break;
-        }
-
-        case 'birthdays_this_month': {
-            $thisMonth = (int) date('n');
-            $stmt = $pdo->prepare('
-                SELECT first_name, last_name, email
-                FROM members
-                WHERE inactive = 0
-                  AND allow_email = 1
-                  AND birthday IS NOT NULL AND MONTH(birthday) = ?
-                  AND membership_renewal_year = ?
-                  AND email IS NOT NULL AND TRIM(email) != \'\'
-                ORDER BY DAY(birthday), last_name
-            ');
-            $stmt->execute([$thisMonth, $year]);
-            $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            break;
-        }
-
-        case 'ama_faa_expiring': {
-            // Union of all AMA/FAA problem members, deduplicated by email
-            $stmt = $pdo->prepare('
-                SELECT DISTINCT first_name, last_name, email
-                FROM members
-                WHERE inactive = 0
-                  AND allow_email = 1
-                  AND email IS NOT NULL AND TRIM(email) != \'\'
-                  AND (
-                      (ama_expiration IS NOT NULL AND ama_expiration != \'\' AND ama_expiration <= ?)
-                      OR (faa_expiration IS NOT NULL AND faa_expiration != \'\' AND faa_expiration <= ?)
-                      OR (TRIM(COALESCE(ama_number,\'\')) = \'\' AND (ama_life_member IS NULL OR ama_life_member = 0) AND membership_renewal_year = ?)
-                      OR (TRIM(COALESCE(faa_number,\'\')) = \'\' AND membership_renewal_year = ?)
-                  )
-                ORDER BY last_name, first_name
-            ');
-            $stmt->execute([$in60, $in60, $year, $year]);
-            $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            break;
-        }
-
-        case 'gate_key_compliance': {
-            $stmt = $pdo->prepare('
-                SELECT first_name, last_name, email
-                FROM members
-                WHERE membership_renewal_year = ? AND inactive = 0
-                  AND allow_email = 1
-                  AND email IS NOT NULL AND TRIM(email) != \'\'
-                ORDER BY last_name, first_name
-            ');
-            $stmt->execute([$year]);
-            $recipients = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            break;
-        }
-    }
-
-    return $recipients;
-}
-
-$recipients = getReportRecipients($pdo, $report, $year);
+$membershipTypeLabels = enabledMembershipTypeLabels($pdo);
+$recipients           = reportEmailRecipientRows($pdo, $report, $year, $membershipTypeLabels, []);
 
 // ── POST: send emails ─────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

@@ -8,6 +8,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit_log.php';
 require_once __DIR__ . '/includes/flash.php';
+require_once __DIR__ . '/includes/validation.php';
 
 requireLogin();
 if (!canEditMembers()) {
@@ -27,45 +28,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ---------------------------------------------------------------------------
 // POST: Save member (and phones, addresses)
 // ---------------------------------------------------------------------------
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && (($_POST['action'] ?? '') === '')) {
-    $title        = trim($_POST['title'] ?? '');
-    $firstName    = trim($_POST['first_name'] ?? '');
-    $lastName     = trim($_POST['last_name'] ?? '');
-    $email        = trim($_POST['email'] ?? '') ?: null;
-    if ($email !== null && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        flash('Enter a valid email address or leave the field blank.', 'warning');
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_member') {
+    [$valErrors, $c] = validate_member_input($_POST);
+    if ($valErrors !== []) {
+        flash(implode(' ', array_values($valErrors)), 'warning');
         header('Location: member_edit.php' . ($memberId ? '?id=' . (int) $memberId : ''));
         exit;
     }
-    $birthday     = trim($_POST['birthday'] ?? '') ?: null;
-    $notes        = trim($_POST['notes'] ?? '') ?: null;
-    $dateJoined   = trim($_POST['date_joined'] ?? '') ?: null;
-    $memSlotRaw   = $_POST['membership_type_slot'] ?? '';
-    $memSlot      = is_numeric($memSlotRaw) ? (int) $memSlotRaw : null;
-    $memSlot      = ($memSlot !== null && $memSlot >= 1 && $memSlot <= 4) ? $memSlot : null;
-    $renewalYear  = trim($_POST['membership_renewal_year'] ?? '') !== '' ? (int) $_POST['membership_renewal_year'] : null;
-    $inactive     = !empty($_POST['inactive']);
-    $suspended    = !empty($_POST['suspended']);
-    $lifeMember   = !empty($_POST['life_member']);
-    $freeMembership = !empty($_POST['free_membership']);
-    $gateKey      = trim($_POST['gate_key_number'] ?? '') ?: null;
-    $amaNumber    = trim($_POST['ama_number'] ?? '') ?: null;
-    $amaExp       = trim($_POST['ama_expiration'] ?? '') ?: null;
-    $amaLife      = !empty($_POST['ama_life_member']);
-    $faaNumber    = trim($_POST['faa_number'] ?? '') ?: null;
-    $faaExp       = trim($_POST['faa_expiration'] ?? '') ?: null;
-    $emergencyName = trim($_POST['emergency_contact_name'] ?? '') ?: null;
-    $emergencyRel  = trim($_POST['emergency_contact_relationship'] ?? '') ?: null;
-    $emergencyPhone = trim($_POST['emergency_contact_phone'] ?? '') ?: null;
-    $allowEmail  = !empty($_POST['allow_email']);
-    $allowPostal = !empty($_POST['allow_postal']);
+
+    $title          = $c['title'];
+    $firstName      = $c['first_name'];
+    $lastName       = $c['last_name'];
+    $email          = $c['email'];
+    $birthday       = $c['birthday'];
+    $notes          = $c['notes'];
+    $dateJoined     = $c['date_joined'];
+    $memSlot        = $c['membership_type_slot'];
+    $renewalYear    = $c['membership_renewal_year'];
+    $inactive       = $c['inactive'];
+    $suspended      = $c['suspended'];
+    $lifeMember     = $c['life_member'];
+    $freeMembership = $c['free_membership'];
+    $gateKey        = $c['gate_key_number'];
+    $amaNumber      = $c['ama_number'];
+    $amaExp         = $c['ama_expiration'];
+    $amaLife        = $c['ama_life_member'];
+    $faaNumber      = $c['faa_number'];
+    $faaExp         = $c['faa_expiration'];
+    $emergencyName  = $c['emergency_contact_name'];
+    $emergencyRel   = $c['emergency_contact_relationship'];
+    $emergencyPhone = $c['emergency_contact_phone'];
+    $allowEmail     = $c['allow_email'];
+    $allowPostal    = $c['allow_postal'];
 
     if ($memberId) {
         $stmt = $pdo->prepare('UPDATE members SET title=?, first_name=?, last_name=?, email=?, birthday=?, notes=?, date_joined=?, membership_type_slot=?, membership_renewal_year=?, inactive=?, suspended=?, life_member=?, free_membership=?, gate_key_number=?, ama_number=?, ama_expiration=?, ama_life_member=?, faa_number=?, faa_expiration=?, emergency_contact_name=?, emergency_contact_relationship=?, emergency_contact_phone=?, allow_email=?, allow_postal=? WHERE id=?');
-        $stmt->execute([$title, $firstName, $lastName, $email, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive ? 1 : 0, $suspended ? 1 : 0, $lifeMember ? 1 : 0, $freeMembership ? 1 : 0, $gateKey, $amaNumber, $amaExp, $amaLife ? 1 : 0, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $allowEmail ? 1 : 0, $allowPostal ? 1 : 0, $memberId]);
+        $stmt->execute([$title, $firstName, $lastName, $email, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $gateKey, $amaNumber, $amaExp, $amaLife, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $allowEmail, $allowPostal, $memberId]);
     } else {
         $stmt = $pdo->prepare('INSERT INTO members (title, first_name, last_name, email, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, allow_email, allow_postal) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-        $stmt->execute([$title, $firstName, $lastName, $email, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive ? 1 : 0, $suspended ? 1 : 0, $lifeMember ? 1 : 0, $freeMembership ? 1 : 0, $gateKey, $amaNumber, $amaExp, $amaLife ? 1 : 0, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $allowEmail ? 1 : 0, $allowPostal ? 1 : 0]);
+        $stmt->execute([$title, $firstName, $lastName, $email, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $gateKey, $amaNumber, $amaExp, $amaLife, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $allowEmail, $allowPostal]);
         $memberId = (int) $pdo->lastInsertId();
     }
 
@@ -285,6 +286,7 @@ require_once __DIR__ . '/includes/header.php';
             <div class="tab-pane fade show active" id="pane-contact" role="tabpanel">
                 <form method="post" action="member_edit.php<?= $memberId ? '?id=' . $memberId : '' ?>" enctype="multipart/form-data" id="member-form">
                     <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="save_member">
                     <div class="row g-3">
                         <div class="col-12 col-md-6 col-lg-4 order-2 order-md-1">
                             <label class="form-label">Photo</label>

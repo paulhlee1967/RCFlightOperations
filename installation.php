@@ -91,11 +91,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo->beginTransaction();
-            $keys = ['app_name','support_email','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','maintenance_mode'];
+            $keys = ['app_name','support_email','renewal_prebook_start_month','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','maintenance_mode'];
             foreach ($keys as $key) {
                 $val = match ($key) {
                     'smtp_port'        => (string) $smtpPort,
                     'maintenance_mode' => empty($_POST['maintenance_mode']) ? '0' : '1',
+                    'renewal_prebook_start_month' => (string) max(1, min(12, (int) ($_POST['renewal_prebook_start_month'] ?? 10))),
                     default            => trim($_POST[$key] ?? ''),
                 };
                 installation_save_config_key($pdo, $key, $val);
@@ -177,6 +178,24 @@ require_once __DIR__ . '/includes/header.php';
                     <label class="form-label" for="support_email">Support email</label>
                     <input type="email" class="form-control" id="support_email" name="support_email"
                            value="<?= h($configRows['support_email'] ?? '') ?>">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="renewal_prebook_start_month">Renewal year default — pre-book starts</label>
+                    <select class="form-select" id="renewal_prebook_start_month" name="renewal_prebook_start_month">
+                        <?php
+                        $preMo = isset($configRows['renewal_prebook_start_month'])
+                            ? max(1, min(12, (int) $configRows['renewal_prebook_start_month']))
+                            : 10;
+                        $monthNames = [1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April', 5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August', 9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December'];
+                        for ($m = 1; $m <= 12; $m++):
+                        ?>
+                        <option value="<?= $m ?>"<?= $preMo === $m ? ' selected' : '' ?>><?= h($monthNames[$m]) ?></option>
+                        <?php endfor; ?>
+                    </select>
+                    <div class="form-text">
+                        From this month through December, the app’s default “renewal year” is the <strong>next</strong> calendar year
+                        (e.g. October → next year). January through the month before use the current year. Default: October.
+                    </div>
                 </div>
                 <div class="col-12">
                     <div class="form-check form-switch">

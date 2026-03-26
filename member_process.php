@@ -17,10 +17,11 @@
  *
  * GET  ?id=N              — load member, show current state
  * GET  ?id=N&year=Y       — jump to a specific renewal year's fulfillment
- * POST action=record_renewal — process the renewal (same logic as member_edit.php)
- * POST action=mark_card       — mark ID card printed in fulfillments
- * POST action=mark_mailer     — mark mailer printed in fulfillments
- * POST action=unmark          — clear a fulfillment task (for corrections)
+ * POST action=record_renewal — insert payment (if any), update member renewal year / notes /
+ *     flags from complementary options, upsert member_fulfillments for the year.
+ * POST action=mark_card — set card_printed_at / card_printed_by on member_fulfillments; set members.badge_printed_at.
+ * POST action=mark_mailer — set mailer_printed_at / mailer_printed_by on member_fulfillments.
+ * POST action=unmark — clear card or mailer fulfillment timestamps (task from POST).
  */
 
 require_once __DIR__ . '/includes/db.php';
@@ -144,8 +145,17 @@ if (!$member) {
     exit;
 }
 
+/** @var array<string, mixed>|null Legacy dues defaults from club row (passed to calculateDues to avoid repeated queries). */
+$clubDuesRow = null;
+try {
+    $cds = $pdo->query('SELECT dues_adult_regular, dues_adult_prorated, dues_initiation, dues_reduced FROM club WHERE id = 1 LIMIT 1');
+    $clubDuesRow = $cds ? $cds->fetch(PDO::FETCH_ASSOC) : null;
+} catch (Throwable $e) {
+    $clubDuesRow = null;
+}
+
 // Which year are we working on?
-$workYear = isset($_GET['year']) ? (int) $_GET['year'] : defaultRenewalYear();
+$workYear = isset($_GET['year']) ? (int) $_GET['year'] : defaultRenewalYear($pdo);
 
 // ---------------------------------------------------------------------------
 // POST: Record renewal
@@ -159,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
         exit;
     }
 
-    $renewalYear  = (int) ($_POST['renewal_year'] ?? defaultRenewalYear());
+    $renewalYear  = (int) ($_POST['renewal_year'] ?? defaultRenewalYear($pdo));
     $renewalType  = $_POST['renewal_type'] ?? ''; // new | on_time | late
     $complementary     = !empty($_POST['complementary']);
     $complementaryStatus = $_POST['complementary_status'] ?? '';
@@ -194,7 +204,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
     $paidAt          = date('Y-m-d');
     $typeSlot        = (int) ($member['membership_type_slot'] ?? 0);
     $prefetchedRules = duesRules($pdo);
-    $calc            = calculateDues($pdo, $typeSlot, $renewalType, $prefetchedRules);
+    $calc            = calculateDues($pdo, $typeSlot, $renewalType, $prefetchedRules, $clubDuesRow);
     $dues            = (float) $calc['dues'];
     $init            = (float) $calc['init'];
 
@@ -343,20 +353,19 @@ if (empty($member['membership_type_slot'])) {
 }
 
 // ---------------------------------------------------------------------------
-// Dues preview — fetch rules ONCE and reuse for all three renewal types.
-// This replaces three separate calculateDues() calls (each of which hit the
-// DB twice) with a single dues rules fetch shared across all calls.
+// Dues preview — fetch rules once; club dues defaults are passed into each
+// calculateDues() call so legacy club columns are not re-queried per type.
 // ---------------------------------------------------------------------------
 $typeSlot        = (int) ($member['membership_type_slot'] ?? 0);
 $prefetchedRules = duesRules($pdo);
 
-$previewCalc = calculateDues($pdo, $typeSlot, 'on_time', $prefetchedRules);
+$previewCalc = calculateDues($pdo, $typeSlot, 'on_time', $prefetchedRules, $clubDuesRow);
 $regPreview  = (float) $previewCalc['regularDues'];
 $proPreview  = (float) $previewCalc['proratedDues'];
 $iniPreview  = (float) $previewCalc['initiationFee'];
 
-$calcNew  = calculateDues($pdo, $typeSlot, 'new',  $prefetchedRules);
-$calcLate = calculateDues($pdo, $typeSlot, 'late', $prefetchedRules);
+$calcNew  = calculateDues($pdo, $typeSlot, 'new',  $prefetchedRules, $clubDuesRow);
+$calcLate = calculateDues($pdo, $typeSlot, 'late', $prefetchedRules, $clubDuesRow);
 
 $duesPreview = [
     'new'     => (float) $calcNew['dues']  + (float) $calcNew['init'],

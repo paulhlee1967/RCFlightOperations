@@ -27,8 +27,20 @@ if (!$row || empty($row['photo_path'])) {
     exit;
 }
 
-$path = __DIR__ . '/' . ltrim($row['photo_path'], '/');
-if (!is_file($path) || !is_readable($path)) {
+$relative = ltrim((string) $row['photo_path'], '/');
+if ($relative === '' || str_contains($relative, '..')) {
+    http_response_code(404);
+    exit;
+}
+$path = realpath(__DIR__ . '/' . $relative);
+$uploadsBase = realpath(__DIR__ . '/uploads');
+if (
+    $path === false
+    || $uploadsBase === false
+    || !is_file($path)
+    || !is_readable($path)
+    || (!str_starts_with($path, $uploadsBase . DIRECTORY_SEPARATOR) && $path !== $uploadsBase)
+) {
     http_response_code(404);
     exit;
 }

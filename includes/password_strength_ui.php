@@ -4,11 +4,14 @@
  * The input must have class "password-strength-input".
  * Place a sibling <div class="password-strength small mt-1" aria-live="polite"></div> immediately after the input.
  * Optionally give the input data-strength-target="id" to point to a specific element by id.
+ *
+ * The strengthLabel() logic intentionally mirrors password_strength_label() in
+ * password_policy.php: server-side code enforces policy; this script only
+ * provides instant UX feedback. The two must be updated together if rules change.
  */
 ?>
 <script<?= csp_nonce_attr() ?>>
 document.addEventListener('DOMContentLoaded', function () {
-    // Mirrors password_strength_label() in password_policy.php for UI display only.
     function strengthLabel(p) {
         if (p.length === 0) return { label: '', class: '' };
         var hasDigit = /[0-9]/.test(p);
