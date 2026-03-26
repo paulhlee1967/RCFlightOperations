@@ -67,6 +67,37 @@
             });
         }
 
+        /** Snapshot current values from an .address-block (innerHTML does not preserve typed input). */
+        function collectAddressBlockValues(block) {
+            if (!block) {
+                return { type: 'Home', street: '', street2: '', city: '', state: '', postal_code: '' };
+            }
+            var sel = block.querySelector('select[name^="addresses["]');
+            var out = {
+                type: sel ? sel.value : 'Home',
+                street: '',
+                street2: '',
+                city: '',
+                state: '',
+                postal_code: ''
+            };
+            ['street', 'street2', 'city', 'state', 'postal_code'].forEach(function (key) {
+                var el = block.querySelector('input[name*="[' + key + ']"]');
+                if (el) out[key] = el.value;
+            });
+            return out;
+        }
+
+        function applyAddressBlockValues(pane, v) {
+            if (!pane || !v) return;
+            var sel = pane.querySelector('select.addr-type, select[name^="addresses["]');
+            if (sel && v.type !== undefined) sel.value = v.type;
+            ['street', 'street2', 'city', 'state', 'postal_code'].forEach(function (key) {
+                var el = pane.querySelector('input[name*="[' + key + ']"]');
+                if (el && v[key] !== undefined) el.value = v[key];
+            });
+        }
+
         // Remove address tab
         wrap.addEventListener('click', function (e) {
             if (!e.target.classList.contains('remove-address')) return;
@@ -123,8 +154,8 @@
                 var blocks = wrap.querySelectorAll('.address-block');
                 if (blocks.length === 1) {
                     var firstBlock = blocks[0];
-                    var typeSelect = firstBlock.querySelector('select[name^="addresses["]');
-                    var typeVal    = typeSelect ? typeSelect.value : 'Home';
+                    var savedAddr  = collectAddressBlockValues(firstBlock);
+                    var typeVal    = savedAddr.type || 'Home';
 
                     wrap.innerHTML =
                         '<ul class="nav nav-tabs nav-tabs-sm mt-1 mb-0" id="addressTabs" role="tablist">' +
@@ -148,6 +179,8 @@
 
                     var sel0 = wrap.querySelector('#addr-pane-0 select');
                     if (sel0) sel0.classList.add('addr-type');
+                    var pane0 = wrap.querySelector('#addr-pane-0');
+                    if (pane0) applyAddressBlockValues(pane0, savedAddr);
                 } else {
                     var div = document.createElement('div');
                     div.className = 'address-block border rounded p-2';
