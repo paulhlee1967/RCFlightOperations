@@ -399,10 +399,10 @@ $_headerBaseHref = '';
                        href="<?= $_headerBaseHref ?>index.php">Home</a>
                 </li>
 
-                <!-- Members (editors + treasurers + above) -->
-                <?php if (function_exists('canEditMembers') && (canEditMembers() || canProcessMemberships())): ?>
+                <!-- Members (viewers + above) -->
+                <?php if (function_exists('canViewMembers') && canViewMembers()): ?>
                 <li class="nav-item">
-                    <a class="nav-link<?= navActive(['members.php', 'member_edit.php', 'member_delete.php', 'member_process.php']) ?>"
+                    <a class="nav-link<?= navActive(['members.php', 'member_edit.php', 'member_view.php', 'member_delete.php', 'member_process.php']) ?>"
                        href="<?= $_headerBaseHref ?>members.php">Members</a>
                 </li>
                 <?php endif; ?>

@@ -61,6 +61,16 @@ function canViewReports(): bool {
     return in_array($role, ['admin', 'editor', 'treasurer', 'viewer'], true);
 }
 
+/**
+ * Members list + read-only member detail (PII) viewing.
+ * NOTE: write actions remain gated by canEditMembers()/canProcessMemberships().
+ */
+function canViewMembers(): bool {
+    if (empty($_SESSION['user_id'])) return false;
+    $role = $_SESSION['user_role'] ?? '';
+    return in_array($role, ['admin', 'editor', 'treasurer', 'viewer'], true);
+}
+
 function canEditMembers(): bool {
     if (empty($_SESSION['user_id'])) return false;
     $role = $_SESSION['user_role'] ?? '';

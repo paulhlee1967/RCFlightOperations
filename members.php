@@ -21,7 +21,7 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 
 requireLogin();
-if (!canEditMembers() && !canProcessMemberships()) {
+if (!canViewMembers()) {
     header('Location: index.php');
     exit;
 }
@@ -519,9 +519,15 @@ if (!empty($_GET['deleted'])) {
     </div>
     <?php endif; ?>
     <div class="member-card-body">
-        <a href="member_edit.php?id=<?= (int) $m['id'] ?>" class="member-card-name">
-            <?= htmlspecialchars($fullName) ?>
-        </a>
+        <?php if (canEditMembers()): ?>
+            <a href="member_edit.php?id=<?= (int) $m['id'] ?>" class="member-card-name">
+                <?= htmlspecialchars($fullName) ?>
+            </a>
+        <?php else: ?>
+            <a href="member_view.php?id=<?= (int) $m['id'] ?>" class="member-card-name">
+                <?= htmlspecialchars($fullName) ?>
+            </a>
+        <?php endif; ?>
         <div class="member-card-meta">
             <?php if (!empty($m['membership_type_slot'])): ?>
             <span class="badge bg-secondary" style="font-size:.7rem;">
@@ -547,12 +553,23 @@ if (!empty($_GET['deleted'])) {
         </div>
     </div>
     <div class="member-card-actions">
-        <a href="member_edit.php?id=<?= (int) $m['id'] ?>"
-           class="btn btn-sm btn-outline-secondary py-0 px-2"
-           style="font-size:.75rem;">Edit</a>
-        <a href="member_process.php?id=<?= (int) $m['id'] ?>"
-           class="btn btn-sm btn-outline-primary py-0 px-2"
-           style="font-size:.75rem;">Renew</a>
+        <button type="button"
+                class="btn btn-sm btn-outline-secondary py-0 px-2 quick-view-btn"
+                style="font-size:.75rem;"
+                title="Quick view"
+                data-member-id="<?= (int) $m['id'] ?>"
+                data-bs-toggle="offcanvas"
+                data-bs-target="#memberQuickView">
+            View
+        </button>
+        <?php if (canEditMembers()): ?>
+            <a href="member_edit.php?id=<?= (int) $m['id'] ?>"
+               class="btn btn-sm btn-outline-secondary py-0 px-2"
+               style="font-size:.75rem;">Edit</a>
+            <a href="member_process.php?id=<?= (int) $m['id'] ?>"
+               class="btn btn-sm btn-outline-primary py-0 px-2"
+               style="font-size:.75rem;">Renew</a>
+        <?php endif; ?>
     </div>
 </div>
 <?php endforeach; ?>
@@ -632,9 +649,10 @@ if (!empty($_GET['deleted'])) {
                                 <?= htmlspecialchars("$lastName, $firstName") ?>
                             </a>
                             <?php else: ?>
-                            <span class="member-name fw-semibold">
+                            <a href="member_view.php?id=<?= (int) $m['id'] ?>"
+                               class="member-name fw-semibold text-decoration-none">
                                 <?= htmlspecialchars("$lastName, $firstName") ?>
-                            </span>
+                            </a>
                             <?php endif; ?>
 
                             <!-- Flag icons -->
@@ -676,7 +694,6 @@ if (!empty($_GET['deleted'])) {
                 <!-- Actions -->
                 <td class="text-end align-middle">
                     <div class="d-flex justify-content-end gap-1">
-                        <?php if (canEditMembers()): ?>
                         <!-- Quick view -->
                         <button type="button"
                                 class="btn btn-sm btn-outline-secondary quick-view-btn"
@@ -689,6 +706,7 @@ if (!empty($_GET['deleted'])) {
                                 <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/>
                             </svg>
                         </button>
+                        <?php if (canEditMembers()): ?>
                         <!-- Edit -->
                         <a href="member_edit.php?id=<?= (int) $m['id'] ?>"
                            class="btn btn-sm btn-outline-primary" title="Edit member">
@@ -981,6 +999,8 @@ if (!empty($_GET['deleted'])) {
      */
     function buildQuickViewHtml(d) {
         const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        const canEdit = <?= json_encode(canEditMembers()) ?>;
+        const recordUrl = canEdit ? ('member_edit.php?id=' + esc(d.id)) : ('member_view.php?id=' + esc(d.id));
 
         let html = '<div class="d-flex align-items-center gap-3 mb-3">';
         if (d.photo_url) {
@@ -1014,7 +1034,7 @@ if (!empty($_GET['deleted'])) {
         html += '</dl>';
 
         if (d.id) {
-            html += '<a href="member_edit.php?id=' + esc(d.id) + '" class="btn btn-outline-primary btn-sm w-100">Open full record →</a>';
+            html += '<a href="' + recordUrl + '" class="btn btn-outline-primary btn-sm w-100">Open full record →</a>';
         }
         return html;
     }

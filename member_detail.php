@@ -23,8 +23,8 @@ flightops_send_security_headers();
 
 requireLogin();
 
-// Only editors and treasurers (and admins) may view member detail
-if (!canEditMembers() && !canProcessMemberships()) {
+// Allow read-only access for "viewer" role too (Members page quick-view).
+if (!canViewMembers()) {
     http_response_code(403);
     header('Content-Type: application/json');
     echo json_encode(['error' => 'Forbidden']);

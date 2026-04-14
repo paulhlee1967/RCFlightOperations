@@ -260,6 +260,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         @set_time_limit(300);
         $mapping = $_SESSION['import_mapping'] ?? [];
         $rows = import_rows_from_session();
+        // Capture the original CSV header order before we clear session state.
+        // Used for the "download failed rows" CSV.
+        $sourceHeaders = $_SESSION['import_headers'] ?? [];
         $updateExistingOrAdd = !empty($_POST['update_existing_or_add']);
         if (empty($mapping['first_name']) || empty($mapping['last_name']) || empty($rows)) {
             $error = 'Session expired. Please upload your CSV again.';
@@ -267,7 +270,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $insertMember = $pdo->prepare('
                 INSERT INTO members (title, first_name, last_name, email, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, allow_email, allow_postal)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ');
             $insertPhone = $pdo->prepare('INSERT INTO member_phones (member_id, type, number) VALUES (?,?,?)');
             $insertAddr = $pdo->prepare('INSERT INTO member_addresses (member_id, type, street, street2, city, state, postal_code) VALUES (?,?,?,?,?,?,?)');
@@ -524,7 +527,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             if (count($failures) > 0) {
                 $_SESSION['import_failures']       = $failures;
-                $_SESSION['import_failures_headers'] = $headers;
+                // Prefer the original CSV headers (preserves column order).
+                // Fallback to keys from the first failure row if needed.
+                if (is_array($sourceHeaders) && count($sourceHeaders) > 0) {
+                    $_SESSION['import_failures_headers'] = $sourceHeaders;
+                } else {
+                    $firstFailureData = $failures[0]['data'] ?? [];
+                    $_SESSION['import_failures_headers'] = is_array($firstFailureData) ? array_keys($firstFailureData) : [];
+                }
             }
             import_clear_row_blob();
             unset($_SESSION['import_headers'], $_SESSION['import_rows'], $_SESSION['import_mapping']);
@@ -576,6 +586,10 @@ if (isset($_GET['download']) && $_GET['download'] === 'sample') {
 if (isset($_GET['download']) && $_GET['download'] === 'failed') {
     $failures = $_SESSION['import_failures'] ?? [];
     $headers  = $_SESSION['import_failures_headers'] ?? [];
+    // If headers weren't stored for some reason, derive them from the failure payload.
+    if (empty($headers) && !empty($failures) && is_array($failures[0]['data'] ?? null)) {
+        $headers = array_keys($failures[0]['data']);
+    }
     if (empty($failures) || empty($headers)) {
         header('Location: import.php');
         exit;
