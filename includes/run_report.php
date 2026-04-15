@@ -47,31 +47,83 @@ function runReport(
         case 'membership_snapshot': {
             $title = "Membership Snapshot — $year";
 
-            $stmt = $pdo->prepare('SELECT COUNT(*) AS cnt FROM members WHERE membership_renewal_year = ? AND inactive = 0');
-            $stmt->execute([$year]);
-            $totalActive = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+            // IMPORTANT: Historical membership is based on per-year records (payments and/or fulfillments),
+            // not members.membership_renewal_year (which is a single current value).
+            $renewedSetSql = '
+                SELECT DISTINCT member_id
+                FROM payments
+                WHERE year = ? AND (voided_at IS NULL)
+                UNION
+                SELECT DISTINCT member_id
+                FROM member_fulfillments
+                WHERE year = ?
+            ';
 
-            $stmt = $pdo->prepare('SELECT COUNT(*) AS cnt FROM members WHERE membership_renewal_year = ? AND inactive = 0');
-            $stmt->execute([$year - 1]);
+            $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM ($renewedSetSql) t");
+            $stmt->execute([$year, $year]);
+            $totalForYear = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+
+            $stmt = $pdo->prepare("
+                SELECT COUNT(*) AS cnt
+                FROM members m
+                JOIN ($renewedSetSql) t ON t.member_id = m.id
+                WHERE m.inactive = 1
+            ");
+            $stmt->execute([$year, $year]);
+            $inactiveForYear = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+            $activeForYear   = max(0, $totalForYear - $inactiveForYear);
+
+            $prevYear = $year - 1;
+            $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM (
+                SELECT DISTINCT member_id
+                FROM payments
+                WHERE year = ? AND (voided_at IS NULL)
+                UNION
+                SELECT DISTINCT member_id
+                FROM member_fulfillments
+                WHERE year = ?
+            ) t");
+            $stmt->execute([$prevYear, $prevYear]);
             $prevYearTotal = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
-            $delta = $totalActive - $prevYearTotal;
+            $delta = $totalForYear - $prevYearTotal;
             $deltaStr = ($delta >= 0 ? '+' : '') . $delta . ' vs ' . ($year - 1);
 
             $stmt = $pdo->prepare('
                 SELECT membership_type_slot, COUNT(*) AS cnt FROM members
-                WHERE membership_renewal_year = ? AND inactive = 0
+                WHERE id IN (
+                    SELECT DISTINCT member_id
+                    FROM payments
+                    WHERE year = ? AND (voided_at IS NULL)
+                    UNION
+                    SELECT DISTINCT member_id
+                    FROM member_fulfillments
+                    WHERE year = ?
+                )
                   AND (life_member = 0 OR life_member IS NULL)
                 GROUP BY membership_type_slot
                 ORDER BY membership_type_slot ASC
             ');
-            $stmt->execute([$year]);
+            $stmt->execute([$year, $year]);
             $byType = [];
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $byType[(int) ($row['membership_type_slot'] ?? 0)] = (int) $row['cnt'];
             }
 
-            $stmt = $pdo->prepare('SELECT COUNT(*) AS cnt FROM members WHERE membership_renewal_year = ? AND inactive = 0 AND life_member = 1');
-            $stmt->execute([$year]);
+            $stmt = $pdo->prepare('
+                SELECT COUNT(*) AS cnt
+                FROM members
+                WHERE id IN (
+                    SELECT DISTINCT member_id
+                    FROM payments
+                    WHERE year = ? AND (voided_at IS NULL)
+                    UNION
+                    SELECT DISTINCT member_id
+                    FROM member_fulfillments
+                    WHERE year = ?
+                )
+                  AND life_member = 1
+            ');
+            $stmt->execute([$year, $year]);
             $lifetime = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
             $headers = ['Type', 'Count'];
@@ -82,11 +134,16 @@ function runReport(
             if ($lifetime) {
                 $rows[] = ['Life members', $lifetime];
             }
-            $rows[] = ['Total active', $totalActive];
+            if ($inactiveForYear) {
+                $rows[] = ['Inactive (currently flagged)', $inactiveForYear];
+            }
+            $rows[] = ['Total renewed', $totalForYear];
 
             $summary = [
-                ['label' => 'Active members', 'value' => $totalActive, 'sub' => $deltaStr, 'colour' => 'primary'],
-                ['label' => 'Life members',   'value' => $lifetime,    'sub' => 'of total', 'colour' => 'secondary'],
+                ['label' => 'Members renewed', 'value' => $totalForYear, 'sub' => $deltaStr, 'colour' => 'primary'],
+                ['label' => 'Active (now)',    'value' => $activeForYear, 'sub' => 'not flagged inactive', 'colour' => 'success'],
+                ['label' => 'Inactive (now)',  'value' => $inactiveForYear, 'sub' => 'flagged inactive', 'colour' => $inactiveForYear > 0 ? 'warning' : 'success'],
+                ['label' => 'Life members',    'value' => $lifetime,    'sub' => 'of total', 'colour' => 'secondary'],
             ];
             foreach ($byType as $t => $cnt) {
                 $summary[] = ['label' => $t > 0 ? ($membershipTypeLabels[$t] ?? ('Type ' . $t)) : 'Other', 'value' => $cnt, 'sub' => '', 'colour' => 'light'];
@@ -163,12 +220,21 @@ function runReport(
 
             $sql = 'SELECT m.first_name, m.last_name, m.email, m.membership_type_slot, m.membership_renewal_year, m.allow_email
                     FROM members m
-                    WHERE m.membership_renewal_year = ? AND m.inactive = 0
+                    WHERE m.id IN (
+                        SELECT DISTINCT member_id FROM payments
+                        WHERE year = ? AND (voided_at IS NULL)
+                        UNION
+                        SELECT DISTINCT member_id FROM member_fulfillments
+                        WHERE year = ?
+                    )
                       AND m.id NOT IN (
-                          SELECT member_id FROM payments
-                          WHERE year = ? AND (voided_at IS NULL)
+                        SELECT DISTINCT member_id FROM payments
+                        WHERE year = ? AND (voided_at IS NULL)
+                        UNION
+                        SELECT DISTINCT member_id FROM member_fulfillments
+                        WHERE year = ?
                       )';
-            $params = [$prevYear, $year];
+            $params = [$prevYear, $prevYear, $year, $year];
             if ($memberTypeSlot !== null) {
                 $sql    .= ' AND m.membership_type_slot = ?';
                 $params[] = $memberTypeSlot;
@@ -199,8 +265,14 @@ function runReport(
                 }
             }
 
-            $stmt = $pdo->prepare('SELECT COUNT(*) AS cnt FROM members WHERE membership_renewal_year = ? AND inactive = 0');
-            $stmt->execute([$prevYear]);
+            $stmt = $pdo->prepare('SELECT COUNT(*) AS cnt FROM (
+                SELECT DISTINCT member_id FROM payments
+                WHERE year = ? AND (voided_at IS NULL)
+                UNION
+                SELECT DISTINCT member_id FROM member_fulfillments
+                WHERE year = ?
+            ) t');
+            $stmt->execute([$prevYear, $prevYear]);
             $lastYearTotal = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
             $renewedCount  = $lastYearTotal - count($rows);
             $rate = $lastYearTotal > 0 ? round($renewedCount / $lastYearTotal * 100) : 0;
@@ -385,10 +457,16 @@ function runReport(
             $stmt = $pdo->prepare('
                 SELECT first_name, last_name, email, gate_key_number, allow_email
                 FROM members
-                WHERE membership_renewal_year = ? AND inactive = 0
+                WHERE id IN (
+                    SELECT DISTINCT member_id FROM payments
+                    WHERE year = ? AND (voided_at IS NULL)
+                    UNION
+                    SELECT DISTINCT member_id FROM member_fulfillments
+                    WHERE year = ?
+                )
                 ORDER BY CAST(gate_key_number AS UNSIGNED), last_name
             ');
-            $stmt->execute([$year]);
+            $stmt->execute([$year, $year]);
 
             $headers = ['Name', 'Email', 'Key #'];
             $withKey    = 0;
@@ -430,11 +508,17 @@ function runReport(
             $stmt = $pdo->prepare('
                 SELECT membership_type_slot, COUNT(*) AS cnt
                 FROM members
-                WHERE membership_renewal_year = ? AND inactive = 0
+                WHERE id IN (
+                    SELECT DISTINCT member_id FROM payments
+                    WHERE year = ? AND (voided_at IS NULL)
+                    UNION
+                    SELECT DISTINCT member_id FROM member_fulfillments
+                    WHERE year = ?
+                )
                 GROUP BY membership_type_slot
                 ORDER BY membership_type_slot ASC
             ');
-            $stmt->execute([$year]);
+            $stmt->execute([$year, $year]);
 
             $headers = ['Type', 'Count', '% of total'];
             $typeCounts = [];

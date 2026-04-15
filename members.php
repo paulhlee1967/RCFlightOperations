@@ -510,9 +510,9 @@ if (!empty($_GET['deleted'])) {
                name="member_ids[]" value="<?= (int) $m['id'] ?>">
     </div>
     <?php endif; ?>
-    <?php if (!empty($m['photo_path']) && is_readable(__DIR__ . '/' . $m['photo_path'])): ?>
-    <img src="<?= htmlspecialchars($m['photo_path']) ?>?t=<?= time() ?>"
-         alt="" class="member-card-avatar">
+    <?php if (!empty($m['photo_path']) && is_readable(__DIR__ . '/' . ltrim((string) $m['photo_path'], '/'))): ?>
+    <img src="<?= htmlspecialchars($m['photo_path']) ?>"
+         alt="" class="member-card-avatar" loading="lazy" decoding="async">
     <?php else: ?>
     <div class="member-card-initials" style="background:<?= htmlspecialchars($bgColor) ?>;">
         <?= htmlspecialchars($initials) ?>
@@ -631,10 +631,10 @@ if (!empty($_GET['deleted'])) {
                 <!-- Avatar + name -->
                 <td>
                     <div class="d-flex align-items-center gap-2">
-                        <?php if ($hasPhoto): ?>
-                        <img src="badge_photo.php?id=<?= (int) $m['id'] ?>"
+                <?php if ($hasPhoto && is_readable(__DIR__ . '/' . ltrim((string) $m['photo_path'], '/'))): ?>
+                        <img src="<?= htmlspecialchars($m['photo_path']) ?>"
                              alt="" class="member-avatar"
-                             loading="lazy">
+                             loading="lazy" decoding="async" fetchpriority="low">
                         <?php else: ?>
                         <div class="member-avatar member-initials"
                              style="background-color:<?= $bgColor ?>;">

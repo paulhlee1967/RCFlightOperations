@@ -99,12 +99,13 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="row g-3">
                     <div class="col-12 col-md-4">
                         <label class="form-label text-muted small text-uppercase fw-semibold">Photo</label>
-                        <?php if (!empty($member['photo_path']) && is_readable(__DIR__ . '/' . $member['photo_path'])): ?>
+                        <?php if (!empty($member['photo_path']) && is_readable(__DIR__ . '/' . ltrim((string) $member['photo_path'], '/'))): ?>
                             <p class="mb-0">
-                                <img src="<?= htmlspecialchars($member['photo_path']) ?>?t=<?= time() ?>"
+                                <img src="<?= htmlspecialchars($member['photo_path']) ?>"
                                      alt="Member photo"
                                      class="img-thumbnail rounded d-block"
-                                     style="max-width:180px;max-height:180px;object-fit:cover;">
+                                     style="max-width:180px;max-height:180px;object-fit:cover;"
+                                     loading="lazy" decoding="async">
                             </p>
                         <?php else: ?>
                             <p class="text-muted small mb-0">No photo</p>

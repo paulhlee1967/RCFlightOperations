@@ -120,9 +120,10 @@ if (!empty($member['ama_life_member'])) {
 // ── Photo URL (only if file actually exists) ──────────────────────────────────
 $photoUrl = '';
 if (!empty($member['photo_path'])) {
-    $photoFile = __DIR__ . '/' . ltrim($member['photo_path'], '/');
+    $photoFile = __DIR__ . '/' . ltrim((string) $member['photo_path'], '/');
     if (is_file($photoFile) && is_readable($photoFile)) {
-        $photoUrl = 'badge_photo.php?id=' . $memberId;
+        // Use direct static file path so browsers can cache it (member list can show many photos).
+        $photoUrl = (string) $member['photo_path'];
     }
 }
 
