@@ -49,6 +49,9 @@ try {
 
 require $baseDir . '/includes/mail.php';
 require $baseDir . '/includes/email_templates.php';
+require $baseDir . '/includes/installation_config.php';
+
+$mailCfg = installation_mail_config($pdo);
 
 // ── Parse CLI flags ───────────────────────────────────────────────────────────
 $dryRun    = false;
@@ -117,7 +120,7 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
     }
     try {
         $data = render_email_template('ama_expiry_60', $vars, $pdo);
-        if (send_mail($recipient, $data['subject'], $data['html'], $data['text'])) {
+        if (send_mail($recipient, $data['subject'], $data['html'], $data['text'], $mailCfg)) {
             echo "Sent ama_expiry_60 to {$recipient} (member: {$m['first_name']} {$m['last_name']})\n";
             $sent++;
         } else {
@@ -159,7 +162,7 @@ if (!$isTest) {
         ];
         try {
             $data = render_email_template('ama_expiry_30', $vars, $pdo);
-            if (send_mail($m['email'], $data['subject'], $data['html'], $data['text'])) {
+            if (send_mail($m['email'], $data['subject'], $data['html'], $data['text'], $mailCfg)) {
                 echo "Sent ama_expiry_30 to {$m['email']}\n";
                 $sent++;
             } else {
@@ -213,7 +216,7 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
     }
     try {
         $data = render_email_template('faa_expiry_60', $vars, $pdo);
-        if (send_mail($recipient, $data['subject'], $data['html'], $data['text'])) {
+        if (send_mail($recipient, $data['subject'], $data['html'], $data['text'], $mailCfg)) {
             echo "Sent faa_expiry_60 to {$recipient} (member: {$m['first_name']} {$m['last_name']})\n";
             $sent++;
         } else {

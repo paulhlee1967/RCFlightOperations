@@ -86,6 +86,7 @@ $result = runReport($pdo, $report, $year, $membershipTypeLabels, $options);
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'email_report') {
     csrf_validate();
     require_once __DIR__ . '/includes/mail.php';
+    require_once __DIR__ . '/includes/installation_config.php';
 
     $toEmail = trim($_POST['to_email'] ?? '');
     $note    = trim($_POST['note'] ?? '');
@@ -224,7 +225,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'email
 
         // ── Send ──────────────────────────────────────────────────────────
         $subject = $clubName . ' — ' . $result['title'];
-        $ok = send_mail($toEmail, $subject, $bodyHtml);
+        $mailCfg = installation_mail_config($pdo);
+        $ok = send_mail($toEmail, $subject, $bodyHtml, null, $mailCfg);
 
         if ($ok) {
             require_once __DIR__ . '/includes/flash.php';

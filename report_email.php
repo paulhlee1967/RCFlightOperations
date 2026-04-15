@@ -23,6 +23,7 @@ require_once __DIR__ . '/includes/flash.php';
 require_once __DIR__ . '/includes/mail.php';
 require_once __DIR__ . '/includes/email_templates.php';
 require_once __DIR__ . '/includes/run_report.php';
+require_once __DIR__ . '/includes/installation_config.php';
 
 requireLogin();
 if (!canViewReports()) {
@@ -99,7 +100,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             try {
                 $rendered = render_email_template('report_list', $vars);
-                $ok = send_mail($email, $rendered['subject'], $rendered['html'], $rendered['text']);
+                $mailCfg = installation_mail_config($pdo);
+                $ok = send_mail($email, $rendered['subject'], $rendered['html'], $rendered['text'], $mailCfg);
                 $ok ? $sent++ : $failed++;
             } catch (Throwable $e) {
                 $failed++;

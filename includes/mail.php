@@ -137,7 +137,22 @@ function mail_last_error(string $msg): void {
  */
 function send_mail_via_php(string $to, string $subject, string $bodyHtml, ?string $bodyText, string $fromAddress, string $fromName): bool
 {
-    $fromHeader = 'From: ' . ($fromName ? "\"{$fromName}\" <{$fromAddress}>" : $fromAddress);
+    $encodeHeader = static function (string $value): string {
+        $value = trim($value);
+        if ($value === '') {
+            return '';
+        }
+        if (function_exists('mb_encode_mimeheader')) {
+            return mb_encode_mimeheader($value, 'UTF-8', 'B', "\r\n");
+        }
+        // Fallback: RFC 2047 base64 (single line).
+        return '=?UTF-8?B?' . base64_encode($value) . '?=';
+    };
+
+    $encodedFromName = $fromName !== '' ? $encodeHeader($fromName) : '';
+    $encodedSubject  = $encodeHeader($subject);
+
+    $fromHeader = 'From: ' . ($encodedFromName ? "\"{$encodedFromName}\" <{$fromAddress}>" : $fromAddress);
     $boundary   = '----_' . md5(uniqid());
     $headers    = [
         $fromHeader,
@@ -150,5 +165,5 @@ function send_mail_via_php(string $to, string $subject, string $bodyHtml, ?strin
         . "--{$boundary}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n{$bodyHtml}\r\n"
         . "--{$boundary}--";
 
-    return @mail($to, $subject, $body, implode("\r\n", $headers));
+    return @mail($to, $encodedSubject, $body, implode("\r\n", $headers));
 }

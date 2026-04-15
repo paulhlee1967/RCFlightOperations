@@ -8,6 +8,7 @@
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/mail.php';
+require_once __DIR__ . '/includes/installation_config.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -87,14 +88,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $token     = bin2hex(random_bytes(32));
             $tokenHash = hash('sha256', $token);
-            $expiresAt = date('Y-m-d H:i:s', time() + 3600);
 
             $pdo->prepare('DELETE FROM password_reset_tokens WHERE email = ?')->execute([$email]);
 
             try {
                 $pdo->prepare(
-                    'INSERT INTO password_reset_tokens (token_hash, email, expires_at) VALUES (?, ?, ?)'
-                )->execute([$tokenHash, $email, $expiresAt]);
+                    'INSERT INTO password_reset_tokens (token_hash, email, expires_at) VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 1 HOUR))'
+                )->execute([$tokenHash, $email]);
             } catch (Throwable $e) {
                 $sent = true;
                 goto show_form;
@@ -114,7 +114,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      . 'Your password has not been changed.</p>';
 
             $bodyText = strip_tags($body);
-            if (!send_mail($email, $subject, $body, $bodyText)) {
+            $mailCfg = installation_mail_config($pdo);
+            if (!send_mail($email, $subject, $body, $bodyText, $mailCfg)) {
                 $error = 'We could not send the email. Please try again later or contact your club admin.';
             } else {
                 $sent = true;

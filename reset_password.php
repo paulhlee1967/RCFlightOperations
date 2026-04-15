@@ -7,6 +7,7 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/password_policy.php';
 require_once __DIR__ . '/includes/mail.php';
+require_once __DIR__ . '/includes/installation_config.php';
 
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -95,7 +96,8 @@ if ($token === '' || strlen($token) !== 64 || !ctype_xdigit($token)) {
                             "You can log in here: {$loginUrl}\n\n" .
                             "— " . ($clubName ?: 'RC Flight Operations');
 
-                        send_mail($email, $subject, $bodyHtml, $bodyText);
+                        $mailCfg = installation_mail_config($pdo);
+                        send_mail($email, $subject, $bodyHtml, $bodyText, $mailCfg);
                     } catch (Throwable $e) {
                     }
                 } catch (Throwable $e) {
