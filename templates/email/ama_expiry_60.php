@@ -15,6 +15,9 @@ $amaNumber      = htmlspecialchars($ama_number       ?? '');
 $amaExpiration  = htmlspecialchars($ama_expiration   ?? '');
 $daysRemaining  = (int) ($days_remaining             ?? 60);
 $clubNameEsc    = htmlspecialchars($club_name        ?? 'RC Flight Operations');
+$theme          = emailTheme(['club_name' => $vars['club_name'] ?? 'RC Flight Operations'], $pdo ?? null);
+$btnBg          = $theme['color_primary'];
+$btnText        = $theme['on_primary'];
 
 $subject = ($club_name ?? 'RC Flight Operations')
     . ' – Your AMA membership expires in ' . $daysRemaining . ' days';
@@ -25,6 +28,8 @@ $bodyText =
     . "That's in {$daysRemaining} days — please renew at "
     . "https://www.modelaircraft.org/membership/enroll "
     . "to stay in good standing and keep flying at the field.\n\n"
+    . "After renewing, please email membership@pvmac.com with your updated AMA expiration date and a copy of your new AMA card so we can update club records.\n\n"
+    . "Please do not reply to this address. If you need to contact the club, email info@pvmac.com.\n\n"
     . "— {$clubNameEsc}";
 
 // ── Status pill color (60 days = amber warning) ──────────────────────────────
@@ -83,10 +88,10 @@ $content = <<<HTML
 <!-- CTA button -->
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;">
 <tr>
-  <td style="border-radius:6px;background:#6f7c3d;">
+  <td style="border-radius:6px;background:{$btnBg};">
     <a href="https://www.modelaircraft.org/membership/enroll"
        style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;
-              color:#ffffff;text-decoration:none;letter-spacing:0.04em;">
+              color:{$btnText};text-decoration:none;letter-spacing:0.04em;">
       Renew at modelaircraft.org →
     </a>
   </td>
@@ -94,8 +99,8 @@ $content = <<<HTML
 </table>
 
 <p style="margin:0;font-size:13px;color:#9e8f7e;line-height:1.6;">
-  After renewing, please update your expiration date on your member profile
-  so we have your current information on file.
+  After renewing, please email <a href="mailto:membership@pvmac.com" style="color:#6f7c3d;">membership@pvmac.com</a>
+  with your updated AMA expiration date and a copy of your new AMA card so we can update club records.
 </p>
 HTML;
 

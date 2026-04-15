@@ -21,7 +21,7 @@
  *                               When null, falls back to defaults.
  * @return string     Complete HTML document string.
  */
-function emailWrap(string $content, array $vars, ?PDO $pdo = null): string
+function emailTheme(array $vars, ?PDO $pdo = null): array
 {
     $clubName = htmlspecialchars($vars['club_name'] ?? 'RC Flight Operations');
 
@@ -67,15 +67,41 @@ function emailWrap(string $content, array $vars, ?PDO $pdo = null): string
         }
     }
 
-    // ── Compute WCAG-safe text color for the primary background ────────────
-    // Quick relative luminance check: light primary → dark text, dark primary → white text.
-    $hex     = ltrim($colorPrimary, '#');
-    $r       = hexdec(substr($hex, 0, 2)) / 255;
-    $g       = hexdec(substr($hex, 2, 2)) / 255;
-    $b       = hexdec(substr($hex, 4, 2)) / 255;
-    $toLin   = fn(float $c): float => $c <= 0.03928 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
-    $lum     = 0.2126 * $toLin($r) + 0.7152 * $toLin($g) + 0.0722 * $toLin($b);
-    $onPrimary = $lum >= 0.45 ? '#252018' : '#ffffff';
+    $computeOnColor = static function (string $hexColor): string {
+        $hex = ltrim($hexColor, '#');
+        if (!preg_match('/^[0-9A-Fa-f]{6}$/', $hex)) {
+            return '#ffffff';
+        }
+        $r = hexdec(substr($hex, 0, 2)) / 255;
+        $g = hexdec(substr($hex, 2, 2)) / 255;
+        $b = hexdec(substr($hex, 4, 2)) / 255;
+        $toLin = fn(float $c): float => $c <= 0.03928 ? $c / 12.92 : (($c + 0.055) / 1.055) ** 2.4;
+        $lum = 0.2126 * $toLin($r) + 0.7152 * $toLin($g) + 0.0722 * $toLin($b);
+        return $lum >= 0.45 ? '#252018' : '#ffffff';
+    };
+
+    return [
+        'club_name'          => $clubName,
+        'color_primary'      => $colorPrimary,
+        'color_primary_dark' => $colorPrimaryDark,
+        'color_bg'           => $colorBg,
+        'color_text'         => $colorText,
+        'on_primary'         => $computeOnColor($colorPrimary),
+        'on_primary_dark'    => $computeOnColor($colorPrimaryDark),
+        'logo_data_uri'      => $logoDataUri,
+    ];
+}
+
+function emailWrap(string $content, array $vars, ?PDO $pdo = null): string
+{
+    $theme = emailTheme($vars, $pdo);
+    $clubName = $theme['club_name'];
+    $colorPrimary = $theme['color_primary'];
+    $colorPrimaryDark = $theme['color_primary_dark'];
+    $colorBg = $theme['color_bg'];
+    $colorText = $theme['color_text'];
+    $logoDataUri = $theme['logo_data_uri'];
+    $onPrimary = $theme['on_primary'];
 
     $year = date('Y');
 
@@ -180,7 +206,8 @@ HTML
             </p>
             <p style="margin:0;font-size:11px;color:#9e9080;line-height:1.6;">
               This email was sent to you as a club member.<br>
-              If you have questions, reply to this email or contact your club secretary.
+              Please do not reply to this address. If you need to contact the club, email
+              <a href="mailto:info@pvmac.com" style="color:{$colorPrimary};text-decoration:none;">info@pvmac.com</a>.
             </p>
             <p style="margin:12px 0 0;font-size:10px;color:#bbb;">
               &copy; {$year} $clubName &nbsp;·&nbsp; Powered by RC Flight Operations

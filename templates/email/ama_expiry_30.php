@@ -15,6 +15,9 @@ $amaNumber     = htmlspecialchars($ama_number     ?? '');
 $amaExpiration = htmlspecialchars($ama_expiration ?? '');
 $daysRemaining = (int) ($days_remaining           ?? 30);
 $clubNameEsc   = htmlspecialchars($club_name      ?? 'RC Flight Operations');
+$theme         = emailTheme(['club_name' => $vars['club_name'] ?? 'RC Flight Operations'], $pdo ?? null);
+$btnBg         = $theme['color_primary_dark'];
+$btnText       = $theme['on_primary_dark'];
 
 $subject = ($club_name ?? 'RC Flight Operations')
     . ' – AMA expires in ' . $daysRemaining . ' days – renew soon';
@@ -25,6 +28,8 @@ $bodyText =
     . "That's only {$daysRemaining} days away — renew at "
     . "https://www.modelaircraft.org/membership/enroll "
     . "so you can keep flying at the field.\n\n"
+    . "After renewing, please email membership@pvmac.com with your updated AMA expiration date and a copy of your new AMA card so we can update club records.\n\n"
+    . "Please do not reply to this address. If you need to contact the club, email info@pvmac.com.\n\n"
     . "— {$clubNameEsc}";
 
 $content = <<<HTML
@@ -82,10 +87,10 @@ $content = <<<HTML
 <!-- CTA button -->
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
 <tr>
-  <td style="border-radius:6px;background:#dc2626;">
+  <td style="border-radius:6px;background:{$btnBg};">
     <a href="https://www.modelaircraft.org/membership/enroll"
        style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:700;
-              color:#ffffff;text-decoration:none;letter-spacing:0.04em;">
+              color:{$btnText};text-decoration:none;letter-spacing:0.04em;">
       Renew Now at modelaircraft.org →
     </a>
   </td>
