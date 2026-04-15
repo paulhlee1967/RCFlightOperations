@@ -23,8 +23,10 @@ require_once __DIR__ . '/../includes/cli_only_script.php';
 flightops_require_cli();
 
 $baseDir = dirname(__DIR__);
+require_once $baseDir . '/includes/app_log.php';
 if (!is_file($baseDir . '/config.php')) {
     fwrite(STDERR, "Missing config.php.\n");
+    flightops_log('ERROR', 'send_reminders: missing config.php', [], 'cron');
     exit(1);
 }
 
@@ -44,6 +46,7 @@ try {
     ]);
 } catch (PDOException $e) {
     fwrite(STDERR, 'Database connection failed: ' . $e->getMessage() . "\n");
+    flightops_log('ERROR', 'send_reminders: DB connection failed', ['error' => $e->getMessage()], 'cron');
     exit(1);
 }
 
@@ -78,6 +81,8 @@ if ($isTest) {
 
 $sent   = 0;
 $errors = 0;
+$startedAt = microtime(true);
+flightops_log('INFO', 'send_reminders: start', ['dry_run' => $dryRun, 'test_email' => $testEmail], 'cron');
 
 // ── AMA expiry in 60 days (exclude life members) ──────────────────────────
 if ($isTest) {
@@ -126,10 +131,22 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
         } else {
             $lastErr = function_exists('get_last_mail_error') ? get_last_mail_error() : 'unknown';
             fwrite(STDERR, "FAILED ama_expiry_60 to {$recipient}: {$lastErr}\n");
+            flightops_log('WARN', 'send_reminders: email send failed', [
+                'template' => 'ama_expiry_60',
+                'to'       => $recipient,
+                'member_id'=> (int) ($m['id'] ?? 0),
+                'error'    => $lastErr,
+            ], 'cron');
             $errors++;
         }
     } catch (Throwable $e) {
         fwrite(STDERR, "ERROR ama_expiry_60 to {$recipient}: " . $e->getMessage() . "\n");
+        flightops_log('ERROR', 'send_reminders: exception while sending', [
+            'template' => 'ama_expiry_60',
+            'to'       => $recipient,
+            'member_id'=> (int) ($m['id'] ?? 0),
+            'error'    => $e->getMessage(),
+        ], 'cron');
         $errors++;
     }
 }
@@ -168,10 +185,22 @@ if (!$isTest) {
             } else {
                 $lastErr = function_exists('get_last_mail_error') ? get_last_mail_error() : 'unknown';
                 fwrite(STDERR, "FAILED ama_expiry_30 to {$m['email']}: {$lastErr}\n");
+                flightops_log('WARN', 'send_reminders: email send failed', [
+                    'template' => 'ama_expiry_30',
+                    'to'       => (string) $m['email'],
+                    'member_id'=> (int) ($m['id'] ?? 0),
+                    'error'    => $lastErr,
+                ], 'cron');
                 $errors++;
             }
         } catch (Throwable $e) {
             fwrite(STDERR, "ERROR ama_expiry_30 to {$m['email']}: " . $e->getMessage() . "\n");
+            flightops_log('ERROR', 'send_reminders: exception while sending', [
+                'template' => 'ama_expiry_30',
+                'to'       => (string) $m['email'],
+                'member_id'=> (int) ($m['id'] ?? 0),
+                'error'    => $e->getMessage(),
+            ], 'cron');
             $errors++;
         }
     }
@@ -222,13 +251,27 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
         } else {
             $lastErr = function_exists('get_last_mail_error') ? get_last_mail_error() : 'unknown';
             fwrite(STDERR, "FAILED faa_expiry_60 to {$recipient}: {$lastErr}\n");
+            flightops_log('WARN', 'send_reminders: email send failed', [
+                'template' => 'faa_expiry_60',
+                'to'       => $recipient,
+                'member_id'=> (int) ($m['id'] ?? 0),
+                'error'    => $lastErr,
+            ], 'cron');
             $errors++;
         }
     } catch (Throwable $e) {
         fwrite(STDERR, "ERROR faa_expiry_60 to {$recipient}: " . $e->getMessage() . "\n");
+        flightops_log('ERROR', 'send_reminders: exception while sending', [
+            'template' => 'faa_expiry_60',
+            'to'       => $recipient,
+            'member_id'=> (int) ($m['id'] ?? 0),
+            'error'    => $e->getMessage(),
+        ], 'cron');
         $errors++;
     }
 }
 
 echo "\nDone. Sent: $sent, Errors: $errors\n";
+$elapsedMs = (int) round((microtime(true) - $startedAt) * 1000);
+flightops_log('INFO', 'send_reminders: done', ['sent' => $sent, 'errors' => $errors, 'elapsed_ms' => $elapsedMs], 'cron');
 exit($errors > 0 ? 1 : 0);

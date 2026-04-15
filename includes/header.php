@@ -456,6 +456,10 @@ $_headerBaseHref = '';
                             <a class="dropdown-item<?= navActive('audit_log_viewer.php') ? ' active' : '' ?>"
                                href="<?= $_headerBaseHref ?>audit_log_viewer.php">Audit log</a>
                         </li>
+                        <li>
+                            <a class="dropdown-item<?= navActive('logs_viewer.php') ? ' active' : '' ?>"
+                               href="<?= $_headerBaseHref ?>logs_viewer.php">File logs</a>
+                        </li>
                     </ul>
                 </li>
                 <?php endif; ?>
