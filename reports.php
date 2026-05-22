@@ -549,7 +549,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="card-body text-center py-5">
                     <div class="text-success mb-2" style="font-size:2rem;">✓</div>
                     <p class="fw-semibold mb-1 text-success">All clear!</p>
-                    <p class="text-muted small mb-0">No compliance issues found for active members.</p>
+                    <p class="text-muted small mb-0">No compliance issues found for current members.</p>
                 </div>
             </div>
             <?php endif; ?>

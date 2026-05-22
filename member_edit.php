@@ -71,6 +71,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     }
 
     if ($memberId) {
+        syncMemberMembershipYearForMember($pdo, $memberId);
+    }
+
+    if ($memberId) {
         $pdo->prepare('DELETE FROM member_phones WHERE member_id = ?')->execute([$memberId]);
         $pdo->prepare('DELETE FROM member_addresses WHERE member_id = ?')->execute([$memberId]);
         $phoneIns = $pdo->prepare('INSERT INTO member_phones (member_id, type, number) VALUES (?,?,?)');
@@ -446,7 +450,7 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                         <div class="col-12">
                             <div class="d-flex flex-wrap gap-3">
-                                <div class="form-check"><input class="form-check-input" type="checkbox" name="inactive" value="1"<?= checked($member['inactive'] ?? 0) ?>><label class="form-check-label">Inactive</label></div>
+                                <div class="form-check"><input class="form-check-input" type="checkbox" name="inactive" value="1"<?= checked($member['inactive'] ?? 0) ?>><label class="form-check-label">Inactive (archived — not a current member)</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="life_member" value="1"<?= checked($member['life_member'] ?? 0) ?>><label class="form-check-label">Life member</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="free_membership" value="1"<?= checked($member['free_membership'] ?? 0) ?>><label class="form-check-label">Free membership</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="suspended" value="1"<?= checked($member['suspended'] ?? 0) ?>><label class="form-check-label">Suspended</label></div>

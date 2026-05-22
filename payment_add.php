@@ -43,6 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $ins = $pdo->prepare('INSERT INTO payments (member_id, paid_at, year, amount_dues, amount_initiation, amount_late_fee, comp) VALUES (?,?,?,?,?,?,?)');
             $ins->execute([$memberId, $paidAt, $year, $dues, $init, $late, $comp ? 1 : 0]);
+            recordMemberMembershipYear($pdo, $memberId, $year, 'payment');
             audit_log($pdo,
                 currentUserId(),
                 'payment_add',

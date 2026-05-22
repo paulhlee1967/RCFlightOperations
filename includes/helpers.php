@@ -120,5 +120,6 @@ function memberStatusBadge(array $member): string {
     return implode(' ', $badges);
 }
 
+require_once __DIR__ . '/membership_status.php';
 require_once __DIR__ . '/dues_helpers.php';
 require_once __DIR__ . '/csp_nonce.php';

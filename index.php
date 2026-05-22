@@ -20,73 +20,58 @@ if (empty($_SESSION['user_role']) && isset($pdo)) {
     if ($row) $_SESSION['user_role'] = $row['role'];
 }
 
-$currentYear = (int) date('Y');
+$currentYear = membershipStatusYear();
 
-$stmt = $pdo->prepare('
-    SELECT
-        SUM(CASE WHEN membership_renewal_year = ? THEN 1 ELSE 0 END) AS this_year,
-        SUM(CASE WHEN membership_renewal_year = ? THEN 1 ELSE 0 END) AS last_year
-    FROM members
-    WHERE inactive = 0
-');
-$stmt->execute([$currentYear, $currentYear - 1]);
-$memberCounts   = $stmt->fetch(PDO::FETCH_ASSOC);
-$activeMembers  = (int) ($memberCounts['this_year'] ?? 0);
-$lastYearCount  = (int) ($memberCounts['last_year'] ?? 0);
-$memberDelta    = $activeMembers - $lastYearCount;
-$memberDeltaStr = ($memberDelta >= 0 ? '+' : '') . $memberDelta . ' vs ' . ($currentYear - 1);
+$currentMembers = countCurrentMembers($pdo, $currentYear);
+$lastYear       = $currentYear - 1;
+// Prior year: who had membership that year (payments/fulfillments), not who still show that renewal year on file.
+$lastYearCount  = countMembersForMembershipYear($pdo, $lastYear);
+$memberDelta    = $currentMembers - $lastYearCount;
+$memberDeltaStr = ($memberDelta >= 0 ? '+' : '') . $memberDelta . ' vs ' . $lastYear;
 
 // ── Stat: not yet renewed this year ─────────────────────────────────────────
-$stmt = $pdo->prepare('
-    SELECT COUNT(*) AS cnt
-    FROM members m
-    WHERE m.membership_renewal_year = ?
-      AND m.inactive = 0
-      AND NOT EXISTS (
-          SELECT 1 FROM payments p
-          WHERE p.member_id = m.id AND p.year = ?
-            AND (p.voided_at IS NULL)
-      )
-');
-$stmt->execute([$currentYear - 1, $currentYear]);
+$notRenewedWhere = notYetRenewedWhereSql('m', $currentYear);
+$stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM members m WHERE {$notRenewedWhere}");
+$stmt->execute(notYetRenewedWhereParams($currentYear));
 $notRenewed = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
 // ── Stat: unprinted badges ───────────────────────────────────────────────────
-$stmt = $pdo->prepare('
+$currentWhere = currentMemberWhereSql('m', $currentYear);
+$stmt = $pdo->prepare("
     SELECT COUNT(*) AS cnt
-    FROM members
-    WHERE membership_renewal_year = ? AND inactive = 0
-      AND (badge_printed_at IS NULL OR YEAR(badge_printed_at) < ?)
-');
-$stmt->execute([$currentYear, $currentYear]);
+    FROM members m
+    WHERE {$currentWhere}
+      AND (m.badge_printed_at IS NULL OR YEAR(m.badge_printed_at) < ?)
+");
+$stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$currentYear]));
 $unprintedBadges = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
 // ── Stat: AMA/FAA compliance alerts ─────────────────────────────────────────
 $in60  = date('Y-m-d', strtotime('+60 days'));
 $today = date('Y-m-d');
 
-$stmt = $pdo->prepare('
-    SELECT COUNT(DISTINCT id) AS cnt
-    FROM members
-    WHERE inactive = 0
+$stmt = $pdo->prepare("
+    SELECT COUNT(DISTINCT m.id) AS cnt
+    FROM members m
+    WHERE {$currentWhere}
       AND (
-        (ama_expiration IS NOT NULL AND ama_expiration != "" AND ama_expiration <= ?)
-        OR (faa_expiration IS NOT NULL AND faa_expiration != "" AND faa_expiration <= ?)
+        (m.ama_expiration IS NOT NULL AND m.ama_expiration != '' AND m.ama_expiration <= ?)
+        OR (m.faa_expiration IS NOT NULL AND m.faa_expiration != '' AND m.faa_expiration <= ?)
       )
-');
-$stmt->execute([$in60, $in60]);
+");
+$stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$in60, $in60]));
 $complianceAlerts = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
-$stmt = $pdo->prepare('
-    SELECT COUNT(DISTINCT id) AS cnt
-    FROM members
-    WHERE inactive = 0
+$stmt = $pdo->prepare("
+    SELECT COUNT(DISTINCT m.id) AS cnt
+    FROM members m
+    WHERE {$currentWhere}
       AND (
-        (ama_expiration IS NOT NULL AND ama_expiration != "" AND ama_expiration < ?)
-        OR (faa_expiration IS NOT NULL AND faa_expiration != "" AND faa_expiration < ?)
+        (m.ama_expiration IS NOT NULL AND m.ama_expiration != '' AND m.ama_expiration < ?)
+        OR (m.faa_expiration IS NOT NULL AND m.faa_expiration != '' AND m.faa_expiration < ?)
       )
-');
-$stmt->execute([$today, $today]);
+");
+$stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$today, $today]));
 $expiredCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
 // ── Stat: birthdays this week ────────────────────────────────────────────────
@@ -98,52 +83,50 @@ $endMd   = date('m-d', strtotime($weekEnd));
 // Use a month-day range so weeks spanning months (e.g. Jan 29 – Feb 4)
 // are handled correctly.
 if ($startMd <= $endMd) {
-    $stmt = $pdo->prepare('
+    $stmt = $pdo->prepare("
         SELECT COUNT(*) AS cnt
-        FROM members
-        WHERE inactive = 0 AND birthday IS NOT NULL
-          AND DATE_FORMAT(birthday, "%m-%d") BETWEEN ? AND ?
-    ');
-    $stmt->execute([$startMd, $endMd]);
+        FROM members m
+        WHERE {$currentWhere} AND m.birthday IS NOT NULL
+          AND DATE_FORMAT(m.birthday, '%m-%d') BETWEEN ? AND ?
+    ");
+    $stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$startMd, $endMd]));
 } else {
-    $stmt = $pdo->prepare('
+    $stmt = $pdo->prepare("
         SELECT COUNT(*) AS cnt
-        FROM members
-        WHERE inactive = 0 AND birthday IS NOT NULL
-          AND (DATE_FORMAT(birthday, "%m-%d") >= ? OR DATE_FORMAT(birthday, "%m-%d") <= ?)
-    ');
-    $stmt->execute([$startMd, $endMd]);
+        FROM members m
+        WHERE {$currentWhere} AND m.birthday IS NOT NULL
+          AND (DATE_FORMAT(m.birthday, '%m-%d') >= ? OR DATE_FORMAT(m.birthday, '%m-%d') <= ?)
+    ");
+    $stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$startMd, $endMd]));
 }
 
 $birthdaysThisWeek = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
 // ── Stat: members with no email ──────────────────────────────────────────────
-$stmt = $pdo->prepare('
+$stmt = $pdo->prepare("
     SELECT COUNT(*) AS cnt
-    FROM members
-    WHERE inactive = 0
-      AND (email IS NULL OR TRIM(email) = "")
-');
-$stmt->execute();
+    FROM members m
+    WHERE {$currentWhere}
+      AND (m.email IS NULL OR TRIM(m.email) = '')
+");
+$stmt->execute(currentMemberWhereParams($currentYear));
 $noEmail = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
 // ── Stat: current year members missing AMA number ────────────────────────────
-$stmt = $pdo->prepare('
+$stmt = $pdo->prepare("
     SELECT COUNT(*) AS cnt
-    FROM members
-    WHERE inactive = 0
-      AND membership_renewal_year = ?
-      AND (ama_number IS NULL OR TRIM(ama_number) = "")
-      AND (ama_life_member IS NULL OR ama_life_member = 0)
-');
-$stmt->execute([$currentYear]);
+    FROM members m
+    WHERE {$currentWhere}
+      AND (m.ama_number IS NULL OR TRIM(m.ama_number) = '')
+      AND (m.ama_life_member IS NULL OR m.ama_life_member = 0)
+");
+$stmt->execute(currentMemberWhereParams($currentYear));
 $missingAma = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
 // ── Nav card counts ──────────────────────────────────────────────────────────
 $totalMembersAll = 0;
 if (canEditMembers() || canProcessMemberships()) {
-    $stmt = $pdo->query('SELECT COUNT(*) FROM members WHERE inactive = 0');
-    $totalMembersAll = (int) $stmt->fetchColumn();
+    $totalMembersAll = $currentMembers;
 }
 
 $pageTitle = 'Home';
@@ -160,7 +143,7 @@ require_once __DIR__ . '/includes/header.php';
 <?php if ((int) date('n') >= 10): ?>
 <div class="alert alert-info alert-dismissible fade show small mb-4" role="alert">
     <strong>Renewal season:</strong> Members who have already paid for next year may show <?= (int) date('Y') + 1 ?> as their renewal year.
-    The <strong>Active members</strong> count above is for the <strong>calendar year <?= (int) date('Y') ?></strong> &mdash; that is expected and does not mean their payment was lost.
+    The <strong>Current members</strong> count above is for the <strong>calendar year <?= (int) date('Y') ?></strong> &mdash; that is expected and does not mean their payment was lost.
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
 <?php endif; ?>
@@ -169,17 +152,17 @@ require_once __DIR__ . '/includes/header.php';
 <?php if (canViewReports() || canEditMembers() || canProcessMemberships()): ?>
 <div class="row g-3 mb-4">
 
-    <!-- Active members -->
+    <!-- Current members -->
     <div class="col-6 col-sm-4 col-xl">
-        <a href="members.php?status=active" class="card stat-card text-decoration-none h-100">
+        <a href="members.php?status=current" class="card stat-card text-decoration-none h-100">
             <div class="card-body p-3">
                 <div class="stat-icon text-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
                         <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
                     </svg>
                 </div>
-                <div class="stat-value text-primary"><?= $activeMembers ?></div>
-                <div class="stat-label">Active members</div>
+                <div class="stat-value text-primary"><?= $currentMembers ?></div>
+                <div class="stat-label">Current members</div>
                 <div class="stat-sub <?= $memberDelta >= 0 ? 'text-success' : 'text-danger' ?>"><?= h($memberDeltaStr) ?></div>
             </div>
         </a>
@@ -205,7 +188,7 @@ require_once __DIR__ . '/includes/header.php';
     <!-- Unprinted badges -->
     <div class="col-6 col-sm-4 col-xl">
         <?php if (canEditMembers() && featureEnabled('badge_designer')): ?>
-        <a href="members.php?status=active" class="card stat-card text-decoration-none h-100">
+        <a href="members.php?status=current" class="card stat-card text-decoration-none h-100">
         <?php else: ?><div class="card stat-card h-100"><?php endif; ?>
             <div class="card-body p-3">
                 <div class="stat-icon <?= $unprintedBadges > 0 ? 'text-secondary' : 'text-success' ?>">
@@ -284,8 +267,8 @@ if ($noEmail > 0) {
         'icon'  => 'bi-envelope-x',
         'color' => 'secondary',
         'count' => $noEmail,
-        'label' => 'active member' . ($noEmail !== 1 ? 's' : '') . ' with no email address on file',
-        'link'  => 'members.php?status=active',
+        'label' => 'current member' . ($noEmail !== 1 ? 's' : '') . ' with no email address on file',
+        'link'  => 'members.php?status=current',
         'cta'   => 'View members →',
     ];
 }
@@ -344,7 +327,7 @@ if ($missingAma > 0) {
                 </div>
                 <div>
                     <h2 class="h6 card-title mb-1">Members</h2>
-                    <p class="card-text text-muted small mb-0"><?= $totalMembersAll ?> active member<?= $totalMembersAll !== 1 ? 's' : '' ?></p>
+                    <p class="card-text text-muted small mb-0"><?= $totalMembersAll ?> current member<?= $totalMembersAll !== 1 ? 's' : '' ?></p>
                 </div>
             </div>
         </a>

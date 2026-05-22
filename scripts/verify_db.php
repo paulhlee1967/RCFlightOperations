@@ -44,7 +44,7 @@ $expectedTables = [
     'club', 'users', 'members', 'member_phones', 'member_addresses',
     'payments', 'dues_rules', 'badge_templates',
     'incidents',
-    'member_fulfillments',
+    'member_fulfillments', 'member_membership_years',
     'system_config', 'operator_messages',
     'audit_log', 'login_attempts', 'password_reset_tokens', 'password_reset_ip_events',
 ];
@@ -76,6 +76,7 @@ $expectedColumns = [
         'ama_reported', 'ama_report_ref', 'reported_by', 'created_at', 'updated_at',
     ],
     'member_fulfillments' => ['id', 'member_id', 'year', 'processed_at', 'processed_by', 'renewal_type', 'card_printed_at', 'card_printed_by', 'mailer_printed_at', 'mailer_printed_by', 'created_at', 'updated_at'],
+    'member_membership_years' => ['id', 'member_id', 'year', 'recorded_at', 'source'],
     'system_config' => ['config_key', 'config_value', 'updated_at'],
     'operator_messages' => ['id', 'subject', 'body', 'sent_to_count', 'target', 'sent_at'],
     'audit_log'       => ['id', 'user_id', 'action', 'target_type', 'target_id', 'detail', 'created_at'],

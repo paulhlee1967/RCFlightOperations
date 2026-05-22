@@ -25,8 +25,14 @@ if (!canViewMembers()) {
     header('Location: index.php');
     exit;
 }
-$currentYear = (int) date('Y');
+
+header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+header('Pragma: no-cache');
+$currentYear = membershipStatusYear();
 $membershipTypeLabels = enabledMembershipTypeLabels($pdo);
+$renewedMemberIds = renewedMemberIdsForYear($pdo, $currentYear);
+$currentMemberWhere = currentMemberWhereSql('m', $currentYear);
+$currentMemberParams = currentMemberWhereParams($currentYear);
 
 // ── Input sanitisation (unchanged from original) ─────────────────────────────
 $searchQ = trim((string) ($_GET['q'] ?? ''));
@@ -46,9 +52,12 @@ if ($memberTypeFilter !== '') {
     if ($memberTypeSlotFilter === null) $memberTypeFilter = '';
 }
 
-$statusFilter = (string) ($_GET['status'] ?? 'active');
-if (!in_array($statusFilter, ['', 'active', 'inactive'], true)) {
-    $statusFilter = 'active';
+$statusFilter = (string) ($_GET['status'] ?? 'current');
+if ($statusFilter === 'active') {
+    $statusFilter = 'current';
+}
+if (!in_array($statusFilter, ['all', 'current', 'inactive'], true)) {
+    $statusFilter = 'current';
 }
 
 // ── ORDER BY clauses (avoid fragile string-replacement) ──────────────────────
@@ -109,12 +118,14 @@ if ($searchQ === '') {
         $countSql .= ' AND membership_type_slot = ?';
         $params[]  = $memberTypeSlotFilter;
     }
-    if ($statusFilter === 'active') {
-        $baseSql  .= ' AND inactive = 0';
-        $countSql .= ' AND inactive = 0';
+    if ($statusFilter === 'current') {
+        $baseSql  .= ' AND ' . currentMemberWhereSql('', $currentYear);
+        $countSql .= ' AND ' . currentMemberWhereSql('', $currentYear);
+        $params    = array_merge($params, currentMemberWhereParams($currentYear));
     } elseif ($statusFilter === 'inactive') {
-        $baseSql  .= ' AND inactive = 1';
-        $countSql .= ' AND inactive = 1';
+        $baseSql  .= ' AND NOT ' . currentMemberWhereSql('', $currentYear);
+        $countSql .= ' AND NOT ' . currentMemberWhereSql('', $currentYear);
+        $params    = array_merge($params, currentMemberWhereParams($currentYear));
     }
     $baseSql .= " $orderBy";
 
@@ -158,12 +169,12 @@ if ($searchQ === '') {
         $baseSql  .= ' AND m.membership_type_slot = ?';
         $countSql .= ' AND m.membership_type_slot = ?';
     }
-    if ($statusFilter === 'active') {
-        $baseSql  .= ' AND m.inactive = 0';
-        $countSql .= ' AND m.inactive = 0';
+    if ($statusFilter === 'current') {
+        $baseSql  .= ' AND ' . currentMemberWhereSql('m', $currentYear);
+        $countSql .= ' AND ' . currentMemberWhereSql('m', $currentYear);
     } elseif ($statusFilter === 'inactive') {
-        $baseSql  .= ' AND m.inactive = 1';
-        $countSql .= ' AND m.inactive = 1';
+        $baseSql  .= ' AND NOT ' . currentMemberWhereSql('m', $currentYear);
+        $countSql .= ' AND NOT ' . currentMemberWhereSql('m', $currentYear);
     }
     $baseSql .= " $orderBySearch";
 
@@ -177,6 +188,9 @@ if ($searchQ === '') {
     if ($memberTypeSlotFilter !== null) {
         $params[] = $memberTypeSlotFilter;
     }
+    if ($statusFilter === 'current' || $statusFilter === 'inactive') {
+        $params = array_merge($params, currentMemberWhereParams($currentYear));
+    }
 }
 
 // ── Counts ────────────────────────────────────────────────────────────────────
@@ -184,19 +198,16 @@ $stmt       = $pdo->prepare($countSql);
 $stmt->execute($params);
 $totalCount = (int) $stmt->fetchColumn();
 
-// Filter-chip counts (active / inactive totals regardless of current status filter)
-$chipCounts = [];
-$chipStmt = $pdo->query('SELECT inactive, COUNT(*) AS cnt FROM members GROUP BY inactive');
-while ($row = $chipStmt->fetch(PDO::FETCH_ASSOC)) {
-    $chipCounts[$row['inactive'] ? 'inactive' : 'active'] = (int) $row['cnt'];
-}
+// Filter-chip counts (current / inactive totals regardless of current status filter)
+$statusCounts = membershipStatusCounts($pdo, $currentYear);
+$chipCounts = [
+    'current'  => $statusCounts['current'],
+    'inactive' => $statusCounts['inactive'],
+];
 
-// Type chip counts (active members only)
-$typeCountStmt = $pdo->query('SELECT membership_type_slot, COUNT(*) AS cnt FROM members WHERE inactive = 0 GROUP BY membership_type_slot');
-$typeCounts = [];
-while ($row = $typeCountStmt->fetch(PDO::FETCH_ASSOC)) {
-    $typeCounts[(int) ($row['membership_type_slot'] ?? 0)] = (int) $row['cnt'];
-}
+// Type chip counts for all status filters (embedded for chip labels + bfcache-safe JS refresh)
+$typeCountsByStatus = membershipTypeSlotCountsByStatus($pdo, $currentYear);
+$typeCounts         = $typeCountsByStatus[$statusFilter] ?? [];
 
 // ── Paginate ──────────────────────────────────────────────────────────────────
 if ($perPage > 0) {
@@ -219,7 +230,7 @@ $queryParams = array_filter([
     'q'           => $searchQ !== '' ? $searchQ : null,
     'per'         => $perPage !== 25 ? $perPage : null,
     'member_type' => $memberTypeFilter !== '' ? $memberTypeFilter : null,
-    'status'      => $statusFilter !== 'active' ? $statusFilter : null,
+    'status'      => $statusFilter,
     'sort'        => $sort !== 'name' ? $sort : null,
 ], fn($v) => $v !== null);
 
@@ -381,50 +392,68 @@ if (!empty($_GET['deleted'])) {
         <span class="text-muted small me-1">Status:</span>
         <?php
         $statuses = [
-            ''         => 'All (' . (($chipCounts['active'] ?? 0) + ($chipCounts['inactive'] ?? 0)) . ')',
-            'active'   => 'Active (' . ($chipCounts['active'] ?? 0) . ')',
+            'all'      => 'All (' . (($chipCounts['current'] ?? 0) + ($chipCounts['inactive'] ?? 0)) . ')',
+            'current'  => 'Current (' . ($chipCounts['current'] ?? 0) . ')',
             'inactive' => 'Inactive (' . ($chipCounts['inactive'] ?? 0) . ')',
         ];
         foreach ($statuses as $val => $label):
-            // Re-evaluate: default statusFilter is 'active', so chip '' should not be active unless explicitly chosen
             $isActive = $statusFilter === $val;
+            $statusChipParams = array_merge($queryParams, ['status' => $val]);
+            unset($statusChipParams['page']);
         ?>
-        <a href="<?= htmlspecialchars(membersUrl(array_merge(
-            array_filter($queryParams, fn($k) => $k !== 'status' && $k !== 'page', ARRAY_FILTER_USE_KEY),
-            $val !== '' ? ['status' => $val] : []
-        ))) ?>"
+        <a href="<?= htmlspecialchars(membersUrl($statusChipParams)) ?>"
            class="btn btn-sm <?= $isActive ? 'btn-primary' : 'btn-outline-secondary' ?> filter-chip">
             <?= $label ?>
         </a>
         <?php endforeach; ?>
 
-        <?php if ($statusFilter === 'active' || $statusFilter === ''): ?>
         <span class="text-muted small ms-2 me-1">Type:</span>
         <?php
-        $types = ['' => 'All'];
+        $typeChips = [
+            '' => [
+                'label'  => 'All',
+                'counts' => [
+                    'all'      => array_sum($typeCountsByStatus['all']),
+                    'current'  => array_sum($typeCountsByStatus['current']),
+                    'inactive' => array_sum($typeCountsByStatus['inactive']),
+                ],
+            ],
+        ];
         foreach ($membershipTypeLabels as $slot => $label) {
-            $types[(string) $slot] = $label . ' (' . ($typeCounts[(int) $slot] ?? 0) . ')';
+            $typeChips[(string) $slot] = [
+                'label'  => $label,
+                'counts' => [
+                    'all'      => $typeCountsByStatus['all'][(int) $slot] ?? 0,
+                    'current'  => $typeCountsByStatus['current'][(int) $slot] ?? 0,
+                    'inactive' => $typeCountsByStatus['inactive'][(int) $slot] ?? 0,
+                ],
+            ];
         }
-        foreach ($types as $val => $label):
+        foreach ($typeChips as $val => $chip):
             $isActive = $memberTypeFilter === $val;
+            $typeChipParams = $queryParams;
+            unset($typeChipParams['page']);
+            if ($val !== '') {
+                $typeChipParams['member_type'] = $val;
+            } else {
+                unset($typeChipParams['member_type']);
+            }
+            $chipCount = $chip['counts'][$statusFilter] ?? 0;
+            $countsJson = json_encode($chip['counts'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT);
         ?>
-        <a href="<?= htmlspecialchars(membersUrl(array_merge(
-            array_filter($queryParams, fn($k) => $k !== 'member_type' && $k !== 'page', ARRAY_FILTER_USE_KEY),
-            $val !== '' ? ['member_type' => $val] : []
-        ))) ?>"
-           class="btn btn-sm <?= $isActive ? 'btn-secondary' : 'btn-outline-secondary' ?> filter-chip">
-            <?= $label ?>
+        <a href="<?= htmlspecialchars(membersUrl($typeChipParams)) ?>"
+           class="btn btn-sm <?= $isActive ? 'btn-secondary' : 'btn-outline-secondary' ?> filter-chip js-type-chip"
+           data-type-label="<?= htmlspecialchars($chip['label'], ENT_QUOTES, 'UTF-8') ?>"
+           data-type-counts="<?= htmlspecialchars($countsJson, ENT_QUOTES, 'UTF-8') ?>">
+            <?= htmlspecialchars($chip['label']) ?> (<?= (int) $chipCount ?>)
         </a>
         <?php endforeach; ?>
-        <?php endif; ?>
     </div>
 
     <!-- Search + sort row -->
     <form method="get" action="members.php" class="row g-2 align-items-end">
         <input type="hidden" name="per" value="<?= (int) $perPage ?>">
-        <?php if ($statusFilter !== 'active'): ?>
         <input type="hidden" name="status" value="<?= htmlspecialchars($statusFilter) ?>">
-        <?php endif; ?>
         <?php if ($memberTypeFilter !== ''): ?>
         <input type="hidden" name="member_type" value="<?= htmlspecialchars($memberTypeFilter) ?>">
         <?php endif; ?>
@@ -448,7 +477,7 @@ if (!empty($_GET['deleted'])) {
         </div>
         <div class="col-auto d-flex gap-1">
             <button type="submit" class="btn btn-sm btn-outline-primary">Search</button>
-            <?php if ($searchQ !== '' || $memberTypeFilter !== '' || ($statusFilter !== '' && $statusFilter !== 'active') || $sort !== 'name'): ?>
+            <?php if ($searchQ !== '' || $memberTypeFilter !== '' || $statusFilter !== 'current' || $sort !== 'name'): ?>
             <a href="members.php" class="btn btn-sm btn-outline-secondary">Clear</a>
             <?php endif; ?>
         </div>
@@ -497,7 +526,7 @@ if (!empty($_GET['deleted'])) {
     $fullName    = trim("$firstName $lastName") ?: 'Unknown';
     $initials    = mb_strtoupper(mb_substr($firstName, 0, 1) . mb_substr($lastName, 0, 1));
     $bgColor     = initialsColor($fullName);
-    $isInactive  = (bool) ($m['inactive']  ?? false);
+    $isInactive  = !memberIsCurrent($m, $currentYear, $renewedMemberIds);
     $isSuspended = (bool) ($m['suspended'] ?? false);
     $renewalYear = (int) ($m['membership_renewal_year'] ?? 0);
     $renewOk     = $renewalYear >= $currentYear;
@@ -603,7 +632,7 @@ if (!empty($_GET['deleted'])) {
                 $fullName    = trim("$firstName $lastName") ?: 'Unknown';
                 $initials    = mb_strtoupper(mb_substr($firstName, 0, 1) . mb_substr($lastName, 0, 1));
                 $bgColor     = initialsColor($fullName);
-                $isInactive  = (bool) ($m['inactive']  ?? false);
+                $isInactive  = !memberIsCurrent($m, $currentYear, $renewedMemberIds);
                 $isSuspended = (bool) ($m['suspended'] ?? false);
                 $isLife      = (bool) ($m['life_member'] ?? false);
                 $isFree      = (bool) ($m['free_membership'] ?? false);
@@ -658,7 +687,7 @@ if (!empty($_GET['deleted'])) {
                             <!-- Flag icons -->
                             <div class="member-flags mt-1">
                                 <?php if ($isInactive): ?>
-                                <span class="flag-badge flag-inactive" title="Inactive">Inactive</span>
+                                <span class="flag-badge flag-inactive" title="Not a current member">Inactive</span>
                                 <?php elseif ($isSuspended): ?>
                                 <span class="flag-badge flag-suspended" title="Suspended">Suspended</span>
                                 <?php endif; ?>
@@ -760,7 +789,7 @@ if (!empty($_GET['deleted'])) {
             <form method="get" action="members.php" id="per-form">
                 <?php if ($searchQ !== ''):       ?><input type="hidden" name="q"           value="<?= htmlspecialchars($searchQ) ?>"><?php endif; ?>
                 <?php if ($memberTypeFilter !== ''):?><input type="hidden" name="member_type" value="<?= htmlspecialchars($memberTypeFilter) ?>"><?php endif; ?>
-                <?php if ($statusFilter !== ''):   ?><input type="hidden" name="status"      value="<?= htmlspecialchars($statusFilter) ?>"><?php endif; ?>
+                <input type="hidden" name="status" value="<?= htmlspecialchars($statusFilter) ?>">
                 <?php if ($sort !== 'name'):        ?><input type="hidden" name="sort"        value="<?= htmlspecialchars($sort) ?>"><?php endif; ?>
                 <select name="per" class="form-select form-select-sm js-submit-on-change" style="width:auto">
                     <option value="25"<?=  $perPage === 25  ? ' selected' : '' ?>>25</option>
@@ -943,6 +972,29 @@ if (!empty($_GET['deleted'])) {
         form.querySelectorAll('.row-checkbox').forEach(cb => cb.addEventListener('change', updateBulkCount));
     }
     updateBulkCount();
+
+    // ── Type chip counts follow URL status (fixes stale counts on back/forward cache) ──
+    function membersPageStatus() {
+        const s = new URLSearchParams(window.location.search).get('status');
+        if (s === 'all' || s === 'current' || s === 'inactive') return s;
+        return 'current';
+    }
+
+    function refreshTypeChipCounts() {
+        const status = membersPageStatus();
+        document.querySelectorAll('.js-type-chip').forEach(function (chip) {
+            const label = chip.getAttribute('data-type-label') || '';
+            let counts = {};
+            try {
+                counts = JSON.parse(chip.getAttribute('data-type-counts') || '{}');
+            } catch (e) { /* ignore */ }
+            const n = Object.prototype.hasOwnProperty.call(counts, status) ? counts[status] : 0;
+            chip.textContent = label + ' (' + n + ')';
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', refreshTypeChipCounts);
+    window.addEventListener('pageshow', refreshTypeChipCounts);
 
     // ── Quick-view offcanvas ──────────────────────────────────────────────
     // Requires member_detail.php?id=N&format=json endpoint.

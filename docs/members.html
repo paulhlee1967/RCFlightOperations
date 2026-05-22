@@ -82,7 +82,7 @@
     <h2 id="search">Search &amp; Filter</h2>
     <p>The filter bar above the list lets you narrow members by:</p>
     <ul>
-      <li><strong>Status chips:</strong> All, Active, Not renewed, Inactive, Suspended</li>
+      <li><strong>Status chips:</strong> All, Current, Inactive (plus membership type when viewing current members)</li>
       <li><strong>Membership type:</strong> Adult, Youth, Senior, Spouse</li>
       <li><strong>Search box:</strong> Searches first name, last name, and email in real time (press Enter or click Search)</li>
     </ul>
@@ -231,16 +231,12 @@
         <thead><tr><th>Status shown</th><th>What it means</th></tr></thead>
         <tbody>
           <tr>
-            <td><span class="badge bg-success">Active</span></td>
-            <td>Renewed for the current year, and not marked inactive or suspended</td>
-          </tr>
-          <tr>
-            <td><span class="badge bg-warning text-dark">Not renewed</span></td>
-            <td>Had a renewal in a previous year but has not yet renewed for the current year</td>
+            <td><span class="badge bg-success">Current</span></td>
+            <td>Renewal year is the current calendar year, payment is on file (or life/free membership), and not marked inactive or suspended</td>
           </tr>
           <tr>
             <td><span class="badge bg-secondary">Inactive</span></td>
-            <td>Marked inactive on the Membership tab — kept in the system but excluded from active counts</td>
+            <td>Everyone who is not a current member — including expired renewals and members marked inactive on the Membership tab</td>
           </tr>
           <tr>
             <td><span class="badge bg-danger">Suspended</span></td>
@@ -248,7 +244,7 @@
           </tr>
           <tr>
             <td><span class="badge" style="background:#6f42c1">Life</span></td>
-            <td>Club life member — shown in addition to Active or Not renewed</td>
+            <td>Club life member — shown in addition to current/inactive status</td>
           </tr>
           <tr>
             <td><span class="badge bg-info text-dark">Free</span></td>

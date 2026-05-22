@@ -47,83 +47,42 @@ function runReport(
         case 'membership_snapshot': {
             $title = "Membership Snapshot — $year";
 
-            // IMPORTANT: Historical membership is based on per-year records (payments and/or fulfillments),
-            // not members.membership_renewal_year (which is a single current value).
-            $renewedSetSql = '
-                SELECT DISTINCT member_id
-                FROM payments
-                WHERE year = ? AND (voided_at IS NULL)
-                UNION
-                SELECT DISTINCT member_id
-                FROM member_fulfillments
-                WHERE year = ?
-            ';
+            $yearFilter = membershipYearReportFilter($pdo, 'm', $year);
+            $yearWhere  = $yearFilter['where'];
+            $yearParams = $yearFilter['params'];
 
-            $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM ($renewedSetSql) t");
-            $stmt->execute([$year, $year]);
-            $totalForYear = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+            $currentForYear = countMembersForMembershipYear($pdo, $year);
 
-            $stmt = $pdo->prepare("
-                SELECT COUNT(*) AS cnt
-                FROM members m
-                JOIN ($renewedSetSql) t ON t.member_id = m.id
-                WHERE m.inactive = 1
-            ");
-            $stmt->execute([$year, $year]);
-            $inactiveForYear = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
-            $activeForYear   = max(0, $totalForYear - $inactiveForYear);
+            $stmt = $pdo->query('SELECT COUNT(*) AS cnt FROM members');
+            $totalMembers = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+            $inactiveForYear = $totalMembers - $currentForYear;
 
             $prevYear = $year - 1;
-            $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM (
-                SELECT DISTINCT member_id
-                FROM payments
-                WHERE year = ? AND (voided_at IS NULL)
-                UNION
-                SELECT DISTINCT member_id
-                FROM member_fulfillments
-                WHERE year = ?
-            ) t");
-            $stmt->execute([$prevYear, $prevYear]);
-            $prevYearTotal = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
-            $delta = $totalForYear - $prevYearTotal;
-            $deltaStr = ($delta >= 0 ? '+' : '') . $delta . ' vs ' . ($year - 1);
+            $prevYearMembers = countMembersForMembershipYear($pdo, $prevYear);
+            $delta = $currentForYear - $prevYearMembers;
+            $deltaStr = ($delta >= 0 ? '+' : '') . $delta . ' vs ' . $prevYear;
+            $snapshotNote = membershipYearHasSnapshot($pdo, $year)
+                ? 'recorded roster'
+                : 'live estimate';
 
             $stmt = $pdo->prepare('
-                SELECT membership_type_slot, COUNT(*) AS cnt FROM members
-                WHERE id IN (
-                    SELECT DISTINCT member_id
-                    FROM payments
-                    WHERE year = ? AND (voided_at IS NULL)
-                    UNION
-                    SELECT DISTINCT member_id
-                    FROM member_fulfillments
-                    WHERE year = ?
-                )
-                  AND (life_member = 0 OR life_member IS NULL)
+                SELECT membership_type_slot, COUNT(*) AS cnt FROM members m
+                WHERE ' . $yearWhere . '
+                  AND (m.life_member = 0 OR m.life_member IS NULL)
                 GROUP BY membership_type_slot
                 ORDER BY membership_type_slot ASC
             ');
-            $stmt->execute([$year, $year]);
+            $stmt->execute($yearParams);
             $byType = [];
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $byType[(int) ($row['membership_type_slot'] ?? 0)] = (int) $row['cnt'];
             }
 
             $stmt = $pdo->prepare('
-                SELECT COUNT(*) AS cnt
-                FROM members
-                WHERE id IN (
-                    SELECT DISTINCT member_id
-                    FROM payments
-                    WHERE year = ? AND (voided_at IS NULL)
-                    UNION
-                    SELECT DISTINCT member_id
-                    FROM member_fulfillments
-                    WHERE year = ?
-                )
-                  AND life_member = 1
+                SELECT COUNT(*) AS cnt FROM members m
+                WHERE ' . $yearWhere . ' AND m.life_member = 1
             ');
-            $stmt->execute([$year, $year]);
+            $stmt->execute($yearParams);
             $lifetime = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
             $headers = ['Type', 'Count'];
@@ -134,16 +93,12 @@ function runReport(
             if ($lifetime) {
                 $rows[] = ['Life members', $lifetime];
             }
-            if ($inactiveForYear) {
-                $rows[] = ['Inactive (currently flagged)', $inactiveForYear];
-            }
-            $rows[] = ['Total renewed', $totalForYear];
+            $rows[] = ['Total current', $currentForYear];
 
             $summary = [
-                ['label' => 'Members renewed', 'value' => $totalForYear, 'sub' => $deltaStr, 'colour' => 'primary'],
-                ['label' => 'Active (now)',    'value' => $activeForYear, 'sub' => 'not flagged inactive', 'colour' => 'success'],
-                ['label' => 'Inactive (now)',  'value' => $inactiveForYear, 'sub' => 'flagged inactive', 'colour' => $inactiveForYear > 0 ? 'warning' : 'success'],
-                ['label' => 'Life members',    'value' => $lifetime,    'sub' => 'of total', 'colour' => 'secondary'],
+                ['label' => 'Current members', 'value' => $currentForYear, 'sub' => $deltaStr . ' · ' . $snapshotNote, 'colour' => 'primary'],
+                ['label' => 'Inactive members', 'value' => $inactiveForYear, 'sub' => 'not current for ' . $year, 'colour' => $inactiveForYear > 0 ? 'warning' : 'success'],
+                ['label' => 'Life members',    'value' => $lifetime, 'sub' => 'among current', 'colour' => 'secondary'],
             ];
             foreach ($byType as $t => $cnt) {
                 $summary[] = ['label' => $t > 0 ? ($membershipTypeLabels[$t] ?? ('Type ' . $t)) : 'Other', 'value' => $cnt, 'sub' => '', 'colour' => 'light'];
@@ -155,16 +110,17 @@ function runReport(
             $title = 'Birthdays This Month — ' . date('F Y');
             $thisMonth = (int) date('m');
 
-            $stmt = $pdo->prepare('
-                SELECT first_name, last_name, birthday,
-                    YEAR(CURDATE()) - YEAR(birthday) AS age
-                FROM members
-                WHERE inactive = 0
-                  AND birthday IS NOT NULL
-                  AND MONTH(birthday) = ?
-                ORDER BY DAY(birthday)
-            ');
-            $stmt->execute([$thisMonth]);
+            $birthdayWhere = currentMemberWhereSql('m', $currentYear);
+            $stmt = $pdo->prepare("
+                SELECT m.first_name, m.last_name, m.birthday,
+                    YEAR(CURDATE()) - YEAR(m.birthday) AS age
+                FROM members m
+                WHERE {$birthdayWhere}
+                  AND m.birthday IS NOT NULL
+                  AND MONTH(m.birthday) = ?
+                ORDER BY DAY(m.birthday)
+            ");
+            $stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$thisMonth]));
 
             $headers = ['Name', 'Birthday', 'Age this year'];
             $todayDay  = (int) date('j');
@@ -193,16 +149,16 @@ function runReport(
                 ['label' => 'Still upcoming',        'value' => $upcoming,   'sub' => $nextName ? 'Next: ' . $nextName . ($nextDate ? ' on ' . $nextDate : '') : '', 'colour' => 'success'],
             ];
 
-            $stmt2 = $pdo->prepare('
-                SELECT first_name, last_name, email
-                FROM members
-                WHERE inactive = 0
-                  AND allow_email = 1
-                  AND birthday IS NOT NULL AND MONTH(birthday) = ?
-                  AND email IS NOT NULL AND TRIM(email) != \'\'
-                ORDER BY DAY(birthday)
-            ');
-            $stmt2->execute([$thisMonth]);
+            $stmt2 = $pdo->prepare("
+                SELECT m.first_name, m.last_name, m.email
+                FROM members m
+                WHERE {$birthdayWhere}
+                  AND m.allow_email = 1
+                  AND m.birthday IS NOT NULL AND MONTH(m.birthday) = ?
+                  AND m.email IS NOT NULL AND TRIM(m.email) != ''
+                ORDER BY DAY(m.birthday)
+            ");
+            $stmt2->execute(array_merge(currentMemberWhereParams($currentYear), [$thisMonth]));
             while ($eRow = $stmt2->fetch(PDO::FETCH_ASSOC)) {
                 $emails[] = [
                     'name'       => trim($eRow['first_name'] . ' ' . $eRow['last_name']),
@@ -218,23 +174,11 @@ function runReport(
             $title = "Not Yet Renewed — $year";
             $prevYear = $year - 1;
 
+            $notRenewedFilter = notYetRenewedReportFilter($pdo, 'm', $year);
             $sql = 'SELECT m.first_name, m.last_name, m.email, m.membership_type_slot, m.membership_renewal_year, m.allow_email
                     FROM members m
-                    WHERE m.id IN (
-                        SELECT DISTINCT member_id FROM payments
-                        WHERE year = ? AND (voided_at IS NULL)
-                        UNION
-                        SELECT DISTINCT member_id FROM member_fulfillments
-                        WHERE year = ?
-                    )
-                      AND m.id NOT IN (
-                        SELECT DISTINCT member_id FROM payments
-                        WHERE year = ? AND (voided_at IS NULL)
-                        UNION
-                        SELECT DISTINCT member_id FROM member_fulfillments
-                        WHERE year = ?
-                      )';
-            $params = [$prevYear, $prevYear, $year, $year];
+                    WHERE ' . $notRenewedFilter['where'];
+            $params = $notRenewedFilter['params'];
             if ($memberTypeSlot !== null) {
                 $sql    .= ' AND m.membership_type_slot = ?';
                 $params[] = $memberTypeSlot;
@@ -265,15 +209,7 @@ function runReport(
                 }
             }
 
-            $stmt = $pdo->prepare('SELECT COUNT(*) AS cnt FROM (
-                SELECT DISTINCT member_id FROM payments
-                WHERE year = ? AND (voided_at IS NULL)
-                UNION
-                SELECT DISTINCT member_id FROM member_fulfillments
-                WHERE year = ?
-            ) t');
-            $stmt->execute([$prevYear, $prevYear]);
-            $lastYearTotal = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+            $lastYearTotal = countMembersForMembershipYear($pdo, $prevYear);
             $renewedCount  = $lastYearTotal - count($rows);
             $rate = $lastYearTotal > 0 ? round($renewedCount / $lastYearTotal * 100) : 0;
 
@@ -356,49 +292,52 @@ function runReport(
             $title = 'AMA/FAA Compliance';
             $today = date('Y-m-d');
             $in60  = date('Y-m-d', strtotime('+60 days'));
+            $complianceWhere = currentMemberWhereSql('m', $currentYear);
+            $complianceParams = currentMemberWhereParams($currentYear);
 
-            $stmt = $pdo->prepare("SELECT first_name, last_name, email, ama_number, ama_expiration, allow_email
-                FROM members WHERE inactive = 0
-                AND ama_expiration IS NOT NULL AND ama_expiration != ''
-                AND ama_expiration >= ? AND ama_expiration <= ?
-                ORDER BY ama_expiration, last_name");
-            $stmt->execute([$today, $in60]);
+            $stmt = $pdo->prepare("SELECT m.first_name, m.last_name, m.email, m.ama_number, m.ama_expiration, m.allow_email
+                FROM members m WHERE {$complianceWhere}
+                AND m.ama_expiration IS NOT NULL AND m.ama_expiration != ''
+                AND m.ama_expiration >= ? AND m.ama_expiration <= ?
+                ORDER BY m.ama_expiration, m.last_name");
+            $stmt->execute(array_merge($complianceParams, [$today, $in60]));
             $amaExpiring = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $stmt = $pdo->prepare("SELECT first_name, last_name, email, ama_number, ama_expiration, allow_email
-                FROM members WHERE inactive = 0
-                AND ama_expiration IS NOT NULL AND ama_expiration != '' AND ama_expiration < ?
-                ORDER BY ama_expiration, last_name");
-            $stmt->execute([$today]);
+            $stmt = $pdo->prepare("SELECT m.first_name, m.last_name, m.email, m.ama_number, m.ama_expiration, m.allow_email
+                FROM members m WHERE {$complianceWhere}
+                AND m.ama_expiration IS NOT NULL AND m.ama_expiration != '' AND m.ama_expiration < ?
+                ORDER BY m.ama_expiration, m.last_name");
+            $stmt->execute(array_merge($complianceParams, [$today]));
             $amaExpired = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $stmt = $pdo->prepare("SELECT first_name, last_name, email, allow_email FROM members
-                WHERE membership_renewal_year = ? AND inactive = 0
-                AND (ama_number IS NULL OR TRIM(COALESCE(ama_number,'')) = '')
-                ORDER BY last_name");
-            $stmt->execute([$currentYear]);
+            $stmt = $pdo->prepare("SELECT m.first_name, m.last_name, m.email, m.allow_email FROM members m
+                WHERE {$complianceWhere}
+                AND (m.ama_number IS NULL OR TRIM(COALESCE(m.ama_number,'')) = '')
+                AND (m.ama_life_member IS NULL OR m.ama_life_member = 0)
+                ORDER BY m.last_name");
+            $stmt->execute($complianceParams);
             $amaMissing = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $stmt = $pdo->prepare("SELECT first_name, last_name, email, faa_number, faa_expiration, allow_email
-                FROM members WHERE inactive = 0
-                AND faa_expiration IS NOT NULL AND faa_expiration != ''
-                AND faa_expiration >= ? AND faa_expiration <= ?
-                ORDER BY faa_expiration, last_name");
-            $stmt->execute([$today, $in60]);
+            $stmt = $pdo->prepare("SELECT m.first_name, m.last_name, m.email, m.faa_number, m.faa_expiration, m.allow_email
+                FROM members m WHERE {$complianceWhere}
+                AND m.faa_expiration IS NOT NULL AND m.faa_expiration != ''
+                AND m.faa_expiration >= ? AND m.faa_expiration <= ?
+                ORDER BY m.faa_expiration, m.last_name");
+            $stmt->execute(array_merge($complianceParams, [$today, $in60]));
             $faaExpiring = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $stmt = $pdo->prepare("SELECT first_name, last_name, email, faa_number, faa_expiration, allow_email
-                FROM members WHERE inactive = 0
-                AND faa_expiration IS NOT NULL AND faa_expiration != '' AND faa_expiration < ?
-                ORDER BY faa_expiration, last_name");
-            $stmt->execute([$today]);
+            $stmt = $pdo->prepare("SELECT m.first_name, m.last_name, m.email, m.faa_number, m.faa_expiration, m.allow_email
+                FROM members m WHERE {$complianceWhere}
+                AND m.faa_expiration IS NOT NULL AND m.faa_expiration != '' AND m.faa_expiration < ?
+                ORDER BY m.faa_expiration, m.last_name");
+            $stmt->execute(array_merge($complianceParams, [$today]));
             $faaExpired = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            $stmt = $pdo->prepare("SELECT first_name, last_name, email, allow_email FROM members
-                WHERE membership_renewal_year = ? AND inactive = 0
-                AND (faa_number IS NULL OR TRIM(COALESCE(faa_number,'')) = '')
-                ORDER BY last_name");
-            $stmt->execute([$currentYear]);
+            $stmt = $pdo->prepare("SELECT m.first_name, m.last_name, m.email, m.allow_email FROM members m
+                WHERE {$complianceWhere}
+                AND (m.faa_number IS NULL OR TRIM(COALESCE(m.faa_number,'')) = '')
+                ORDER BY m.last_name");
+            $stmt->execute($complianceParams);
             $faaMissing = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
             $headers = ['Name', 'Email', 'AMA #', 'Expires'];
@@ -453,20 +392,15 @@ function runReport(
 
         case 'gate_key_compliance': {
             $title = "Gate Key Compliance — $year";
+            $gateFilter = membershipYearReportFilter($pdo, 'm', $year);
 
             $stmt = $pdo->prepare('
-                SELECT first_name, last_name, email, gate_key_number, allow_email
-                FROM members
-                WHERE id IN (
-                    SELECT DISTINCT member_id FROM payments
-                    WHERE year = ? AND (voided_at IS NULL)
-                    UNION
-                    SELECT DISTINCT member_id FROM member_fulfillments
-                    WHERE year = ?
-                )
-                ORDER BY CAST(gate_key_number AS UNSIGNED), last_name
+                SELECT m.first_name, m.last_name, m.email, m.gate_key_number, m.allow_email
+                FROM members m
+                WHERE ' . $gateFilter['where'] . '
+                ORDER BY CAST(m.gate_key_number AS UNSIGNED), m.last_name
             ');
-            $stmt->execute([$year, $year]);
+            $stmt->execute($gateFilter['params']);
 
             $headers = ['Name', 'Email', 'Key #'];
             $withKey    = 0;
@@ -495,8 +429,8 @@ function runReport(
 
             $summary = [
                 ['label' => 'Keys issued',       'value' => $withKey,    'sub' => "for $year", 'colour' => 'success'],
-                ['label' => 'No key on record',  'value' => $withoutKey, 'sub' => 'active members', 'colour' => $withoutKey > 0 ? 'warning' : 'success'],
-                ['label' => 'Total active',      'value' => count($rows), 'sub' => "in $year",   'colour' => 'secondary'],
+                ['label' => 'No key on record',  'value' => $withoutKey, 'sub' => 'current members', 'colour' => $withoutKey > 0 ? 'warning' : 'success'],
+                ['label' => 'Total current',     'value' => count($rows), 'sub' => "in $year",   'colour' => 'secondary'],
             ];
 
             break;
@@ -504,21 +438,16 @@ function runReport(
 
         case 'member_type_breakdown': {
             $title = "Member Type Breakdown — $year";
+            $typeFilter = membershipYearReportFilter($pdo, 'm', $year);
 
             $stmt = $pdo->prepare('
-                SELECT membership_type_slot, COUNT(*) AS cnt
-                FROM members
-                WHERE id IN (
-                    SELECT DISTINCT member_id FROM payments
-                    WHERE year = ? AND (voided_at IS NULL)
-                    UNION
-                    SELECT DISTINCT member_id FROM member_fulfillments
-                    WHERE year = ?
-                )
-                GROUP BY membership_type_slot
-                ORDER BY membership_type_slot ASC
+                SELECT m.membership_type_slot, COUNT(*) AS cnt
+                FROM members m
+                WHERE ' . $typeFilter['where'] . '
+                GROUP BY m.membership_type_slot
+                ORDER BY m.membership_type_slot ASC
             ');
-            $stmt->execute([$year, $year]);
+            $stmt->execute($typeFilter['params']);
 
             $headers = ['Type', 'Count', '% of total'];
             $typeCounts = [];
@@ -543,7 +472,7 @@ function runReport(
             ];
 
             $summary = [
-                ['label' => 'Total active', 'value' => $total, 'sub' => "in $year", 'colour' => 'primary'],
+                ['label' => 'Total current', 'value' => $total, 'sub' => "in $year", 'colour' => 'primary'],
             ];
             foreach ($typeCounts as $slot => $cnt) {
                 $pct      = $total > 0 ? round($cnt / $total * 100) : 0;
@@ -554,15 +483,16 @@ function runReport(
 
         case 'waived_analysis': {
             $title = 'Waived & Free Memberships';
-            $headers = ['Year', 'Waived', 'Estimated value', 'Total active', '% waived'];
+            $headers = ['Year', 'Waived', 'Estimated value', 'Total current', '% waived'];
 
             for ($y = $currentYear; $y >= max(2020, $currentYear - 5); $y--) {
-                $stmt = $pdo->prepare('SELECT COUNT(*) AS cnt FROM members WHERE membership_renewal_year = ? AND inactive = 0');
-                $stmt->execute([$y]);
-                $totalActive = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+                $totalActive = countMembersForMembershipYear($pdo, $y);
+                $waivedFilter = membershipYearReportFilter($pdo, 'm', $y);
+                $waivedWhere  = $waivedFilter['where'];
+                $waivedParams = $waivedFilter['params'];
 
-                $stmt = $pdo->prepare('SELECT COUNT(*) AS cnt FROM members WHERE membership_renewal_year = ? AND inactive = 0 AND (free_membership = 1 OR life_member = 1)');
-                $stmt->execute([$y]);
+                $stmt = $pdo->prepare('SELECT COUNT(*) AS cnt FROM members m WHERE ' . $waivedWhere . ' AND (m.free_membership = 1 OR m.life_member = 1)');
+                $stmt->execute($waivedParams);
                 $waivedCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
                 $waivedValue = 0;
@@ -572,10 +502,10 @@ function runReport(
                     FROM members m
                     LEFT JOIN dues_rules dr ON dr.membership_type_slot = m.membership_type_slot
                     LEFT JOIN club t ON t.id = 1
-                    WHERE m.membership_renewal_year = ? AND m.inactive = 0
+                    WHERE ' . $waivedWhere . '
                       AND (m.free_membership = 1 OR m.life_member = 1)
                 ');
-                $stmt->execute([$y]);
+                $stmt->execute($waivedParams);
                 while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                     $waivedValue += (float) ($row['annual_dues'] ?? 0);
                 }
@@ -595,6 +525,7 @@ function runReport(
             $detailHeaders = ['Last name', 'First name', 'Email', 'Type', 'Status', 'Renewal year', 'Est. annual dues'];
             $detailRows    = [];
 
+            $waivedDetailFilter = membershipYearReportFilter($pdo, 'm', $year);
             $stmt = $pdo->prepare('
                 SELECT m.first_name, m.last_name, m.email, m.membership_type_slot,
                        m.free_membership, m.life_member,
@@ -610,12 +541,11 @@ function runReport(
                     ON dr.membership_type_slot = m.membership_type_slot
                 LEFT JOIN club t
                     ON t.id = 1
-                WHERE m.membership_renewal_year = ?
-                  AND m.inactive = 0
+                WHERE ' . $waivedDetailFilter['where'] . '
                   AND (m.free_membership = 1 OR m.life_member = 1)
                 ORDER BY m.last_name, m.first_name
             ');
-            $stmt->execute([$year]);
+            $stmt->execute($waivedDetailFilter['params']);
 
             while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                 $status = !empty($row['life_member']) ? 'Life' : 'Free';

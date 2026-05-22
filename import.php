@@ -515,9 +515,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $paymentExists->execute([$memberId, $payDate, $payYear, $dues, $init]);
                                 if (!$paymentExists->fetch()) {
                                     $insertPayment->execute([$memberId, $payDate, $payYear, $dues, $init, 0, 0]);
+                                    recordMemberMembershipYear($pdo, $memberId, $payYear, 'import');
                                 }
                             } else {
                                 $insertPayment->execute([$memberId, $payDate, $payYear, $dues, $init, 0, 0]);
+                                recordMemberMembershipYear($pdo, $memberId, $payYear, 'import');
                             }
                         }
                     }

@@ -53,41 +53,20 @@ if ($filterParam === 'current') {
 
 // Build member list based on filter
 if ($filter === 'not_renewed') {
-    $prevYear = $year - 1;
     $sql = 'SELECT m.id, m.title, m.first_name, m.last_name, m.email, m.birthday, m.notes, m.date_joined, m.membership_type_slot, m.membership_renewal_year, m.inactive, m.suspended, m.life_member, m.free_membership, m.gate_key_number, m.ama_number, m.ama_expiration, m.ama_life_member, m.faa_number, m.faa_expiration, m.emergency_contact_name, m.emergency_contact_relationship, m.emergency_contact_phone, m.allow_email, m.allow_postal
             FROM members m
-            WHERE m.id IN (
-                SELECT DISTINCT member_id FROM payments
-                WHERE year = ? AND (voided_at IS NULL)
-                UNION
-                SELECT DISTINCT member_id FROM member_fulfillments
-                WHERE year = ?
-            )
-            AND m.id NOT IN (
-                SELECT DISTINCT member_id FROM payments
-                WHERE year = ? AND (voided_at IS NULL)
-                UNION
-                SELECT DISTINCT member_id FROM member_fulfillments
-                WHERE year = ?
-            )
+            WHERE ' . notYetRenewedWhereSql('m', $year) . '
             ORDER BY m.last_name, m.first_name';
     $stmt = $pdo->prepare($sql);
-    $stmt->execute([$prevYear, $prevYear, $year, $year]);
+    $stmt->execute(notYetRenewedWhereParams($year));
     $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
     $sql = 'SELECT id, title, first_name, last_name, email, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, allow_email, allow_postal FROM members WHERE 1=1';
     $params = [];
     if ($filter === 'year') {
-        // Historical "members for year" is based on per-year records, not the single current renewal year.
-        $sql .= ' AND id IN (
-            SELECT DISTINCT member_id FROM payments
-            WHERE year = ? AND (voided_at IS NULL)
-            UNION
-            SELECT DISTINCT member_id FROM member_fulfillments
-            WHERE year = ?
-        )';
-        $params[] = $year;
-        $params[] = $year;
+        $yearFilter = membershipYearReportFilter($pdo, '', $year);
+        $sql .= ' AND ' . $yearFilter['where'];
+        $params = $yearFilter['params'];
     }
     $sql .= ' ORDER BY last_name, first_name';
     $stmt = $pdo->prepare($sql);

@@ -186,13 +186,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'member_data') {
 if (isset($_GET['action']) && $_GET['action'] === 'member_list') {
     header('Content-Type: application/json; charset=utf-8');
     try {
-        $stmt = $pdo->query('
-            SELECT id, first_name, last_name
-            FROM members
-            WHERE (inactive = 0 OR inactive IS NULL)
-            ORDER BY last_name, first_name
+        $badgeYear = membershipStatusYear();
+        $stmt = $pdo->prepare('
+            SELECT m.id, m.first_name, m.last_name
+            FROM members m
+            WHERE ' . currentMemberWhereSql('m', $badgeYear) . '
+            ORDER BY m.last_name, m.first_name
             LIMIT 200
         ');
+        $stmt->execute(currentMemberWhereParams($badgeYear));
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {
         $rows = [];

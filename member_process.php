@@ -260,6 +260,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
             ON DUPLICATE KEY UPDATE processed_at = NOW(), processed_by = ?, renewal_type = ?
         ')->execute([$memberId, $renewalYear, $userId, $renewalType, $userId, $renewalType]);
 
+        recordMemberMembershipYear($pdo, $memberId, $renewalYear, 'renewal');
+
         $pdo->commit();
     } catch (Throwable $e) {
         $pdo->rollBack();

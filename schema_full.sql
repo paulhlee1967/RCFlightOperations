@@ -231,6 +231,22 @@ CREATE TABLE IF NOT EXISTS `member_fulfillments` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------
+-- Historical membership: who was a current member for each calendar year
+-- (frozen when recorded — survives renewal year updates on the member row)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `member_membership_years` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `member_id` int unsigned NOT NULL,
+  `year` smallint unsigned NOT NULL COMMENT 'Calendar year the member was current',
+  `recorded_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `source` varchar(32) NOT NULL DEFAULT 'renewal' COMMENT 'renewal | edit | import | backfill | snapshot',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `member_year` (`member_id`, `year`),
+  KEY `year_idx` (`year`),
+  CONSTRAINT `mmy_member` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ---------------------------------------------------------------------------
 -- Migration: login_attempts for brute-force protection
 -- ---------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `login_attempts` (

@@ -195,13 +195,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // this is still fast — we're just loading name + id.
 $members = [];
 try {
+    $incidentMemberYear = membershipStatusYear();
     $stmt = $pdo->prepare('
-        SELECT id, first_name, last_name
-        FROM members
-        WHERE inactive = 0
-        ORDER BY last_name, first_name
+        SELECT m.id, m.first_name, m.last_name
+        FROM members m
+        WHERE ' . currentMemberWhereSql('m', $incidentMemberYear) . '
+        ORDER BY m.last_name, m.first_name
     ');
-    $stmt->execute();
+    $stmt->execute(currentMemberWhereParams($incidentMemberYear));
     $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $e) {}
 
