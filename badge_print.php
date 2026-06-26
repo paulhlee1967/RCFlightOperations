@@ -93,6 +93,7 @@ if (!empty($member['street']) && !empty($member['city'])) {
 
 $memberData = [
     'full_name' => trim($member['last_name'] . ', ' . $member['first_name']),
+    'full_name_first_last' => trim($member['first_name'] . ' ' . $member['last_name']),
     'first_name' => $member['first_name'] ?? '',
     'last_name' => $member['last_name'] ?? '',
     'member_since' => $memberSince !== '' ? $memberSince : '',
@@ -645,7 +646,7 @@ if (templateData.backgroundPath) {
                 var val = getMemberValue(field);
                 if (typeof obj.setText === 'function') obj.setText(val);
                 else obj.set('text', val);
-                if (field === 'full_name') {
+                if (field === 'full_name' || field === 'full_name_first_last') {
                     obj.set('fontSize', 24);
                 }
             }

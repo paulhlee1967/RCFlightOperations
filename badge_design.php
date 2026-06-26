@@ -158,6 +158,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'member_data') {
     badge_api_json([
         'ok'              => true,
         'full_name'       => trim(($m['last_name'] ?? '') . ', ' . ($m['first_name'] ?? '')),
+        'full_name_first_last' => trim(($m['first_name'] ?? '') . ' ' . ($m['last_name'] ?? '')),
         'first_name'      => $m['first_name'] ?? '',
         'last_name'       => $m['last_name'] ?? '',
         'member_since'    => $memberSince,
@@ -216,7 +217,8 @@ $cardHeightPortrait  = $cardWidthLandscape;
 // Data fields available for placement (freeform = static text, same on every badge)
 $dataFields = [
     'freeform'        => ['label' => 'Freeform text',    'placeholder' => 'Your text here',   'icon' => '✏️'],
-    'full_name'       => ['label' => 'Full name',        'placeholder' => '<LAST, FIRST>',   'icon' => '👤'],
+    'full_name'       => ['label' => 'Full name (Last, First)', 'placeholder' => '<LAST, FIRST>', 'icon' => '👤'],
+    'full_name_first_last' => ['label' => 'Full name (First Last)', 'placeholder' => '<FIRST LAST>', 'icon' => '👤'],
     'first_name'      => ['label' => 'First name',       'placeholder' => '<FIRST>',          'icon' => '👤'],
     'last_name'       => ['label' => 'Last name',        'placeholder' => '<LAST>',           'icon' => '👤'],
     'member_since'    => ['label' => 'Member since',     'placeholder' => '<XX/XX/XXXX>',   'icon' => '📅'],
@@ -1094,7 +1096,10 @@ function applyPreview(memberData) {
                         scaleY: obj.getScaledHeight() / img.height,
                     });
                     img.set(dataFieldProp, 'photo_preview');
-                    canvas.remove(obj);
+                    // Hide (don't remove) the placeholder so it can be
+                    // restored on exitPreview — removing it caused the photo
+                    // field to disappear from the saved template.
+                    obj.set('visible', false);
                     canvas.add(img);
                     canvas.requestRenderAll();
                 });
@@ -1129,9 +1134,11 @@ function exitPreview() {
     previewSnapshot.forEach(function (item) {
         item.obj.set('text', item.text);
     });
-    // Remove any photo images added during preview
+    // Remove any photo images added during preview and restore the
+    // (hidden) photo placeholder so it survives a save.
     canvas.getObjects().forEach(function (obj) {
         if (obj[dataFieldProp] === 'photo_preview') canvas.remove(obj);
+        if (obj[dataFieldProp] === 'photo') obj.set('visible', true);
     });
     previewSnapshot = [];
     previewMode = false;

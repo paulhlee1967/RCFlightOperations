@@ -86,7 +86,17 @@ After uploading files and importing the database:
 10. **Reverse proxy / HTTPS**  
     If TLS terminates in front of PHP (load balancer, Cloudflare, etc.), set `'trust_forwarded_https' => true` in `config.php` so session cookies use the `Secure` flag and password-reset emails use `https://` links. Add `'trusted_proxies' => ['127.0.0.1']` (or your proxy’s IP/CIDR as seen by PHP in `REMOTE_ADDR`) so `X-Forwarded-Proto` is not applied for arbitrary clients. Only enable `trust_forwarded_https` when the edge sets forwarded headers correctly.
 
-11. **Scheduled reminders (cron, optional)**  
+11. **Canonical host (www vs apex)**
+    The app should answer on a single hostname so session cookies and absolute URLs
+    stay consistent (mismatched hosts cause repeated login prompts and broken
+    redirects). `includes/canonical_host.php` enforces this in PHP on any server,
+    defaulting to stripping a leading `www.` (apex wins); override with
+    `'canonical_host' => 'rcflightops.example.com'` in `config.php`. The root
+    `.htaccess` adds the same www→apex redirect at the edge on Apache/LiteSpeed.
+    On Nginx, add the redirect in your server config, e.g.
+    `if ($host ~* ^www\.(.+)$) { return 301 $scheme://$1$request_uri; }`.
+
+12. **Scheduled reminders (cron, optional)**  
    If you send reminder emails, configure a cron job to run:
    ```bash
    php /path/to/RCFlightOperations/scripts/send_reminders.php

@@ -28,6 +28,13 @@ return [
     // If omitted or empty, forwarded proto is still honored (typical single-proxy setup).
     // For defense in depth, set explicit values:
     // 'trusted_proxies' => ['127.0.0.1', '10.0.0.0/8'],
+    //
+    // Canonical host. The app should answer on ONE hostname so session cookies and
+    // absolute URLs stay consistent (avoids double login prompts and broken redirects
+    // when reachable on both apex and www). Requests to any other host get a 301 to
+    // this one. If omitted, the default is to strip a leading "www." (apex wins).
+    // Set explicitly to force a specific host, e.g.:
+    // 'canonical_host' => 'rcflightops.pvmac.com',
 
     // ── Database ──────────────────────────────────────────────────────────
     'db' => [

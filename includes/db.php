@@ -18,6 +18,7 @@
 // Must come before any page output or function calls that use these helpers.
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/session_ini.php';
+require_once __DIR__ . '/canonical_host.php';
 
 // ── Config ────────────────────────────────────────────────────────────────────
 if (!isset($config)) {
@@ -27,6 +28,10 @@ if (!isset($config)) {
     }
     $config = require $configFile;
 }
+
+// Force a single canonical host (e.g. apex over www) before any session/output,
+// so cookies and absolute URLs stay on one host. See includes/canonical_host.php.
+flightops_enforce_canonical_host($config);
 
 flightops_apply_session_cookie_params($config);
 
