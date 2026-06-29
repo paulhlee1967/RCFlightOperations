@@ -42,6 +42,7 @@ if ($memberId <= 0) {
 $stmt = $pdo->prepare('
     SELECT m.id, m.first_name, m.last_name, m.email, m.date_joined, m.membership_type_slot,
            m.membership_renewal_year, m.ama_number, m.faa_number, m.gate_key_number, m.photo_path,
+           m.is_board_member,
            m.emergency_contact_name, m.emergency_contact_relationship, m.emergency_contact_phone,
            a.street, a.street2, a.city, a.state, a.postal_code
     FROM members m
@@ -119,11 +120,47 @@ $memberData = [
     'photo_url' => $photoUrl,
 ];
 
-$templateData = null;
-$stmt = $pdo->query('SELECT template_data FROM badge_templates ORDER BY id ASC LIMIT 1');
-$row = $stmt->fetch(PDO::FETCH_ASSOC);
-if ($row && $row['template_data']) {
-    $templateData = json_decode($row['template_data'], true);
+// ── Choose which design to print ────────────────────────────────────────────
+// Priority: explicit ?design_id → board-member design (if member is a board
+// member) → default design → oldest design.
+$isBoardMember = (int) ($member['is_board_member'] ?? 0) === 1;
+$designs = [];
+try {
+    $designs = $pdo->query(
+        'SELECT id, name, template_data, is_default, is_board_default
+           FROM badge_templates
+          ORDER BY is_default DESC, name ASC, id ASC'
+    )->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $designs = [];
+}
+
+$requestedDesignId = isset($_GET['design_id']) ? (int) $_GET['design_id'] : 0;
+$selectedDesign    = null;
+
+if ($requestedDesignId > 0) {
+    foreach ($designs as $d) {
+        if ((int) $d['id'] === $requestedDesignId) { $selectedDesign = $d; break; }
+    }
+}
+if (!$selectedDesign && $isBoardMember) {
+    foreach ($designs as $d) {
+        if ((int) $d['is_board_default'] === 1) { $selectedDesign = $d; break; }
+    }
+}
+if (!$selectedDesign) {
+    foreach ($designs as $d) {
+        if ((int) $d['is_default'] === 1) { $selectedDesign = $d; break; }
+    }
+}
+if (!$selectedDesign && $designs) {
+    $selectedDesign = $designs[0];
+}
+
+$selectedDesignId = $selectedDesign ? (int) $selectedDesign['id'] : 0;
+$templateData     = null;
+if ($selectedDesign && $selectedDesign['template_data']) {
+    $templateData = json_decode($selectedDesign['template_data'], true);
 }
 
 $cardWidthLandscape = 400;
@@ -152,6 +189,37 @@ require_once __DIR__ . '/includes/header.php';
 <?php else: ?>
 <a href="member_edit.php?id=<?= $memberId ?>"
    class="btn btn-outline-secondary btn-sm">← Back to Member</a>
+<?php endif; ?>
+
+<?php /* Design picker — choose which saved design to print (auto-picked by board flag) */ ?>
+<?php if (count($designs) > 1): ?>
+<form method="get" class="d-flex align-items-center gap-1" id="design-picker-form">
+    <input type="hidden" name="id" value="<?= $memberId ?>">
+    <?php if ($fromProcess): ?>
+        <input type="hidden" name="from_process" value="1">
+        <input type="hidden" name="year" value="<?= $workYear ?>">
+    <?php endif; ?>
+    <input type="hidden" name="front" value="<?= $printFront ? '1' : '0' ?>">
+    <input type="hidden" name="back" value="<?= $printBack ? '1' : '0' ?>">
+    <label for="design_id" class="form-label small mb-0 text-muted">Design</label>
+    <select name="design_id" id="design_id" class="form-select form-select-sm" style="width:auto">
+        <?php foreach ($designs as $d): ?>
+            <?php
+            $tags = [];
+            if ((int) $d['is_default'])       { $tags[] = 'default'; }
+            if ((int) $d['is_board_default']) { $tags[] = 'board'; }
+            $label = $d['name'] . ($tags ? ' (' . implode(', ', $tags) . ')' : '');
+            ?>
+            <option value="<?= (int) $d['id'] ?>"<?= (int) $d['id'] === $selectedDesignId ? ' selected' : '' ?>>
+                <?= htmlspecialchars($label) ?>
+            </option>
+        <?php endforeach; ?>
+    </select>
+    <noscript><button type="submit" class="btn btn-outline-secondary btn-sm">Go</button></noscript>
+</form>
+<?php if ($isBoardMember): ?>
+<span class="badge text-bg-info" title="This member is flagged as a board member">Board member</span>
+<?php endif; ?>
 <?php endif; ?>
 
 <?php /* Primary print action */ ?>
@@ -200,6 +268,16 @@ require_once __DIR__ . '/includes/header.php';
 </span>
 
 </div>
+
+<script<?= csp_nonce_attr() ?>>
+(function () {
+    var sel = document.getElementById('design_id');
+    var form = document.getElementById('design-picker-form');
+    if (sel && form) {
+        sel.addEventListener('change', function () { form.submit(); });
+    }
+})();
+</script>
 
 <div id="badge-print-warning"
      class="alert alert-warning no-print py-2 mb-3"
@@ -370,11 +448,32 @@ require_once __DIR__ . '/includes/header.php';
 }
 </style>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/fabric@7.4.0/dist/index.min.js"
+        integrity="sha512-aZp8qCI631QgG02ShOom0Rhmi1F/f5l7k+Y3PA9hUHOcaoydNyikEwNe6fAYpCJaBwSrYkB0QeDk9IY3hT3McA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script<?= csp_nonce_attr() ?>>
 (function() {
     var memberData = <?= json_encode($memberData) ?>;
     var templateData = <?= $templateData ? json_encode($templateData) : 'null' ?>;
+
+    // ── Fabric v7 compatibility shims (see badge_design.php for details) ──
+    var FabricImageClass = fabric.Image || fabric.FabricImage;
+
+    /** Image.fromURL is promise-based in v6+ (crossOrigin lives in options). */
+    function loadFabricImage(url, opts, cb) {
+        try {
+            FabricImageClass.fromURL(url, opts || {})
+                .then(function (img) { cb(img || null); })
+                .catch(function () { cb(null); });
+        } catch (e) { cb(null); }
+    }
+
+    /** v6+ removed setBackgroundImage(); the background is a plain property. */
+    function setCanvasBackgroundImage(c, img, cb) {
+        c.backgroundImage = img || null;
+        c.requestRenderAll();
+        if (typeof cb === 'function') cb();
+    }
 
     var printArea = document.getElementById('card-print-area');
     var printFront = printArea && printArea.getAttribute('data-print-front') === '1';
@@ -573,7 +672,8 @@ if (templateData.backgroundPath) {
     // badge_photo.php or relative uploads/) avoid taint. Prefer those over hotlinking.
     function setBackground(done) {
         if (!bgUrl) { done(); return; }
-        fabric.Image.fromURL(bgUrl, function(img) {
+        var opts = bgUrl.indexOf('data:') === 0 ? {} : { crossOrigin: 'anonymous' };
+        loadFabricImage(bgUrl, opts, function(img) {
             if (img) {
                 var w = img.get('width'), h = img.get('height');
                 if (w && h) {
@@ -585,10 +685,10 @@ if (templateData.backgroundPath) {
                     img.set('originX', 'left');
                     img.set('originY', 'top');
                 }
-                canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas));
+                setCanvasBackgroundImage(canvas, img);
             }
             done();
-        }, bgUrl.indexOf('data:') === 0 ? {} : { crossOrigin: 'anonymous' });
+        });
     }
 
     function applyMemberData(done) {
@@ -622,7 +722,7 @@ if (templateData.backgroundPath) {
                     var w = Math.max(rect.width || 80, 1);
                     var h = Math.max(rect.height || 100, 1);
                     var opts = (photoUrl.indexOf('data:') === 0 || photoUrl.indexOf('http') !== 0) ? {} : { crossOrigin: 'anonymous' };
-                    fabric.Image.fromURL(photoUrl, function(img) {
+                    loadFabricImage(photoUrl, opts, function(img) {
                         if (img && canvas.getObjects().indexOf(orig) !== -1) {
                             img.set('left', left);
                             img.set('top', top);
@@ -637,7 +737,7 @@ if (templateData.backgroundPath) {
                         }
                         canvas.requestRenderAll();
                         checkDone();
-                    }, opts);
+                    });
                 })(obj);
             } else if (field === 'freeform') {
                 // Freeform text: keep the text from the template (same on every badge)
@@ -658,7 +758,7 @@ if (templateData.backgroundPath) {
 
     function finalizeForPrint() {
         try {
-            var dataUrl = canvas.toDataURL('image/png');
+            var dataUrl = canvas.toDataURL({ format: 'png', multiplier: 1 });
             var imgEl = document.getElementById('badge-front-img');
             imgEl.src = dataUrl;
             // Show at canvas pixel size for the on-screen preview only.
@@ -684,7 +784,7 @@ if (templateData.backgroundPath) {
 
     // Order: load canvas (objects only), then set background (so it is not overwritten), then apply member data, then export to img for reliable printing.
     // Delay allows async photo load + canvas paint to complete before toDataURL().
-    canvas.loadFromJSON(templateData.canvas, function() {
+    canvas.loadFromJSON(templateData.canvas).then(function() {
         setBackground(function() {
             applyMemberData(function() {
                 canvas.requestRenderAll();

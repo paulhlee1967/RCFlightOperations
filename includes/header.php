@@ -143,7 +143,8 @@ $_headerBaseHref = '';
     <?php if ($_faviconHref !== null): ?>
     <link rel="icon" href="<?= $_faviconHref ?>"<?= $_faviconType ? (' type="' . htmlspecialchars($_faviconType) . '"') : '' ?>>
     <?php endif; ?>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
+          integrity="sha512-2bBQCjcnw658Lho4nlXJcc6WkV/UxpE/sAokbXPxQNGqmNdQrWqtw26Ns9kFF/yG792pKR1Sx8/Y1Lf1XN4GKA==" crossorigin="anonymous">
     <style<?= csp_nonce_attr() ?>>
         /* ── CSS custom properties (theme) ─────────────────────────────── */
         :root {

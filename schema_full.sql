@@ -78,6 +78,7 @@ CREATE TABLE `members` (
   `suspended` tinyint(1) NOT NULL DEFAULT 0,
   `life_member` tinyint(1) NOT NULL DEFAULT 0,
   `free_membership` tinyint(1) NOT NULL DEFAULT 0,
+  `is_board_member` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Board members can be auto-assigned a different badge design',
   `gate_key_number` varchar(32) DEFAULT NULL,
   `badge_printed_at` datetime DEFAULT NULL,
   `ama_number` varchar(64) DEFAULT NULL,
@@ -166,7 +167,10 @@ CREATE TABLE `dues_rules` (
 -- ---------------------------------------------------------------------------
 CREATE TABLE `badge_templates` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL DEFAULT 'Default' COMMENT 'Display name shown in the designer/print pickers',
   `template_data` longtext NOT NULL COMMENT 'JSON: canvas, backgroundPath, orientation, backOrientation, backHtml',
+  `is_default` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Auto-selected design for non-board members (only one row should be 1)',
+  `is_board_default` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Auto-selected design for board members (only one row should be 1)',
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -204,7 +208,7 @@ INSERT INTO `users` (`email`, `password_hash`, `name`, `role`) VALUES
 ('admin@yourclub.local', '', 'Club Admin', 'admin');
 -- Run scripts/set_password.php after first deploy to set the admin password.
 
-INSERT INTO `badge_templates` (`template_data`) VALUES ('{}');
+INSERT INTO `badge_templates` (`name`, `template_data`, `is_default`, `is_board_default`) VALUES ('Default', '{}', 1, 0);
 
 -- ---------------------------------------------------------------------------
 -- Migration: member_fulfillments table
@@ -500,3 +504,49 @@ SET @sql_allow = IF(
 PREPARE stmt_allow FROM @sql_allow;
 EXECUTE stmt_allow;
 DEALLOCATE PREPARE stmt_allow;
+
+-- -----------------------------------------------------------------------------
+-- Migration: multiple badge designs + board-member flag
+--   * badge_templates gains name, is_default, is_board_default
+--   * members gains is_board_member
+-- -----------------------------------------------------------------------------
+SET @bt_name_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'badge_templates' AND COLUMN_NAME = 'name'
+);
+SET @sql_bt = IF(
+  @bt_name_col = 0,
+  'ALTER TABLE `badge_templates`
+     ADD COLUMN `name` varchar(100) NOT NULL DEFAULT ''Default'' AFTER `id`,
+     ADD COLUMN `is_default` tinyint(1) NOT NULL DEFAULT 0 AFTER `template_data`,
+     ADD COLUMN `is_board_default` tinyint(1) NOT NULL DEFAULT 0 AFTER `is_default`',
+  'SELECT 1'
+);
+PREPARE stmt_bt FROM @sql_bt;
+EXECUTE stmt_bt;
+DEALLOCATE PREPARE stmt_bt;
+
+-- Make the oldest existing design the default (only if no default is set yet).
+SET @bt_has_default = (SELECT COUNT(*) FROM `badge_templates` WHERE `is_default` = 1);
+SET @bt_min_id = (SELECT MIN(`id`) FROM `badge_templates`);
+SET @sql_bt_def = IF(
+  @bt_has_default = 0 AND @bt_min_id IS NOT NULL,
+  CONCAT('UPDATE `badge_templates` SET `is_default` = 1 WHERE `id` = ', @bt_min_id),
+  'SELECT 1'
+);
+PREPARE stmt_bt_def FROM @sql_bt_def;
+EXECUTE stmt_bt_def;
+DEALLOCATE PREPARE stmt_bt_def;
+
+SET @board_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'is_board_member'
+);
+SET @sql_board = IF(
+  @board_col = 0,
+  'ALTER TABLE `members` ADD COLUMN `is_board_member` tinyint(1) NOT NULL DEFAULT 0 COMMENT ''Board members can be auto-assigned a different badge design'' AFTER `free_membership`',
+  'SELECT 1'
+);
+PREPARE stmt_board FROM @sql_board;
+EXECUTE stmt_board;
+DEALLOCATE PREPARE stmt_board;

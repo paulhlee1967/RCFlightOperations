@@ -60,6 +60,7 @@ $expectedColumns = [
     'members' => [
         'id', 'title', 'first_name', 'last_name', 'email', 'birthday', 'photo_path', 'notes',
         'date_joined', 'membership_type_slot', 'membership_renewal_year', 'inactive', 'suspended', 'life_member', 'free_membership',
+        'is_board_member',
         'gate_key_number', 'badge_printed_at', 'ama_number', 'ama_expiration', 'ama_life_member', 'faa_number', 'faa_expiration',
         'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone',
         'allow_email', 'allow_postal',
@@ -69,7 +70,7 @@ $expectedColumns = [
     'member_addresses' => ['id', 'member_id', 'type', 'street', 'street2', 'city', 'state', 'postal_code'],
     'payments' => ['id', 'member_id', 'paid_at', 'year', 'amount_dues', 'amount_initiation', 'amount_late_fee', 'comp', 'created_at'],
     'dues_rules' => ['id', 'membership_type_slot', 'annual_dues', 'prorated_dues', 'initiation_fee', 'prorate_start_month', 'prorate_end_month'],
-    'badge_templates' => ['id', 'template_data', 'updated_at'],
+    'badge_templates' => ['id', 'name', 'template_data', 'is_default', 'is_board_default', 'updated_at'],
     'incidents' => [
         'id', 'incident_date', 'location', 'incident_type',
         'severity', 'status', 'member_id', 'description', 'action_taken',

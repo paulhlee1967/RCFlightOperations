@@ -39,16 +39,51 @@ function badge_api_json(array $payload): void {
     exit;
 }
 
+/** Return all badge designs (metadata only) with normalised integer flags. */
+function badge_designs_list(PDO $pdo): array {
+    try {
+        $rows = $pdo->query(
+            'SELECT id, name, is_default, is_board_default
+               FROM badge_templates
+              ORDER BY is_default DESC, name ASC, id ASC'
+        )->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        return [];
+    }
+    foreach ($rows as &$r) {
+        $r['id']               = (int) $r['id'];
+        $r['is_default']       = (int) $r['is_default'];
+        $r['is_board_default'] = (int) $r['is_board_default'];
+    }
+    unset($r);
+    return $rows;
+}
+
+// ── API: list designs ───────────────────────────────────────────────────────
+if (isset($_GET['action']) && $_GET['action'] === 'list') {
+    badge_api_json(['ok' => true, 'designs' => badge_designs_list($pdo)]);
+}
+
 // ── API: load ──────────────────────────────────────────────────────────────
+// load&id=N → that design; load (no id) → the default design, else the oldest.
 if (isset($_GET['action']) && $_GET['action'] === 'load') {
     header('Content-Type: application/json');
-    $stmt = $pdo->query('SELECT template_data FROM badge_templates ORDER BY id ASC LIMIT 1');
-    $row = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+    $id = isset($_GET['id']) ? (int) $_GET['id'] : 0;
+    if ($id > 0) {
+        $stmt = $pdo->prepare('SELECT template_data FROM badge_templates WHERE id = ?');
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    } else {
+        $stmt = $pdo->query('SELECT template_data FROM badge_templates ORDER BY is_default DESC, id ASC LIMIT 1');
+        $row  = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+    }
     echo $row ? $row['template_data'] : '{}';
     exit;
 }
 
 // ── API: save ──────────────────────────────────────────────────────────────
+// template_id=0 → create new; >0 → update existing. Enforces a single
+// is_default and a single is_board_default across all rows.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
     csrf_validate(['json' => true]);
     header('Content-Type: application/json; charset=utf-8');
@@ -56,17 +91,95 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if ($json === '') {
         badge_api_json(['ok' => false, 'error' => 'No template data']);
     }
+    $templateId     = (int) ($_POST['template_id'] ?? 0);
+    $name           = trim((string) ($_POST['name'] ?? ''));
+    if ($name === '') { $name = 'Untitled design'; }
+    $name           = function_exists('mb_substr') ? mb_substr($name, 0, 100) : substr($name, 0, 100);
+    $isDefault      = !empty($_POST['is_default'])       ? 1 : 0;
+    $isBoardDefault = !empty($_POST['is_board_default']) ? 1 : 0;
+
     try {
-        $row = $pdo->query('SELECT id FROM badge_templates ORDER BY id ASC LIMIT 1')->fetch(PDO::FETCH_ASSOC);
-        if ($row) {
-            $stmt = $pdo->prepare('UPDATE badge_templates SET template_data = ? WHERE id = ?');
-            $stmt->execute([$json, $row['id']]);
+        $pdo->beginTransaction();
+
+        if ($templateId > 0) {
+            $chk = $pdo->prepare('SELECT id FROM badge_templates WHERE id = ?');
+            $chk->execute([$templateId]);
+            if (!$chk->fetch()) {
+                $pdo->rollBack();
+                badge_api_json(['ok' => false, 'error' => 'Design not found']);
+            }
+            $stmt = $pdo->prepare('UPDATE badge_templates SET name = ?, template_data = ?, is_default = ?, is_board_default = ? WHERE id = ?');
+            $stmt->execute([$name, $json, $isDefault, $isBoardDefault, $templateId]);
         } else {
-            $pdo->prepare('INSERT INTO badge_templates (template_data) VALUES (?)')->execute([$json]);
+            $stmt = $pdo->prepare('INSERT INTO badge_templates (name, template_data, is_default, is_board_default) VALUES (?,?,?,?)');
+            $stmt->execute([$name, $json, $isDefault, $isBoardDefault]);
+            $templateId = (int) $pdo->lastInsertId();
         }
-        badge_api_json(['ok' => true]);
+
+        // Only one row may be the (board) default.
+        if ($isDefault) {
+            $pdo->prepare('UPDATE badge_templates SET is_default = 0 WHERE id <> ?')->execute([$templateId]);
+        }
+        if ($isBoardDefault) {
+            $pdo->prepare('UPDATE badge_templates SET is_board_default = 0 WHERE id <> ?')->execute([$templateId]);
+        }
+
+        // Guarantee a default always exists.
+        $hasDefault = (int) $pdo->query('SELECT COUNT(*) FROM badge_templates WHERE is_default = 1')->fetchColumn();
+        if ($hasDefault === 0) {
+            $pdo->prepare('UPDATE badge_templates SET is_default = 1 WHERE id = ?')->execute([$templateId]);
+            $isDefault = 1;
+        }
+
+        $pdo->commit();
+        badge_api_json([
+            'ok'               => true,
+            'id'               => $templateId,
+            'name'             => $name,
+            'is_default'       => $isDefault,
+            'is_board_default' => $isBoardDefault,
+            'designs'          => badge_designs_list($pdo),
+        ]);
     } catch (Throwable $e) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
         badge_api_json(['ok' => false, 'error' => 'Save failed — database error']);
+    }
+}
+
+// ── API: delete design ───────────────────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'delete_design') {
+    csrf_validate(['json' => true]);
+    header('Content-Type: application/json; charset=utf-8');
+    $templateId = (int) ($_POST['template_id'] ?? 0);
+    if ($templateId <= 0) {
+        badge_api_json(['ok' => false, 'error' => 'Invalid design']);
+    }
+    try {
+        $count = (int) $pdo->query('SELECT COUNT(*) FROM badge_templates')->fetchColumn();
+        if ($count <= 1) {
+            badge_api_json(['ok' => false, 'error' => 'Cannot delete the only design']);
+        }
+        $sel = $pdo->prepare('SELECT is_default FROM badge_templates WHERE id = ?');
+        $sel->execute([$templateId]);
+        $existing = $sel->fetch(PDO::FETCH_ASSOC);
+        if (!$existing) {
+            badge_api_json(['ok' => false, 'error' => 'Design not found']);
+        }
+
+        $pdo->beginTransaction();
+        $pdo->prepare('DELETE FROM badge_templates WHERE id = ?')->execute([$templateId]);
+        // If we removed the default, promote the oldest remaining design.
+        if ((int) $existing['is_default'] === 1) {
+            $newDefault = $pdo->query('SELECT id FROM badge_templates ORDER BY id ASC LIMIT 1')->fetchColumn();
+            if ($newDefault) {
+                $pdo->prepare('UPDATE badge_templates SET is_default = 1 WHERE id = ?')->execute([(int) $newDefault]);
+            }
+        }
+        $pdo->commit();
+        badge_api_json(['ok' => true, 'designs' => badge_designs_list($pdo)]);
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+        badge_api_json(['ok' => false, 'error' => 'Delete failed — database error']);
     }
 }
 
@@ -240,7 +353,7 @@ $dataFields = [
 ];
 ?>
 
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+<div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
     <div>
         <h1 class="h2 mb-0">Badge Designer</h1>
         <p class="text-muted small mb-0">Design your CR80 member ID card (3.375″ × 2.125″)</p>
@@ -251,6 +364,35 @@ $dataFields = [
         <button type="button" class="btn btn-primary" id="saveDesign">
             Save Design
         </button>
+    </div>
+</div>
+
+<?php /* ── Design picker: choose / create / rename / delete designs ────────── */ ?>
+<div class="card mb-3 shadow-sm">
+    <div class="card-body py-2 px-3">
+        <div class="d-flex flex-wrap align-items-end gap-3">
+            <div>
+                <label class="form-label small mb-1" for="design-select">Design</label>
+                <select id="design-select" class="form-select form-select-sm" style="min-width:220px"></select>
+            </div>
+            <div class="btn-group" role="group" aria-label="Design actions">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="newDesign">＋ New</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="renameDesign">Rename</button>
+                <button type="button" class="btn btn-outline-danger btn-sm" id="deleteDesign">Delete</button>
+            </div>
+            <div class="vr d-none d-md-block align-self-stretch"></div>
+            <div class="d-flex flex-column gap-1">
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" id="design-default">
+                    <label class="form-check-label small" for="design-default">Default design <span class="text-muted">(non-board members)</span></label>
+                </div>
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" id="design-board-default">
+                    <label class="form-check-label small" for="design-board-default">Board-member design</label>
+                </div>
+            </div>
+        </div>
+        <div class="form-text mt-1">Default &amp; board flags are saved with the design when you click <strong>Save Design</strong>.</div>
     </div>
 </div>
 
@@ -301,19 +443,16 @@ $dataFields = [
         <div class="card mb-3 shadow-sm" id="fields-panel">
             <div class="card-header fw-semibold small py-2">Add field to front</div>
             <div class="card-body py-2 px-2">
-                <div class="d-grid gap-1">
+                <select class="form-select form-select-sm" id="add-field-select" aria-label="Add field to front">
+                    <option value="" selected>➕ Add a field…</option>
                     <?php foreach ($dataFields as $field => $info): ?>
-                    <button type="button" class="btn btn-outline-secondary btn-sm text-start add-field-btn"
-                            data-field="<?= htmlspecialchars($field) ?>"
+                    <option value="<?= htmlspecialchars($field) ?>"
                             data-placeholder="<?= htmlspecialchars($info['placeholder']) ?>">
-                        <span class="me-1"><?= $info['icon'] ?></span>
-                        <?= htmlspecialchars($info['label']) ?>
-                    </button>
+                        <?= $info['icon'] ?> <?= htmlspecialchars($info['label']) ?>
+                    </option>
                     <?php endforeach; ?>
-                    <button type="button" class="btn btn-outline-secondary btn-sm text-start" id="addPhoto">
-                        🖼 Member photo
-                    </button>
-                </div>
+                    <option value="__photo__">🖼 Member photo</option>
+                </select>
                 <hr class="my-2">
                 <button type="button" class="btn btn-outline-danger btn-sm w-100" id="deleteObj">
                     🗑 Delete selected
@@ -524,9 +663,6 @@ $dataFields = [
     }
 }
 
-/* Field add buttons: full-width, left-aligned, compact */
-.add-field-btn      { font-size: .8rem; padding: .25rem .5rem; }
-
 /* Props panel inputs */
 #props-panel .form-control-sm { font-size: .8rem; }
 
@@ -534,8 +670,10 @@ $dataFields = [
 #prop-align .btn.active { background: var(--club-primary, #6f7c3d); color: var(--club-on-primary, #faf7f0); border-color: var(--club-primary, #6f7c3d); }
 </style>
 
-<?php /* Fabric.js — same CDN as original */ ?>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<?php /* Fabric.js — version pinned, must match badge_print.php */ ?>
+<script src="https://cdn.jsdelivr.net/npm/fabric@7.4.0/dist/index.min.js"
+        integrity="sha512-aZp8qCI631QgG02ShOom0Rhmi1F/f5l7k+Y3PA9hUHOcaoydNyikEwNe6fAYpCJaBwSrYkB0QeDk9IY3hT3McA=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 
 <script<?= csp_nonce_attr() ?>>
 (function () {
@@ -584,7 +722,7 @@ function scheduleHistorySnapshot() {
 function applyHistoryJSON(jsonStr) {
     historyPaused = true;
     var parsed = JSON.parse(jsonStr);
-    canvas.loadFromJSON(parsed, function () {
+    canvas.loadFromJSON(parsed).then(function () {
         restoreDataFields(canvas, parsed);
         historyPaused = false;
         canvas.requestRenderAll();
@@ -593,15 +731,43 @@ function applyHistoryJSON(jsonStr) {
     });
 }
 
+/* ── Fabric v7 compatibility shims ───────────────────────────────────────────
+ * Fabric 6+ renamed some globals (Object/Image/Text → FabricObject/FabricImage/
+ * FabricText), made Image.fromURL() / loadFromJSON() promise-based, removed
+ * setBackgroundImage() (background is now a plain property) and changed object
+ * `type` values to capitalised class names. The aliases + helpers below keep the
+ * rest of this file working across versions. */
+var FabricObjectClass = fabric.Object || fabric.FabricObject;
+var FabricTextClass   = fabric.Text  || fabric.FabricText;
+var FabricImageClass  = fabric.Image || fabric.FabricImage;
+var FabricGroupClass  = fabric.Group;
+
+/** Image.fromURL is promise-based in v6+ (crossOrigin lives in the options arg).
+ *  Preserves the old callback style: cb receives the image, or null on error. */
+function loadFabricImage(url, opts, cb) {
+    try {
+        FabricImageClass.fromURL(url, opts || {})
+            .then(function (img) { cb(img || null); })
+            .catch(function () { cb(null); });
+    } catch (e) { cb(null); }
+}
+
+/** v6+ removed setBackgroundImage(); the background is now a plain property. */
+function setCanvasBackgroundImage(c, img, cb) {
+    c.backgroundImage = img || null;
+    c.requestRenderAll();
+    if (typeof cb === 'function') cb();
+}
+
 /* ── Extend Fabric serialisation to include our custom dataField ──────────── */
-fabric.Object.prototype.toObject = (function (toObject) {
+FabricObjectClass.prototype.toObject = (function (toObject) {
     return function (properties) {
-        return fabric.util.object.extend(toObject.call(this, properties || []), {
+        return Object.assign(toObject.call(this, properties || []), {
             dataField:   this[dataFieldProp],
             _fixedWidth: this._fixedWidth || 0   // persist fixed width across saves
         });
-        };
-})(fabric.Object.prototype.toObject);
+    };
+})(FabricObjectClass.prototype.toObject);
 
 /* ── Canvas setup ────────────────────────────────────────────────────────── */
 var canvas = new fabric.Canvas('badge-canvas', {
@@ -684,8 +850,7 @@ function setCardSize(ori) {
         currentCardW = CARD_W_L;
         currentCardH = CARD_H_L;
     }
-    canvas.setWidth(currentCardW);
-    canvas.setHeight(currentCardH);
+    canvas.setDimensions({ width: currentCardW, height: currentCardH });
     canvas.requestRenderAll();
     scheduleDesignerViewSync();
 }
@@ -728,10 +893,7 @@ function setBackgroundToCover(img) {
     var top    = (currentCardH - h * scale) / 2;
     img.set({ scaleX: scale, scaleY: scale, left: left, top: top,
               originX: 'left', originY: 'top' });
-    canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
-        scaleX: scale, scaleY: scale, left: left, top: top,
-        originX: 'left', originY: 'top'
-    });
+    setCanvasBackgroundImage(canvas, img);
     canvas.requestRenderAll();
 }
 
@@ -792,9 +954,9 @@ document.getElementById('bg-upload').addEventListener('change', function () {
             if (data.ok && data.url) {
                 bgStatus.textContent = 'Loaded.';
                 var bgUrl = resolveUrl(data.url) + (data.url.indexOf('?') !== -1 ? '&' : '?') + 't=' + Date.now();
-                fabric.Image.fromURL(bgUrl, function (img) {
+                loadFabricImage(bgUrl, { crossOrigin: 'anonymous' }, function (img) {
                     if (img) setBackgroundToCover(img);
-                }, { crossOrigin: 'anonymous' });
+                });
             } else {
                 bgStatus.textContent = data.error || 'Upload failed.';
             }
@@ -804,7 +966,7 @@ document.getElementById('bg-upload').addEventListener('change', function () {
 });
 
 document.getElementById('bg-remove').addEventListener('click', function () {
-    canvas.setBackgroundImage(null);
+    canvas.backgroundImage = null;
     canvas.requestRenderAll();
     document.getElementById('bg-status').textContent = 'Background removed.';
 });
@@ -824,13 +986,7 @@ function addTextField(field, placeholder) {
     canvas.requestRenderAll();
 }
 
-document.querySelectorAll('.add-field-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-        addTextField(this.dataset.field, this.dataset.placeholder);
-    });
-});
-
-document.getElementById('addPhoto').addEventListener('click', function () {
+function addPhotoField() {
     var rect  = new fabric.Rect({ width: 80, height: 100, fill: '#e0e0e0',
                                    stroke: '#aaa', strokeWidth: 1 });
     var label = new fabric.Text('Photo', { fontSize: 11, fill: '#555',
@@ -841,6 +997,17 @@ document.getElementById('addPhoto').addEventListener('click', function () {
     canvas.add(grp);
     canvas.setActiveObject(grp);
     canvas.requestRenderAll();
+}
+
+document.getElementById('add-field-select').addEventListener('change', function () {
+    var opt = this.options[this.selectedIndex];
+    var value = this.value;
+    if (value === '__photo__') {
+        addPhotoField();
+    } else if (value) {
+        addTextField(value, opt.dataset.placeholder);
+    }
+    this.selectedIndex = 0; // reset back to the "Add a field…" prompt
 });
 
 document.getElementById('deleteObj').addEventListener('click', function () {
@@ -897,7 +1064,7 @@ var alignBtns     = document.querySelectorAll('#prop-align button');
 
 /** Populate the properties panel from the currently selected object. */
 function syncPropsPanel(obj) {
-    if (!obj || obj.type === 'group') {
+    if (!obj || (FabricGroupClass && obj instanceof FabricGroupClass)) {
         propsPanel.style.display = 'none';
         return;
     }
@@ -1086,7 +1253,7 @@ function applyPreview(memberData) {
         if (field === 'photo') {
             // Swap the photo placeholder for the member's actual photo
             if (memberData.photo_data_url) {
-                fabric.Image.fromURL(memberData.photo_data_url, function (img) {
+                loadFabricImage(memberData.photo_data_url, {}, function (img) {
                     if (!img) return;
                     // Match position + size of existing placeholder group
                     img.set({
@@ -1104,7 +1271,7 @@ function applyPreview(memberData) {
                     canvas.requestRenderAll();
                 });
             }
-        } else if (obj.type === 'i-text' || obj.type === 'text') {
+        } else if (FabricTextClass && obj instanceof FabricTextClass) {
             obj.set('text', memberData[field] !== undefined ? String(memberData[field]) : obj.text);
         }
     });
@@ -1122,7 +1289,7 @@ function enterPreview(memberData) {
     canvas.getObjects().forEach(function (obj) {
         var field = obj[dataFieldProp];
         if (!field) return;
-        if (obj.type === 'i-text' || obj.type === 'text') {
+        if (FabricTextClass && obj instanceof FabricTextClass) {
             previewSnapshot.push({ obj: obj, text: obj.text });
         }
     });
@@ -1231,44 +1398,178 @@ document.getElementById('back-orientation').addEventListener('change', function 
 backHtmlEl.addEventListener('input', function () { updateBackPreview(); scheduleAutosave(); });
 syncBackPreviewZoom();
 
+/* ── Multiple designs: state + picker controls ──────────────────────────── */
+var designSelect   = document.getElementById('design-select');
+var newDesignBtn   = document.getElementById('newDesign');
+var renameBtn      = document.getElementById('renameDesign');
+var deleteBtn      = document.getElementById('deleteDesign');
+var defaultCheck   = document.getElementById('design-default');
+var boardCheck     = document.getElementById('design-board-default');
+
+var designs         = [];   // [{id, name, is_default, is_board_default}]
+var currentDesignId = 0;    // 0 = unsaved new design
+var currentName     = 'Default';
+
+function findDesign(id) {
+    for (var i = 0; i < designs.length; i++) { if (designs[i].id === id) return designs[i]; }
+    return null;
+}
+
+function populateDesignSelect() {
+    designSelect.innerHTML = '';
+    if (currentDesignId === 0) {
+        var optNew = document.createElement('option');
+        optNew.value = '0';
+        optNew.textContent = (currentName || 'New design') + ' (unsaved)';
+        designSelect.appendChild(optNew);
+    }
+    designs.forEach(function (d) {
+        var opt = document.createElement('option');
+        opt.value = String(d.id);
+        var tags = [];
+        if (d.is_default)       tags.push('default');
+        if (d.is_board_default) tags.push('board');
+        opt.textContent = d.name + (tags.length ? '  [' + tags.join(', ') + ']' : '');
+        designSelect.appendChild(opt);
+    });
+    designSelect.value = String(currentDesignId);
+}
+
+function syncFlagChecks() {
+    var d = findDesign(currentDesignId);
+    defaultCheck.checked = d ? !!d.is_default : false;
+    boardCheck.checked   = d ? !!d.is_board_default : false;
+}
+
+function setSaveStatus(text, cls) {
+    var saveStatus = document.getElementById('save-status');
+    saveStatus.textContent = text;
+    saveStatus.className    = 'small ' + (cls || 'text-muted');
+}
+
 /* ── Save design ────────────────────────────────────────────────────────── */
-document.getElementById('saveDesign').addEventListener('click', function () {
+function doSave(overrideName) {
     if (previewMode) {
         exitPreview();
         previewSelect.value = '';
         previewStatus.textContent = '';
     }
     var payload = getPayloadForSave();
-    var saveStatus = document.getElementById('save-status');
-    saveStatus.textContent = 'Saving…';
-    saveStatus.className   = 'small text-muted';
+    setSaveStatus('Saving…', 'text-muted');
+
+    if (typeof overrideName === 'string' && overrideName !== '') {
+        currentName = overrideName;
+    }
 
     var fd = new FormData();
     fd.append('action', 'save');
     fd.append('template', JSON.stringify(payload));
+    fd.append('template_id', String(currentDesignId || 0));
+    fd.append('name', currentName || 'Untitled design');
+    fd.append('is_default', defaultCheck.checked ? '1' : '0');
+    fd.append('is_board_default', boardCheck.checked ? '1' : '0');
     var csrfEl = document.getElementById('csrf_token_value');
     if (csrfEl) fd.append('csrf_token', csrfEl.value);
 
-    fetch('badge_design.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+    return fetch('badge_design.php', { method: 'POST', body: fd, credentials: 'same-origin' })
         .then(function (r) { return r.json(); })
         .then(function (data) {
             if (data.ok) {
                 try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) {}
-                saveStatus.textContent = '✓ Saved';
-                saveStatus.className   = 'small text-success';
-                window.setTimeout(function () {
-                    saveStatus.textContent = '';
-                    saveStatus.className   = 'small text-muted';
-                }, 3000);
+                currentDesignId = data.id;
+                currentName     = data.name;
+                designs         = data.designs || [];
+                populateDesignSelect();
+                syncFlagChecks();
+                setSaveStatus('✓ Saved', 'text-success');
+                window.setTimeout(function () { setSaveStatus('', 'text-muted'); }, 3000);
             } else {
-                saveStatus.textContent = 'Error: ' + (data.error || 'Save failed');
-                saveStatus.className   = 'small text-danger';
+                setSaveStatus('Error: ' + (data.error || 'Save failed'), 'text-danger');
             }
         })
         .catch(function () {
-            saveStatus.textContent = 'Network error — design not saved.';
-            saveStatus.className   = 'small text-danger';
+            setSaveStatus('Network error — design not saved.', 'text-danger');
         });
+}
+document.getElementById('saveDesign').addEventListener('click', function () { doSave(); });
+
+/* ── Switch / create / rename / delete designs ──────────────────────────── */
+designSelect.addEventListener('change', function () {
+    var id = parseInt(this.value, 10) || 0;
+    if (id === currentDesignId) return;
+    try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) {}
+    currentDesignId = id;
+    var d = findDesign(id);
+    currentName = d ? d.name : currentName;
+    // Drop any lingering "unsaved" entry now that we've moved to a saved design.
+    populateDesignSelect();
+    syncFlagChecks();
+    loadDesignById(id);
+});
+
+newDesignBtn.addEventListener('click', function () {
+    var name = prompt('Name for the new design:', 'New design');
+    if (name === null) return;
+    name = (name || '').trim() || 'Untitled design';
+    try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) {}
+    currentDesignId = 0;
+    currentName     = name;
+    defaultCheck.checked = false;
+    boardCheck.checked   = false;
+    populateDesignSelect();
+    applyDesignData(null);
+    setSaveStatus('New design — click “Save Design” to store it.', 'text-muted');
+});
+
+renameBtn.addEventListener('click', function () {
+    var current = currentDesignId ? (findDesign(currentDesignId) || {}).name : currentName;
+    var nn = prompt('Design name:', current || '');
+    if (nn === null) return;
+    nn = (nn || '').trim();
+    if (!nn) return;
+    currentName = nn;
+    if (currentDesignId === 0) {
+        populateDesignSelect();      // just relabel the unsaved entry
+    } else {
+        doSave(nn);                  // persist the rename (saves current canvas too)
+    }
+});
+
+deleteBtn.addEventListener('click', function () {
+    if (currentDesignId === 0) {
+        // Discard the unsaved new design and return to the default/first.
+        try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) {}
+        selectInitialDesign();
+        return;
+    }
+    if (designs.length <= 1) {
+        alert('You cannot delete the only design. Create another design first.');
+        return;
+    }
+    var d = findDesign(currentDesignId);
+    if (!confirm('Delete design “' + (d ? d.name : '') + '”? This cannot be undone.')) return;
+
+    var fd = new FormData();
+    fd.append('action', 'delete_design');
+    fd.append('template_id', String(currentDesignId));
+    var csrfEl = document.getElementById('csrf_token_value');
+    if (csrfEl) fd.append('csrf_token', csrfEl.value);
+
+    setSaveStatus('Deleting…', 'text-muted');
+    fetch('badge_design.php', { method: 'POST', body: fd, credentials: 'same-origin' })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.ok) {
+                designs = data.designs || [];
+                try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) {}
+                setSaveStatus('Design deleted', 'text-success');
+                window.setTimeout(function () { setSaveStatus('', 'text-muted'); }, 3000);
+                selectInitialDesign();
+            } else {
+                setSaveStatus('Error: ' + (data.error || 'Delete failed'), 'text-danger');
+            }
+        })
+        .catch(function () { setSaveStatus('Network error — not deleted.', 'text-danger'); });
 });
 
 /* ── Load existing template on page load ────────────────────────────────── */
@@ -1290,65 +1591,114 @@ function restoreDataFields(fabricCanvas, savedCanvas) {
         }
         });
 }
-fetch('badge_design.php?action=load', { credentials: 'same-origin' })
-    .then(function (r) {
-        if (!r.ok) return null;
-        return r.json();
-    })
-    .then(function (data) {
-        var backup = null;
-        try { backup = localStorage.getItem(AUTOSAVE_KEY); } catch (e) {}
-        if (backup) {
-            if (confirm('You have unsaved changes from a previous session. Restore them?')) {
-                try { data = JSON.parse(backup); } catch (e) { data = null; }
-            }
-            try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) {}
-        }
-        if (!data || !data.canvas) {
-            resetHistoryFromCanvas();
-            scheduleDesignerViewSync();
-            return;
-        }
+// Render one design's data onto the canvas. Pass null/empty for a blank card.
+function applyDesignData(data) {
+    historyPaused = true;
 
-        var ori = (data.orientation === 'portrait') ? 'portrait' : 'landscape';
-        document.getElementById('orientation').value = ori;
-        setCardSize(ori);
-
-        var backOri = (data.backOrientation === 'portrait') ? 'portrait' : 'landscape';
-        document.getElementById('back-orientation').value = backOri;
+    if (!data || !data.canvas) {
+        canvas.clear();
+        canvas.backgroundImage = null;
+        document.getElementById('orientation').value = 'landscape';
+        setCardSize('landscape');
+        document.getElementById('back-orientation').value = 'landscape';
         syncBackPreviewZoom();
+        backHtmlEl.value = '';
+        updateBackPreview();
+        canvas.requestRenderAll();
+        scheduleDesignerViewSync();
+        historyPaused = false;
+        resetHistoryFromCanvas();
+        return;
+    }
 
-        if (data.backHtml) {
-            backHtmlEl.value = data.backHtml;
-            updateBackPreview();
-        }
+    var ori = (data.orientation === 'portrait') ? 'portrait' : 'landscape';
+    document.getElementById('orientation').value = ori;
+    setCardSize(ori);
 
-        var bgUrl = (data.backgroundPath ? resolveUrl(data.backgroundPath) : null)
-            || data.backgroundDataUrl
-            || null;
-        if (bgUrl && bgUrl.indexOf('data:') !== 0) {
-            bgUrl = bgUrl + (bgUrl.indexOf('?') !== -1 ? '&' : '?') + 't=' + Date.now();
-        }
+    var backOri = (data.backOrientation === 'portrait') ? 'portrait' : 'landscape';
+    document.getElementById('back-orientation').value = backOri;
+    syncBackPreviewZoom();
 
-        historyPaused = true;
-        canvas.loadFromJSON(data.canvas, function () {
-            restoreDataFields(canvas, data.canvas);
-            if (bgUrl) {
-                var opts = bgUrl.indexOf('data:') !== 0 ? { crossOrigin: 'anonymous' } : {};
-                fabric.Image.fromURL(bgUrl, function (img) {
-                    if (img) setBackgroundToCover(img);
-                    canvas.requestRenderAll();
-                    scheduleDesignerViewSync();
-                    historyPaused = false;
-                    resetHistoryFromCanvas();
-                }, opts);
-            } else {
+    backHtmlEl.value = data.backHtml || '';
+    updateBackPreview();
+
+    var bgUrl = (data.backgroundPath ? resolveUrl(data.backgroundPath) : null)
+        || data.backgroundDataUrl
+        || null;
+    if (bgUrl && bgUrl.indexOf('data:') !== 0) {
+        bgUrl = bgUrl + (bgUrl.indexOf('?') !== -1 ? '&' : '?') + 't=' + Date.now();
+    }
+
+    canvas.loadFromJSON(data.canvas).then(function () {
+        restoreDataFields(canvas, data.canvas);
+        if (bgUrl) {
+            var opts = bgUrl.indexOf('data:') !== 0 ? { crossOrigin: 'anonymous' } : {};
+            loadFabricImage(bgUrl, opts, function (img) {
+                if (img) setBackgroundToCover(img);
                 canvas.requestRenderAll();
                 scheduleDesignerViewSync();
                 historyPaused = false;
                 resetHistoryFromCanvas();
+            });
+        } else {
+            canvas.backgroundImage = null;
+            canvas.requestRenderAll();
+            scheduleDesignerViewSync();
+            historyPaused = false;
+            resetHistoryFromCanvas();
+        }
+    });
+}
+
+// Fetch a design by id (0/empty → server default) and render it.
+function loadDesignById(id) {
+    var url = 'badge_design.php?action=load' + (id ? '&id=' + encodeURIComponent(id) : '');
+    return fetch(url, { credentials: 'same-origin' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) { applyDesignData(data); })
+        .catch(function () { resetHistoryFromCanvas(); });
+}
+
+// Pick the default (or first) design from the loaded list and render it.
+function selectInitialDesign() {
+    var sel = null;
+    for (var i = 0; i < designs.length; i++) { if (designs[i].is_default) { sel = designs[i]; break; } }
+    if (!sel && designs.length) sel = designs[0];
+    currentDesignId = sel ? sel.id : 0;
+    currentName     = sel ? sel.name : 'Default';
+    populateDesignSelect();
+    syncFlagChecks();
+    loadDesignById(currentDesignId);
+}
+
+/* ── Initial page load: list designs, then load the selected one ─────────── */
+fetch('badge_design.php?action=list', { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (resp) {
+        designs = (resp && resp.designs) || [];
+        var sel = null;
+        for (var i = 0; i < designs.length; i++) { if (designs[i].is_default) { sel = designs[i]; break; } }
+        if (!sel && designs.length) sel = designs[0];
+        currentDesignId = sel ? sel.id : 0;
+        currentName     = sel ? sel.name : 'Default';
+        populateDesignSelect();
+        syncFlagChecks();
+
+        var loadUrl = 'badge_design.php?action=load' + (currentDesignId ? '&id=' + currentDesignId : '');
+        return fetch(loadUrl, { credentials: 'same-origin' })
+            .then(function (r) { return r.ok ? r.json() : null; });
+    })
+    .then(function (data) {
+        // Offer to restore an autosave backup from a previous session (first load only).
+        var backup = null;
+        try { backup = localStorage.getItem(AUTOSAVE_KEY); } catch (e) {}
+        if (backup) {
+            if (confirm('You have unsaved changes from a previous session. Restore them?')) {
+                try { data = JSON.parse(backup); } catch (e) { /* fall back to server data */ }
             }
-        });
+            try { localStorage.removeItem(AUTOSAVE_KEY); } catch (e) {}
+        }
+        applyDesignData(data);
     })
     .catch(function () { resetHistoryFromCanvas(); });
 
