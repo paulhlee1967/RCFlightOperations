@@ -139,8 +139,6 @@ CREATE TABLE `payments` (
   `amount_initiation` decimal(10,2) NOT NULL DEFAULT 0.00,
   `amount_late_fee` decimal(10,2) NOT NULL DEFAULT 0.00,
   `comp` tinyint(1) NOT NULL DEFAULT 0,
-  `voided_at` datetime DEFAULT NULL,
-  `voided_by` int unsigned DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `member_id` (`member_id`),
@@ -336,6 +334,8 @@ CREATE TABLE IF NOT EXISTS `operator_messages` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Drop the legacy soft-delete columns on existing databases (payments are
+-- now hard-deleted; the action is captured in audit_log instead).
 SET @col_exists = (
     SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
     WHERE TABLE_SCHEMA = DATABASE()
@@ -343,8 +343,8 @@ SET @col_exists = (
       AND COLUMN_NAME  = 'voided_at'
 );
 SET @sql = IF(
-    @col_exists = 0,
-    'ALTER TABLE `payments` ADD COLUMN `voided_at` datetime DEFAULT NULL AFTER `comp`, ADD COLUMN `voided_by` int unsigned DEFAULT NULL AFTER `voided_at`',
+    @col_exists = 1,
+    'ALTER TABLE `payments` DROP COLUMN `voided_at`, DROP COLUMN `voided_by`',
     'SELECT 1'
 );
 PREPARE stmt FROM @sql;

@@ -309,7 +309,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $paymentExists = $pdo->prepare('
                 SELECT 1 FROM payments
                 WHERE member_id = ? AND paid_at = ? AND year = ? AND amount_dues = ? AND amount_initiation = ?
-                  AND (voided_at IS NULL)
                 LIMIT 1
             ');
             $added = 0;

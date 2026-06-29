@@ -13,7 +13,6 @@
 
 const FEATURES = [
     'badge_designer' => 'Badge Designer & Printing',
-    'report_email'   => 'Email Reports',
     'csv_import'     => 'CSV Import',
     'ama_lookup'     => 'Live AMA Verification',
     'multi_user'     => 'Multiple Users',

@@ -86,7 +86,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **members.php** | Member list: pagination, filters (status, type, search). Links to add, edit, renew, print badge, export. |
 | **member_edit.php** | Add/edit member form (contact, compliance, membership tabs). POST handled in page; validation via `validation.php`. |
 | **payment_add.php** | POST: add a payment row for a member (from Payment history tab). |
-| **payment_void.php** | POST: mark a payment void (`voided_at`, `voided_by`). Admin, editor, or treasurer. Voided rows are ignored in revenue reports and renewal “already paid” checks. |
+| **payment_delete.php** | POST: permanently delete an erroneous payment row. Admin, editor, or treasurer. The deletion is recorded in `audit_log` and the member's frozen membership-year roster is re-synced. |
 | **member_detail.php** | Read-only member view (optional alternate to edit). |
 | **member_process.php** | Renewal workflow: record payment, update `membership_renewal_year`, clear badge-printed flag. Uses `defaultRenewalYear()`, dues from `dues_rules`. |
 | **member_delete.php** | Deletes member and related data (phones, addresses, payments); removes photo file from `uploads/`. |

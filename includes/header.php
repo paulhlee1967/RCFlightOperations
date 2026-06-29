@@ -334,7 +334,7 @@ $_headerBaseHref = '';
         .hover-shadow:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); border-color: var(--club-primary) !important; }
 
         /* ── Shared sidebar nav component ────────────────────────────────
-           Used by reports.php, badge_design.php, and any future page that
+           Used by badge_design.php and any future page that
            needs a left-rail navigation panel.                              */
         .sidebar-nav-link {
             display: block; padding: 0.35rem 1rem;
@@ -404,14 +404,6 @@ $_headerBaseHref = '';
                 <li class="nav-item">
                     <a class="nav-link<?= navActive(['members.php', 'member_edit.php', 'member_view.php', 'member_delete.php', 'member_process.php']) ?>"
                        href="<?= $_headerBaseHref ?>members.php">Members</a>
-                </li>
-                <?php endif; ?>
-
-                <!-- Reports (all logged-in roles) -->
-                <?php if (function_exists('canViewReports') && canViewReports()): ?>
-                <li class="nav-item">
-                    <a class="nav-link<?= navActive('reports.php') ?>"
-                       href="<?= $_headerBaseHref ?>reports.php">Reports</a>
                 </li>
                 <?php endif; ?>
 

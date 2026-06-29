@@ -221,6 +221,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
         $typeLabel .= ' (Complementary)';
     }
 
+    // Ensure dependent tables exist BEFORE opening the transaction. The table
+    // creation issues DDL (CREATE TABLE), and in MySQL any DDL triggers an
+    // implicit COMMIT — which would silently end the transaction mid-way and
+    // make the later commit()/rollBack() fail with "no active transaction".
+    ensureMembershipYearsTable($pdo);
+
     // Payment + member update must be atomic (prevents orphaned payment records).
     $pdo->beginTransaction();
     try {
@@ -264,7 +270,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
 
         $pdo->commit();
     } catch (Throwable $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         error_log('member_process record_renewal failed: ' . $e->getMessage());
         header('Location: member_process.php?id=' . $memberId . '&year=' . $renewalYear . '&recorded=0&error=record_failed');
         exit;
@@ -318,7 +326,6 @@ $fulfillment = getFulfillment($pdo, $memberId, $workYear);
 $payStmt = $pdo->prepare('
     SELECT * FROM payments
     WHERE member_id = ? AND year = ?
-      AND (voided_at IS NULL)
     ORDER BY created_at DESC LIMIT 1
 ');
 $payStmt->execute([$memberId, $workYear]);
@@ -579,14 +586,14 @@ require_once __DIR__ . '/includes/header.php';
             <?php if ($latestPayment['comp']): ?>
             <span class="badge bg-secondary ms-1">Complementary</span>
             <?php endif; ?>
-            <?php if (canManagePayments() && empty($latestPayment['voided_at'])): ?>
-            <form method="post" action="payment_void.php" class="d-inline-block ms-2"
-                  data-confirm-submit="Void this payment? It remains on file but won't count in revenue reports.">
+            <?php if (canManagePayments()): ?>
+            <form method="post" action="payment_delete.php" class="d-inline-block ms-2"
+                  data-confirm-submit="Delete this payment? This permanently removes it from the record.">
                 <?= csrf_field() ?>
                 <input type="hidden" name="payment_id" value="<?= (int) $latestPayment['id'] ?>">
                 <input type="hidden" name="member_id" value="<?= (int) $memberId ?>">
                 <input type="hidden" name="return" value="process">
-                <button type="submit" class="btn btn-sm btn-outline-warning">Void this payment</button>
+                <button type="submit" class="btn btn-sm btn-outline-danger">Delete this payment</button>
             </form>
             <?php endif; ?>
         </div>

@@ -7,7 +7,7 @@
  * A member is current for year Y when:
  *   - membership_renewal_year = Y (signed up / renewed for that year)
  *   - not manually flagged inactive or suspended
- *   - and either life_member, free_membership (complimentary), or a non-void
+ *   - and either life_member, free_membership (complimentary), or a
  *     payment or fulfillment record for year Y
  *
  * Everyone else is inactive (for list filters, dashboard counts, and reports).
@@ -28,7 +28,7 @@ function renewedMemberIdsSql(): string
 {
     return '
         SELECT DISTINCT member_id FROM payments
-        WHERE year = ? AND voided_at IS NULL
+        WHERE year = ?
         UNION
         SELECT DISTINCT member_id FROM member_fulfillments
         WHERE year = ?
@@ -81,7 +81,7 @@ function currentMemberWhereSql(string $alias = 'm', ?int $year = null): string
             OR {$c}free_membership = 1
             OR EXISTS (
                 SELECT 1 FROM payments p
-                WHERE p.member_id = {$idCol} AND p.year = ? AND p.voided_at IS NULL
+                WHERE p.member_id = {$idCol} AND p.year = ?
             )
             OR EXISTS (
                 SELECT 1 FROM member_fulfillments f
@@ -181,7 +181,7 @@ function countCurrentMembers(PDO $pdo, ?int $year = null): int
 }
 
 /**
- * Distinct members with a non-void payment or fulfillment for a given year.
+ * Distinct members with a payment or fulfillment for a given year.
  * Use for year-over-year comparisons — not countCurrentMembers(), because
  * members who renewed since then no longer have membership_renewal_year set to that year.
  */

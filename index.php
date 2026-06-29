@@ -170,7 +170,7 @@ require_once __DIR__ . '/includes/header.php';
 
     <!-- Not yet renewed -->
     <div class="col-6 col-sm-4 col-xl">
-        <a href="reports.php?report=renewal_not_renewed&year=<?= $currentYear ?>" class="card stat-card text-decoration-none h-100">
+        <div class="card stat-card h-100">
             <div class="card-body p-3">
                 <div class="stat-icon <?= $notRenewed > 0 ? 'text-warning' : 'text-success' ?>">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
@@ -182,7 +182,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="stat-label">Not yet renewed</div>
                 <div class="stat-sub text-muted">for <?= $currentYear ?></div>
             </div>
-        </a>
+        </div>
     </div>
 
     <!-- Unprinted badges -->
@@ -206,7 +206,7 @@ require_once __DIR__ . '/includes/header.php';
 
     <!-- AMA/FAA compliance -->
     <div class="col-6 col-sm-4 col-xl">
-        <a href="reports.php?report=ama_faa_expiring" class="card stat-card text-decoration-none h-100">
+        <div class="card stat-card h-100">
             <div class="card-body p-3">
                 <div class="stat-icon <?= $complianceAlerts > 0 ? ($expiredCount > 0 ? 'text-danger' : 'text-warning') : 'text-success' ?>">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
@@ -217,12 +217,12 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="stat-label">AMA/FAA alerts</div>
                 <div class="stat-sub text-muted"><?= $expiredCount > 0 ? $expiredCount . ' already expired' : 'within 60 days' ?></div>
             </div>
-        </a>
+        </div>
     </div>
 
     <!-- Birthdays this week -->
     <div class="col-6 col-sm-4 col-xl">
-        <a href="reports.php?report=birthdays_this_month" class="card stat-card text-decoration-none h-100">
+        <div class="card stat-card h-100">
             <div class="card-body p-3">
                 <div class="stat-icon text-info">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
@@ -233,7 +233,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="stat-label">Birthdays this week</div>
                 <div class="stat-sub text-muted"><?= h(date('M j', strtotime($weekStart))) ?>–<?= h(date('M j', strtotime($weekEnd))) ?></div>
             </div>
-        </a>
+        </div>
     </div>
 
 </div><!-- /.row stat cards -->
@@ -248,8 +248,6 @@ if ($notRenewed > 0) {
         'color' => 'warning',
         'count' => $notRenewed,
         'label' => 'member' . ($notRenewed !== 1 ? 's' : '') . ' renewed last year but not yet this year',
-        'link'  => 'reports.php?report=renewal_not_renewed&year=' . $currentYear,
-        'cta'   => 'View list →',
     ];
 }
 if ($complianceAlerts > 0) {
@@ -258,8 +256,6 @@ if ($complianceAlerts > 0) {
         'color' => $expiredCount > 0 ? 'danger' : 'warning',
         'count' => $complianceAlerts,
         'label' => 'member' . ($complianceAlerts !== 1 ? 's' : '') . ' with AMA/FAA expiring or expired',
-        'link'  => 'reports.php?report=ama_faa_expiring',
-        'cta'   => 'View compliance →',
     ];
 }
 if ($noEmail > 0) {
@@ -278,8 +274,6 @@ if ($missingAma > 0) {
         'color' => 'secondary',
         'count' => $missingAma,
         'label' => $currentYear . ' member' . ($missingAma !== 1 ? 's' : '') . ' with no AMA number on file',
-        'link'  => 'reports.php?report=ama_faa_expiring',
-        'cta'   => 'View compliance →',
     ];
 }
 ?>
@@ -299,11 +293,13 @@ if ($missingAma > 0) {
             <span style="font-size:.875rem;">
                 <strong><?= $item['count'] ?></strong> <?= $item['label'] ?>
             </span>
+            <?php if (!empty($item['link'])): ?>
             <a href="<?= h($item['link']) ?>"
                class="btn btn-sm btn-outline-secondary py-0 px-2 ms-3"
                style="font-size:.78rem;white-space:nowrap;">
                 <?= $item['cta'] ?>
             </a>
+            <?php endif; ?>
         </li>
         <?php endforeach; ?>
     </ul>
@@ -328,24 +324,6 @@ if ($missingAma > 0) {
                 <div>
                     <h2 class="h6 card-title mb-1">Members</h2>
                     <p class="card-text text-muted small mb-0"><?= $totalMembersAll ?> current member<?= $totalMembersAll !== 1 ? 's' : '' ?></p>
-                </div>
-            </div>
-        </a>
-    </div>
-    <?php endif; ?>
-
-    <?php if (canViewReports()): ?>
-    <div class="col-sm-6 col-lg-4">
-        <a href="reports.php" class="card nav-card text-decoration-none text-body h-100">
-            <div class="card-body d-flex align-items-start gap-3">
-                <div class="nav-card-icon bg-success-subtle text-success">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M0 0h1v15h15v1H0zm14.817 3.113a.5.5 0 0 1 .07.704l-4.5 5.5a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61 4.15-5.073a.5.5 0 0 1 .704-.07"/>
-                    </svg>
-                </div>
-                <div>
-                    <h2 class="h6 card-title mb-1">Reports</h2>
-                    <p class="card-text text-muted small mb-0">Membership, compliance, revenue</p>
                 </div>
             </div>
         </a>

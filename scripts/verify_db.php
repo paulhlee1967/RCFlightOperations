@@ -67,7 +67,7 @@ $expectedColumns = [
     ],
     'member_phones' => ['id', 'member_id', 'type', 'number'],
     'member_addresses' => ['id', 'member_id', 'type', 'street', 'street2', 'city', 'state', 'postal_code'],
-    'payments' => ['id', 'member_id', 'paid_at', 'year', 'amount_dues', 'amount_initiation', 'amount_late_fee', 'comp', 'voided_at', 'voided_by', 'created_at'],
+    'payments' => ['id', 'member_id', 'paid_at', 'year', 'amount_dues', 'amount_initiation', 'amount_late_fee', 'comp', 'created_at'],
     'dues_rules' => ['id', 'membership_type_slot', 'annual_dues', 'prorated_dues', 'initiation_fee', 'prorate_start_month', 'prorate_end_month'],
     'badge_templates' => ['id', 'template_data', 'updated_at'],
     'incidents' => [

@@ -96,7 +96,7 @@ $stmt = $pdo->prepare('
         SUM(amount_dues + amount_initiation + amount_late_fee) AS total_paid,
         MAX(paid_at)                         AS last_paid_at
     FROM payments
-    WHERE member_id = ? AND (voided_at IS NULL)
+    WHERE member_id = ?
 ');
 $stmt->execute([$memberId]);
 $paymentSummary = $stmt->fetch(PDO::FETCH_ASSOC);

@@ -474,27 +474,23 @@ require_once __DIR__ . '/includes/header.php';
                         <thead><tr><th>Date</th><th>Year</th><th>Dues</th><th>Initiation</th><th>Late fee</th><th>Comp</th><th></th></tr></thead>
                         <tbody>
                             <?php foreach ($payments as $p): ?>
-                            <tr class="<?= !empty($p['voided_at']) ? 'table-secondary text-muted' : '' ?>">
-                                <td><?= h($p['paid_at']) ?><?php if (!empty($p['voided_at'])): ?>
-                                    <div class="small">Voided <?= h($p['voided_at']) ?></div>
-                                <?php endif; ?></td>
+                            <tr>
+                                <td><?= h($p['paid_at']) ?></td>
                                 <td><?= h($p['year']) ?></td>
                                 <td><?= h($p['amount_dues']) ?></td>
                                 <td><?= h($p['amount_initiation']) ?></td>
                                 <td><?= h($p['amount_late_fee']) ?></td>
                                 <td><?= $p['comp'] ? 'Yes' : '' ?></td>
                                 <td class="text-nowrap">
-                                    <?php if (empty($p['voided_at']) && canManagePayments()): ?>
-                                    <form method="post" action="payment_void.php" class="d-inline"
-                                          data-confirm-submit="Void this payment? It will stay in history but won't count in reports.">
+                                    <?php if (canManagePayments()): ?>
+                                    <form method="post" action="payment_delete.php" class="d-inline"
+                                          data-confirm-submit="Delete this payment? This permanently removes it from the record.">
                                         <?= csrf_field() ?>
                                         <input type="hidden" name="payment_id" value="<?= (int) $p['id'] ?>">
                                         <input type="hidden" name="member_id" value="<?= (int) $memberId ?>">
                                         <input type="hidden" name="return" value="edit">
-                                        <button type="submit" class="btn btn-outline-warning btn-sm py-0 px-1">Void</button>
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1">Delete</button>
                                     </form>
-                                    <?php elseif (!empty($p['voided_at'])): ?>
-                                    <span class="badge bg-secondary">Voided</span>
                                     <?php endif; ?>
                                 </td>
                             </tr>

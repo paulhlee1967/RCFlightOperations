@@ -3,7 +3,7 @@
  * Backfill processed renewals for year-based membership counts.
  *
  * Passes:
- *   A) Payments — non-void payment without processed fulfillment for that year
+ *   A) Payments — payment without processed fulfillment for that year
  *   B) Fulfillments — fulfillment row exists but processed_at is NULL
  *   C) Renewal year — members.membership_renewal_year = Y, no processed fulfillment for Y
  *
@@ -110,8 +110,8 @@ if ($diagnose) {
 
     for ($y = $currentYear; $y >= $currentYear - 3; $y--) {
         echo "── Year {$y} ──\n";
-        echo "  Payments (non-void):              " . $q(
-            'SELECT COUNT(DISTINCT member_id) FROM payments WHERE year = ? AND (voided_at IS NULL)',
+        echo "  Payments:                         " . $q(
+            'SELECT COUNT(DISTINCT member_id) FROM payments WHERE year = ?',
             [$y]
         ) . "\n";
         echo "  Fulfillments (any row):           " . $q(
@@ -216,8 +216,7 @@ try {
         INNER JOIN members m ON m.id = p.member_id
         LEFT JOIN member_fulfillments mf
             ON mf.member_id = p.member_id AND mf.year = p.year
-        WHERE p.voided_at IS NULL
-          AND (mf.processed_at IS NULL)
+        WHERE (mf.processed_at IS NULL)
           {$yearClauseP}
         GROUP BY p.member_id, p.year, m.first_name, m.last_name, m.membership_renewal_year, mf.id
         ORDER BY p.year DESC, m.last_name, m.first_name

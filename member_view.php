@@ -272,25 +272,18 @@ require_once __DIR__ . '/includes/header.php';
                         <table class="table table-sm table-hover">
                             <thead class="table-light">
                                 <tr>
-                                    <th>Date</th><th>Year</th><th>Dues</th><th>Initiation</th><th>Late fee</th><th>Comp</th><th>Status</th>
+                                    <th>Date</th><th>Year</th><th>Dues</th><th>Initiation</th><th>Late fee</th><th>Comp</th>
                                 </tr>
                             </thead>
                             <tbody>
                             <?php foreach ($payments as $p): ?>
-                                <tr class="<?= !empty($p['voided_at']) ? 'table-secondary text-muted' : '' ?>">
+                                <tr>
                                     <td><?= htmlspecialchars($p['paid_at'] ?? '') ?></td>
                                     <td><?= htmlspecialchars($p['year'] ?? '') ?></td>
                                     <td><?= htmlspecialchars($p['amount_dues'] ?? '') ?></td>
                                     <td><?= htmlspecialchars($p['amount_initiation'] ?? '') ?></td>
                                     <td><?= htmlspecialchars($p['amount_late_fee'] ?? '') ?></td>
                                     <td><?= !empty($p['comp']) ? 'Yes' : '' ?></td>
-                                    <td>
-                                        <?php if (!empty($p['voided_at'])): ?>
-                                            <span class="badge bg-secondary">Voided</span>
-                                        <?php else: ?>
-                                            <span class="badge bg-success">Posted</span>
-                                        <?php endif; ?>
-                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                             </tbody>

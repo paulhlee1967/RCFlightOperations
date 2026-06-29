@@ -15,7 +15,7 @@
  *
  * Per-year rules:
  *   - Current calendar year: live "current member" rules (renewal year + payment/life/free).
- *   - Prior years: distinct members with a non-void payment or fulfillment for that year.
+ *   - Prior years: distinct members with a payment or fulfillment for that year.
  */
 
 require_once __DIR__ . '/../includes/cli_only_script.php';
@@ -47,7 +47,7 @@ if ($singleYear !== null) {
 } else {
     $stmt = $pdo->query('
         SELECT MIN(y) AS min_y, MAX(y) AS max_y FROM (
-            SELECT year AS y FROM payments WHERE voided_at IS NULL
+            SELECT year AS y FROM payments
             UNION
             SELECT year AS y FROM member_fulfillments
         ) t

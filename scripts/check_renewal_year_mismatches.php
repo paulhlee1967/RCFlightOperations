@@ -33,7 +33,7 @@ $stmt = $pdo->prepare("
            m.life_member, m.free_membership,
            EXISTS (
                SELECT 1 FROM payments p
-               WHERE p.member_id = m.id AND p.year = ? AND p.voided_at IS NULL
+               WHERE p.member_id = m.id AND p.year = ?
            ) AS has_payment,
            EXISTS (
                SELECT 1 FROM member_fulfillments f
@@ -41,7 +41,7 @@ $stmt = $pdo->prepare("
            ) AS has_fulfillment
     FROM members m
     WHERE m.id IN (
-        SELECT DISTINCT member_id FROM payments WHERE year = ? AND voided_at IS NULL
+        SELECT DISTINCT member_id FROM payments WHERE year = ?
         UNION
         SELECT DISTINCT member_id FROM member_fulfillments WHERE year = ?
     )
@@ -87,7 +87,7 @@ $stmt = $pdo->prepare("
       AND (m.life_member = 0 OR m.life_member IS NULL)
       AND (m.free_membership = 0 OR m.free_membership IS NULL)
       AND m.id NOT IN (
-          SELECT DISTINCT member_id FROM payments WHERE year = ? AND voided_at IS NULL
+          SELECT DISTINCT member_id FROM payments WHERE year = ?
           UNION
           SELECT DISTINCT member_id FROM member_fulfillments WHERE year = ?
       )
