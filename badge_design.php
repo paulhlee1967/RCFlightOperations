@@ -1251,22 +1251,27 @@ function applyPreview(memberData) {
         var field = obj[dataFieldProp];
         if (!field) return;
         if (field === 'photo') {
-            // Swap the photo placeholder for the member's actual photo
+            // Swap the photo placeholder for the member's actual photo.
+            // Use the placeholder's bounding rect (true top-left + size in canvas
+            // coords) so the preview matches the printed output exactly. A Fabric
+            // v6+ group's left/top is its CENTER, so positioning by obj.left/top
+            // shifted the photo down/right by half the box.
             if (memberData.photo_data_url) {
+                var placeholder = obj;
                 loadFabricImage(memberData.photo_data_url, {}, function (img) {
                     if (!img) return;
-                    // Match position + size of existing placeholder group
-                    img.set({
-                        left: obj.left,
-                        top: obj.top,
-                        scaleX: obj.getScaledWidth()  / img.width,
-                        scaleY: obj.getScaledHeight() / img.height,
-                    });
+                    if (canvas.getObjects().indexOf(placeholder) === -1) return;
+                    var rect = placeholder.getBoundingRect();
+                    var w = Math.max(rect.width  || 80, 1);
+                    var h = Math.max(rect.height || 100, 1);
+                    img.set({ originX: 'left', originY: 'top', left: rect.left, top: rect.top });
+                    img.scaleToWidth(w);
+                    if (img.getScaledHeight() > h) img.scaleToHeight(h);
                     img.set(dataFieldProp, 'photo_preview');
                     // Hide (don't remove) the placeholder so it can be
                     // restored on exitPreview — removing it caused the photo
                     // field to disappear from the saved template.
-                    obj.set('visible', false);
+                    placeholder.set('visible', false);
                     canvas.add(img);
                     canvas.requestRenderAll();
                 });
