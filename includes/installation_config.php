@@ -40,6 +40,53 @@ function renewal_prebook_start_month(PDO $pdo): int {
 }
 
 /**
+ * Day of the pre-book start month (1–31) when the club begins the next renewal year.
+ * Default 15 (e.g. October 15): on/after this day in the start month, default year
+ * pickers and "not yet renewed" roll forward to the next calendar year.
+ */
+function renewal_prebook_start_day(PDO $pdo): int {
+    $default = 15;
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT config_value FROM system_config WHERE config_key = ? LIMIT 1'
+        );
+        $stmt->execute(['renewal_prebook_start_day']);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && isset($row['config_value']) && $row['config_value'] !== '') {
+            $t = (int) $row['config_value'];
+            if ($t >= 1 && $t <= 31) {
+                return $t;
+            }
+        }
+    } catch (Throwable $e) {
+    }
+    return $default;
+}
+
+/**
+ * First membership year for which the club has complete, trustworthy data.
+ * Reports flag years before this as reconstructed/approximate. Default 2027.
+ */
+function reports_accurate_from_year(PDO $pdo): int {
+    $default = 2027;
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT config_value FROM system_config WHERE config_key = ? LIMIT 1'
+        );
+        $stmt->execute(['reports_accurate_from_year']);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && isset($row['config_value']) && $row['config_value'] !== '') {
+            $t = (int) $row['config_value'];
+            if ($t >= 2000 && $t <= 2100) {
+                return $t;
+            }
+        }
+    } catch (Throwable $e) {
+    }
+    return $default;
+}
+
+/**
  * Effective outbound mail settings: DB system_config overrides config.php email block.
  */
 function installation_mail_config(PDO $pdo, ?array $sysConfig = null): array {

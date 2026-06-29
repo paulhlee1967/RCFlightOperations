@@ -110,7 +110,7 @@ Ensure the web server executes `.php` files (default on cPanel).
 2. Email: `admin@yourclub.local`
 3. Password: the one you set in step 3.
 
-You should be redirected to **Home** (dashboard). From there you can open Members, Reports, or Administration (Users, Configuration, Badge design).
+You should be redirected to **Home** (dashboard). From there you can open Members or Administration (Users, Configuration, Badge design).
 
 ---
 
@@ -148,7 +148,6 @@ After you log in as an **admin**, open **Administration → Installation** (`ins
 | `badge_design.php` | Badge template designer (Administration) |
 | `badge_print.php` | Print member card (front/back) |
 | `badge_photo.php` | Serves member photo for badge |
-| `reports.php` | Reports |
 | `incidents.php` | Safety / field incident log |
 | `import.php` / `export.php` | CSV import/export |
 | `users.php` | System users (admin only) |

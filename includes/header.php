@@ -407,6 +407,14 @@ $_headerBaseHref = '';
                 </li>
                 <?php endif; ?>
 
+                <!-- Reports (members + above; read-only aggregates) -->
+                <?php if (function_exists('canViewReports') && canViewReports()): ?>
+                <li class="nav-item">
+                    <a class="nav-link<?= navActive('reports.php') ?>"
+                       href="<?= $_headerBaseHref ?>reports.php">Reports</a>
+                </li>
+                <?php endif; ?>
+
                 <!-- Incidents (member safety incidents) -->
                 <?php if ((function_exists('canViewReports') && canViewReports()) || (function_exists('canEditMembers') && canEditMembers())): ?>
                 <li class="nav-item">

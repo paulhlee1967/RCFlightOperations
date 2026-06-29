@@ -91,12 +91,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo->beginTransaction();
-            $keys = ['app_name','support_email','renewal_prebook_start_month','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','maintenance_mode'];
+            $keys = ['app_name','support_email','renewal_prebook_start_month','renewal_prebook_start_day','reports_accurate_from_year','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','maintenance_mode'];
             foreach ($keys as $key) {
                 $val = match ($key) {
                     'smtp_port'        => (string) $smtpPort,
                     'maintenance_mode' => empty($_POST['maintenance_mode']) ? '0' : '1',
                     'renewal_prebook_start_month' => (string) max(1, min(12, (int) ($_POST['renewal_prebook_start_month'] ?? 10))),
+                    'renewal_prebook_start_day'   => (string) max(1, min(31, (int) ($_POST['renewal_prebook_start_day'] ?? 15))),
+                    'reports_accurate_from_year'  => (string) max(2000, min(2100, (int) ($_POST['reports_accurate_from_year'] ?? 2027))),
                     default            => trim($_POST[$key] ?? ''),
                 };
                 installation_save_config_key($pdo, $key, $val);
@@ -183,20 +185,43 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="col-md-6">
                     <label class="form-label" for="renewal_prebook_start_month">Renewal year default — pre-book starts</label>
-                    <select class="form-select" id="renewal_prebook_start_month" name="renewal_prebook_start_month">
-                        <?php
-                        $preMo = isset($configRows['renewal_prebook_start_month'])
-                            ? max(1, min(12, (int) $configRows['renewal_prebook_start_month']))
-                            : 10;
-                        $monthNames = [1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April', 5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August', 9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December'];
-                        for ($m = 1; $m <= 12; $m++):
-                        ?>
-                        <option value="<?= $m ?>"<?= $preMo === $m ? ' selected' : '' ?>><?= h($monthNames[$m]) ?></option>
-                        <?php endfor; ?>
-                    </select>
+                    <div class="d-flex gap-2">
+                        <select class="form-select" id="renewal_prebook_start_month" name="renewal_prebook_start_month">
+                            <?php
+                            $preMo = isset($configRows['renewal_prebook_start_month'])
+                                ? max(1, min(12, (int) $configRows['renewal_prebook_start_month']))
+                                : 10;
+                            $monthNames = [1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April', 5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August', 9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December'];
+                            for ($m = 1; $m <= 12; $m++):
+                            ?>
+                            <option value="<?= $m ?>"<?= $preMo === $m ? ' selected' : '' ?>><?= h($monthNames[$m]) ?></option>
+                            <?php endfor; ?>
+                        </select>
+                        <select class="form-select w-auto" id="renewal_prebook_start_day" name="renewal_prebook_start_day" aria-label="Pre-book start day">
+                            <?php
+                            $preDay = isset($configRows['renewal_prebook_start_day'])
+                                ? max(1, min(31, (int) $configRows['renewal_prebook_start_day']))
+                                : 15;
+                            for ($d = 1; $d <= 31; $d++):
+                            ?>
+                            <option value="<?= $d ?>"<?= $preDay === $d ? ' selected' : '' ?>><?= $d ?></option>
+                            <?php endfor; ?>
+                        </select>
+                    </div>
                     <div class="form-text">
-                        From this month through December, the app’s default “renewal year” is the <strong>next</strong> calendar year
-                        (e.g. October → next year). January through the month before use the current year. Default: October.
+                        On/after this day, the app’s default “renewal year” is the <strong>next</strong> calendar year
+                        (e.g. October 15 → next year). Earlier dates use the current year. Default: October 15.
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="reports_accurate_from_year">Reports — complete data starting year</label>
+                    <input type="number" class="form-control" id="reports_accurate_from_year" name="reports_accurate_from_year"
+                           min="2000" max="2100" step="1"
+                           value="<?= h((string) ($configRows['reports_accurate_from_year'] ?? '2027')) ?>">
+                    <div class="form-text">
+                        The first membership year with complete, trustworthy records. Reports add a footnote
+                        warning that figures for <strong>earlier</strong> years are reconstructed from payment
+                        history and may undercount members or revenue. Default: 2027.
                     </div>
                 </div>
                 <div class="col-12">
@@ -341,5 +366,31 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 <?php endif; ?>
+
+<script<?= csp_nonce_attr() ?>>
+(function () {
+    var monthSel = document.getElementById('renewal_prebook_start_month');
+    var daySel   = document.getElementById('renewal_prebook_start_day');
+    if (!monthSel || !daySel) { return; }
+    // Days per month (February allows 29 for leap years).
+    var daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+    function syncDays() {
+        var max = daysInMonth[(parseInt(monthSel.value, 10) || 1) - 1];
+        var want = parseInt(daySel.value, 10) || 1;
+        daySel.innerHTML = '';
+        for (var d = 1; d <= max; d++) {
+            var opt = document.createElement('option');
+            opt.value = String(d);
+            opt.textContent = String(d);
+            if (d === Math.min(want, max)) { opt.selected = true; }
+            daySel.appendChild(opt);
+        }
+    }
+
+    monthSel.addEventListener('change', syncDays);
+    syncDays();
+})();
+</script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

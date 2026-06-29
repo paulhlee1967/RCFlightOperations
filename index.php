@@ -29,10 +29,13 @@ $lastYearCount  = countMembersForMembershipYear($pdo, $lastYear);
 $memberDelta    = $currentMembers - $lastYearCount;
 $memberDeltaStr = ($memberDelta >= 0 ? '+' : '') . $memberDelta . ' vs ' . $lastYear;
 
-// ── Stat: not yet renewed this year ─────────────────────────────────────────
-$notRenewedWhere = notYetRenewedWhereSql('m', $currentYear);
-$stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM members m WHERE {$notRenewedWhere}");
-$stmt->execute(notYetRenewedWhereParams($currentYear));
+// ── Stat: not yet renewed ────────────────────────────────────────────────────
+// Targets the working renewal year (rolls to next year during the pre-book window)
+// and uses the same snapshot-aware filter as the Reports module so the two agree.
+$renewalYear     = defaultRenewalYear($pdo);
+$notRenewedFilter = notYetRenewedReportFilter($pdo, 'm', $renewalYear);
+$stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM members m WHERE {$notRenewedFilter['where']}");
+$stmt->execute($notRenewedFilter['params']);
 $notRenewed = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
 // ── Stat: unprinted badges ───────────────────────────────────────────────────
@@ -180,7 +183,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="stat-value <?= $notRenewed > 0 ? 'text-warning' : 'text-success' ?>"><?= $notRenewed ?></div>
                 <div class="stat-label">Not yet renewed</div>
-                <div class="stat-sub text-muted">for <?= $currentYear ?></div>
+                <div class="stat-sub text-muted">for <?= $renewalYear ?></div>
             </div>
         </div>
     </div>

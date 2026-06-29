@@ -55,20 +55,26 @@ function selected(mixed $current, mixed $option): string {
 
 /**
  * Default renewal year for the signup/renewal workflow.
- * Uses renewal_prebook_start_month from system_config (see Installation) when $pdo is passed;
- * otherwise uses October (10) as the first month that pre-books the next calendar year.
+ * Uses renewal_prebook_start_month / renewal_prebook_start_day from system_config
+ * (see Installation) when $pdo is passed; otherwise defaults to October 15 as the
+ * first day that pre-books the next calendar year.
  *
  * @return int  Four-digit renewal year.
  */
 function defaultRenewalYear(?PDO $pdo = null): int {
-    $threshold = 10;
+    $startMonth = 10;
+    $startDay   = 15;
     if ($pdo !== null) {
         require_once __DIR__ . '/installation_config.php';
-        $threshold = renewal_prebook_start_month($pdo);
+        $startMonth = renewal_prebook_start_month($pdo);
+        $startDay   = renewal_prebook_start_day($pdo);
     }
     $month = (int) date('n');
+    $day   = (int) date('j');
     $year  = (int) date('Y');
-    return $month >= $threshold ? $year + 1 : $year;
+    $rolledOver = ($month > $startMonth)
+        || ($month === $startMonth && $day >= $startDay);
+    return $rolledOver ? $year + 1 : $year;
 }
 
 /**

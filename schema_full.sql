@@ -322,7 +322,9 @@ INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
   ('smtp_from_email', ''),
   ('smtp_from_name',  ''),
   ('maintenance_mode','0'),
-  ('renewal_prebook_start_month', '10');
+  ('renewal_prebook_start_month', '10'),
+  ('renewal_prebook_start_day', '15'),
+  ('reports_accurate_from_year', '2027');
 
 CREATE TABLE IF NOT EXISTS `operator_messages` (
   `id`              int unsigned  NOT NULL AUTO_INCREMENT,

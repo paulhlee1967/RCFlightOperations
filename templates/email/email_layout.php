@@ -47,18 +47,23 @@ function emailTheme(array $vars, ?PDO $pdo = null): array
                 if (preg_match('/^#[0-9A-Fa-f]{6}$/', $row['color_bg']           ?? '')) $colorBg          = $row['color_bg'];
                 if (preg_match('/^#[0-9A-Fa-f]{6}$/', $row['color_text']         ?? '')) $colorText        = $row['color_text'];
 
-                // Embed logo as base64 so it displays even when external images are blocked.
+                // Embed logo as base64 so it displays even when external images are
+                // blocked. Use a small cached raster (see logo_thumb.php) so a very
+                // high-resolution upload doesn't bloat every email.
                 if (!empty($row['logo_path'])) {
-                    $logoFile = dirname(__DIR__, 2) . '/' . ltrim($row['logo_path'], '/');
-                    if (is_file($logoFile) && is_readable($logoFile)) {
-                        $ext  = strtolower(pathinfo($logoFile, PATHINFO_EXTENSION));
-                        $mime = match ($ext) {
+                    require_once dirname(__DIR__, 2) . '/includes/logo_thumb.php';
+                    $logoFile = clubLogoThumbFile($row['logo_path']);
+                    if ($logoFile !== null && is_file($logoFile) && is_readable($logoFile)) {
+                        $mime = match (strtolower(pathinfo($logoFile, PATHINFO_EXTENSION))) {
                             'png'  => 'image/png',
                             'gif'  => 'image/gif',
                             'svg'  => 'image/svg+xml',
                             default => 'image/jpeg',
                         };
-                        $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($logoFile));
+                        $logoData = @file_get_contents($logoFile);
+                        if ($logoData !== false) {
+                            $logoDataUri = 'data:' . $mime . ';base64,' . base64_encode($logoData);
+                        }
                     }
                 }
             }
@@ -102,6 +107,14 @@ function emailWrap(string $content, array $vars, ?PDO $pdo = null): string
     $colorText = $theme['color_text'];
     $logoDataUri = $theme['logo_data_uri'];
     $onPrimary = $theme['on_primary'];
+
+    // Optional overrides so non-member emails (e.g. report snapshots) read correctly.
+    $eyebrow    = htmlspecialchars($vars['eyebrow'] ?? 'Member Communications');
+    $footerNote = $vars['footer_note'] ?? (
+        'This email was sent to you as a club member.<br>'
+        . 'Please do not reply to this address. If you need to contact the club, email '
+        . '<a href="mailto:info@pvmac.com" style="color:' . $colorPrimary . ';text-decoration:none;">info@pvmac.com</a>.'
+    );
 
     $year = date('Y');
 
@@ -166,7 +179,7 @@ HTML
         </div>
         <p style="margin:0;font-size:13px;letter-spacing:0.12em;text-transform:uppercase;
                   font-weight:600;color:{$onPrimary};opacity:0.75;">
-          Member Communications
+          {$eyebrow}
         </p>
       </td>
     </tr>
@@ -205,9 +218,7 @@ HTML
               $clubName
             </p>
             <p style="margin:0;font-size:11px;color:#9e9080;line-height:1.6;">
-              This email was sent to you as a club member.<br>
-              Please do not reply to this address. If you need to contact the club, email
-              <a href="mailto:info@pvmac.com" style="color:{$colorPrimary};text-decoration:none;">info@pvmac.com</a>.
+              {$footerNote}
             </p>
             <p style="margin:12px 0 0;font-size:10px;color:#bbb;">
               &copy; {$year} $clubName &nbsp;·&nbsp; Powered by RC Flight Operations

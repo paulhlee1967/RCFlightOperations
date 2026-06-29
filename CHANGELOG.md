@@ -4,6 +4,28 @@ All notable changes to **RC Flight Operations** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Per-year membership history** — [schema_full.sql](schema_full.sql) `member_membership_years` frozen roster (who was a current member each calendar year), recorded on renewal/import/edit and used for accurate year-over-year counts. Helpers in [includes/membership_status.php](includes/membership_status.php); backfill via [scripts/backfill_membership_years.php](scripts/backfill_membership_years.php).
+- **Reports module (rebuilt)** — New report engine [includes/run_report.php](includes/run_report.php) powering six reports on [reports.php](reports.php): membership by year, retention & churn, membership type mix, not yet renewed, revenue by year, and AMA/FAA compliance. Counts go through the per-year frozen roster so reports match the dashboard. Help page: [docs/reports.html](docs/reports.html).
+- **Branded PDF export** — [includes/report_pdf.php](includes/report_pdf.php) renders reports as a club-branded PDF (logo, theme colours, page-numbered footer) via Dompdf, with a graceful fallback when Dompdf is unavailable.
+- **Report email flows** — [report_email.php](report_email.php) emails a branded report snapshot to one or more addresses, and (for "not yet renewed") sends a personalised message to the cohort — only to members with `allow_email` on — via the shared [templates/email/email_layout.php](templates/email/email_layout.php) wrapper.
+- **Cached logo thumbnails** — [includes/logo_thumb.php](includes/logo_thumb.php) produces a small, memory-safe raster of the club logo (Imagick → GD fallback) so high-resolution uploads no longer exhaust memory in PDFs/emails.
+- **Data-accuracy notice** — Reports flag years before a configurable "complete data" year (`reports_accurate_from_year`, default 2027) on screen, in the PDF/email, and as a CSV footnote.
+- **Configurable renewal pre-book day** — `renewal_prebook_start_day` (default 15) added alongside the start month, so the renewal year rolls forward on a specific date (e.g. October 15). Both settable under Administration → Installation.
+
+### Changed
+
+- **Payments are now hard-deleted** — Replaced the soft "void" mechanism with [payment_delete.php](payment_delete.php): erroneous payments are removed outright, the action is recorded in `audit_log`, and the member's frozen membership-year roster is re-synced. Dropped the `voided_at` / `voided_by` columns from `payments` (guarded migration in [schema_full.sql](schema_full.sql)).
+- **"Not yet renewed" follows the renewal season** — [includes/run_report.php](includes/run_report.php) and the dashboard ([index.php](index.php)) target the working renewal year (rolls to next year on the configured pre-book date) using the same snapshot-aware filter, so the report and the dashboard card always agree.
+- **Branded emails use the cached logo** — [templates/email/email_layout.php](templates/email/email_layout.php) now embeds the cached logo thumbnail and accepts `eyebrow` / `footer_note` overrides so non-member emails (report snapshots) read correctly.
+
+### Removed
+
+- **Legacy reports engine** — `includes/report_helpers.php` and `templates/email/report_list.php` removed; superseded by the rebuilt report engine, PDF, and email flows above.
+
 ## [1.0.2] - 2026-03-25
 
 ### Removed

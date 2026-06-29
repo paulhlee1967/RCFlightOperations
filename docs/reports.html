@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+
+<!--
+  RC Flight Operations Documentation — Reports
+  docs/reports.html
+-->
+
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reports — RC Flight Operations Docs</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
+</head>
+<body>
+
+<nav class="docs-navbar">
+  <a href="../index.php" class="brand">✈ RC Flight Operations</a>
+  <span class="badge-docs">Docs</span>
+  <button class="btn btn-sm sidebar-toggle ms-2"
+          style="display:none;background:rgba(255,255,255,.18);color:#fff;border:none;"
+          onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="../index.php" class="back-link"><i class="bi bi-arrow-left"></i> Back to app</a>
+</nav>
+
+<div class="docs-breadcrumb">
+  <a href="index.html">Docs</a><span class="sep">›</span>Reports
+</div>
+
+<div class="docs-layout">
+
+  <nav class="docs-sidebar">
+    <div class="sidebar-title">On this page</div>
+    <a href="#overview">Overview</a>
+    <a href="#access">Who Can See Reports</a>
+    <a href="#using">Using the Reports Page</a>
+    <a href="#the-reports">The Six Reports</a>
+    <a href="#year">Year Selector &amp; Renewal Season</a>
+    <a href="#accuracy">Data Accuracy Notice</a>
+    <a href="#export">Download CSV &amp; PDF</a>
+    <a href="#email-snapshot">Email a Report</a>
+    <a href="#email-members">Email Members (Cohort)</a>
+    <a href="#faq">FAQ</a>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Other Docs</div>
+    <a href="index.html">← Docs home</a>
+    <a href="renewals.html">Renewals &amp; Dues</a>
+    <a href="compliance.html">AMA &amp; FAA</a>
+    <a href="members.html">Members</a>
+    <a href="admin.html">Administration</a>
+  </nav>
+
+  <main class="docs-content">
+
+<h1>Reports</h1>
+<p class="page-lead">Year-over-year membership, revenue, retention, and compliance reports — viewable on screen and exportable to CSV or a branded PDF, with the option to email them.</p>
+
+<!-- ── Overview ── -->
+<h2 id="overview">Overview</h2>
+<p>
+  The <strong>Reports</strong> page turns your member and payment records into clear,
+  year-over-year summaries. Every report can be viewed on screen, downloaded as a
+  <strong>CSV</strong> (for spreadsheets) or a branded <strong>PDF</strong> (for the board
+  binder), and emailed to one or more addresses.
+</p>
+<p>
+  Reports always count members the same way the rest of the app does, so the numbers
+  match your dashboard. For each past year the app uses a <em>frozen roster</em> — a
+  snapshot of who was a member that year — so historical counts don't change as people
+  renew or lapse later. The current year uses live membership rules.
+</p>
+
+<!-- ── Access ── -->
+<h2 id="access">Who Can See Reports</h2>
+<p>All signed-in roles can view and export reports:</p>
+<div class="docs-table-wrap">
+  <table class="docs-table">
+    <thead><tr><th>Role</th><th>View &amp; export</th><th>Email a report snapshot</th><th>Email members in a cohort</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Admin</strong></td><td>✓</td><td>✓</td><td>✓</td></tr>
+      <tr><td><strong>Editor</strong></td><td>✓</td><td>✓</td><td>✓</td></tr>
+      <tr><td><strong>Treasurer</strong></td><td>✓</td><td>✓</td><td>✓</td></tr>
+      <tr><td><strong>Viewer</strong></td><td>✓</td><td>✓</td><td>—</td></tr>
+    </tbody>
+  </table>
+</div>
+<p>
+  Emailing a <em>personalized message to a group of members</em> (see
+  <a href="#email-members">Email Members</a>) is limited to Editors and Treasurers, since
+  it sends mail on the club's behalf.
+</p>
+
+<!-- ── Using ── -->
+<h2 id="using">Using the Reports Page</h2>
+<ol class="step-list">
+  <li>Open <strong>Reports</strong> from the top navigation.</li>
+  <li>Pick a report from the list on the left. The table updates immediately.</li>
+  <li>For reports that cover a single year, choose the <strong>Year</strong> from the dropdown at the top right.</li>
+  <li>Use <strong>Download CSV</strong> or <strong>Download PDF</strong> to save a copy, or the <strong>Email this report</strong> panel below the table to send it.</li>
+</ol>
+
+<!-- ── The six reports ── -->
+<h2 id="the-reports">The Six Reports</h2>
+
+<h3 id="r-membership">Membership by year</h3>
+<p>Current members for every calendar year, with the change versus the prior year.</p>
+<div class="docs-table-wrap">
+  <table class="docs-table">
+    <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Year</td><td>Calendar / membership year</td></tr>
+      <tr><td>Members</td><td>Number of members counted for that year</td></tr>
+      <tr><td>Change vs prior</td><td>Difference from the year before (green for growth, red for decline)</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="r-retention">Retention &amp; churn</h3>
+<p>How well you keep members from one year to the next.</p>
+<div class="docs-table-wrap">
+  <table class="docs-table">
+    <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Prior year</td><td>Members counted the previous year</td></tr>
+      <tr><td>Retained</td><td>Members present in <em>both</em> years</td></tr>
+      <tr><td>New</td><td>In this year but not the prior year</td></tr>
+      <tr><td>Lapsed</td><td>In the prior year but not this one</td></tr>
+      <tr><td>Retention rate</td><td>Retained ÷ prior-year members, as a percentage</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<h3 id="r-typemix">Membership type mix</h3>
+<p>
+  A breakdown of a selected year's members by membership type (e.g. Adult, Youth, Spouse),
+  with each type's share of the total. Disabled or legacy types (such as Senior) still
+  appear if any members hold them. <em>Takes a year.</em>
+</p>
+
+<h3 id="r-notrenewed">Not yet renewed</h3>
+<p>
+  Members who counted last year but haven't renewed for the selected year yet — your
+  follow-up list. Shows name, type, email, and the renewal year currently on file.
+  <em>Takes a year, and supports emailing the group (see
+  <a href="#email-members">Email Members</a>).</em>
+</p>
+<div class="callout callout-info">
+  <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+  <div class="callout-body">
+    See <a href="#year">Year Selector &amp; Renewal Season</a> for how this report
+    automatically looks ahead to <em>next</em> year once your renewal drive begins.
+  </div>
+</div>
+
+<h3 id="r-revenue">Revenue by year</h3>
+<p>Dues, initiation, and late-fee revenue recorded per membership year, with a grand total.</p>
+<div class="docs-table-wrap">
+  <table class="docs-table">
+    <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Payments</td><td>Number of payment records for the year</td></tr>
+      <tr><td>Dues</td><td>Total annual / prorated dues collected</td></tr>
+      <tr><td>Initiation</td><td>Total initiation fees</td></tr>
+      <tr><td>Late fees</td><td>Total late fees</td></tr>
+      <tr><td>Total</td><td>Sum of the three above</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="callout callout-info">
+  <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+  <div class="callout-body">
+    Revenue is attributed to the membership year recorded on each payment — so a renewal
+    you collect in October for next year counts toward <em>next</em> year.
+  </div>
+</div>
+
+<h3 id="r-compliance">AMA/FAA compliance</h3>
+<p>
+  Current members whose AMA or FAA credentials are already expired or will expire within
+  60 days, soonest first. Shows AMA and FAA numbers, expiration dates, and whether each
+  is <strong>Expired</strong> or <strong>Expiring</strong>. This report is always
+  current-state, so it doesn't take a year.
+</p>
+
+<!-- ── Year selector ── -->
+<h2 id="year">Year Selector &amp; Renewal Season</h2>
+<p>
+  Reports that cover a single year (<strong>Membership type mix</strong> and
+  <strong>Not yet renewed</strong>) show a <strong>Year</strong> dropdown. Year-over-year
+  reports don't need one — they always show every year.
+</p>
+<p>
+  <strong>Not yet renewed</strong> is special. For most of the year it asks "who from last
+  year hasn't renewed for <em>this</em> year?" But once your club's renewal drive begins —
+  by default <strong>October 15</strong> — it rolls forward to ask "who from this year
+  hasn't renewed for <em>next</em> year?", matching the renewals your team is actually
+  collecting. The dashboard's "Not yet renewed" card follows the same rule, so the two
+  always agree.
+</p>
+<div class="callout callout-info">
+  <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+  <div class="callout-body">
+    The pre-book start date is configurable under
+    <strong>Administration → Installation → Renewal year default</strong>. You can always
+    override the year manually with the dropdown.
+  </div>
+</div>
+
+<!-- ── Accuracy ── -->
+<h2 id="accuracy">Data Accuracy Notice</h2>
+<p>
+  Older clubs often didn't track full membership history before adopting this app — so
+  counts and revenue for early years are <em>reconstructed</em> from whatever payment
+  records exist and may undercount.
+</p>
+<p>
+  To be transparent, reports show a <strong>warning notice</strong> whenever they include
+  data from before your club's first fully-tracked year. The same caveat travels with the
+  data into the PDF, the emailed copy, and a footnote row in the CSV.
+</p>
+<div class="callout callout-warning">
+  <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+  <div class="callout-body">
+    <strong>Set your "complete data" year.</strong>
+    Under <strong>Administration → Installation → Reports — complete data starting
+    year</strong>, enter the first year your records are trustworthy (default
+    <strong>2027</strong>). Reports flag earlier years automatically; once a year is at or
+    after this threshold, the notice disappears.
+  </div>
+</div>
+
+<!-- ── Export ── -->
+<h2 id="export">Download CSV &amp; PDF</h2>
+<p>Both buttons sit at the top right of every report.</p>
+<div class="docs-table-wrap">
+  <table class="docs-table">
+    <thead><tr><th>Format</th><th>Best for</th><th>Notes</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>CSV</strong></td>
+        <td>Spreadsheets (Excel, Google Sheets), further analysis</td>
+        <td>Includes column headers, totals, and any data-accuracy footnote.</td>
+      </tr>
+      <tr>
+        <td><strong>PDF</strong></td>
+        <td>Board meetings, printed records, sharing a tidy snapshot</td>
+        <td>Branded with your club logo and colors, with page numbers in the footer.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="callout callout-info">
+  <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+  <div class="callout-body">
+    The PDF automatically uses your club logo and theme colors from
+    <a href="admin.html#config">Administration → Configuration</a>. If PDF export isn't
+    available on your host, the page lets you know and CSV still works.
+  </div>
+</div>
+
+<!-- ── Email snapshot ── -->
+<h2 id="email-snapshot">Email a Report</h2>
+<p>
+  Below each report is an <strong>Email this report</strong> panel. Use it to send the
+  report — table and all — to one or more people, such as your board or treasurer.
+</p>
+<ol class="step-list">
+  <li>Enter one or more addresses in <strong>Send to</strong>, separated by commas.</li>
+  <li>Optionally add a short <strong>note</strong> to appear above the table.</li>
+  <li>Click <strong>Send</strong>.</li>
+</ol>
+<p>
+  The email arrives styled in your club's branding (logo, colors), with the report table
+  and any data-accuracy notice included.
+</p>
+
+<!-- ── Email members ── -->
+<h2 id="email-members">Email Members (Cohort)</h2>
+<p>
+  The <strong>Not yet renewed</strong> report adds a second panel:
+  <strong>Email these members</strong> — a personalized reminder sent to everyone on the
+  list at once. Handy for a renewal nudge.
+</p>
+<ol class="step-list">
+  <li>Open <strong>Not yet renewed</strong> and confirm the year is correct.</li>
+  <li>In the <strong>Email these members</strong> panel, write a <strong>subject</strong> and <strong>message</strong>.</li>
+  <li>Use these tokens to personalize each message:
+    <ul>
+      <li><code>{first_name}</code> — the member's first name</li>
+      <li><code>{last_name}</code> — the member's last name</li>
+      <li><code>{club_name}</code> — your club's name</li>
+    </ul>
+  </li>
+  <li>Click <strong>Send</strong>. Each member gets their own copy in your club's branding.</li>
+</ol>
+<div class="callout callout-warning">
+  <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+  <div class="callout-body">
+    <strong>Only opted-in members are contacted.</strong>
+    Messages go only to members who have an email address <em>and</em> have "Allow email"
+    turned on (see <a href="members.html#communication">Members → Email &amp; postal</a>).
+    Anyone who has opted out is skipped automatically. This feature is available to
+    Editors and Treasurers.
+  </div>
+</div>
+
+<!-- ── FAQ ── -->
+<h2 id="faq">FAQ</h2>
+
+<h3>Why don't my older years match what I remember?</h3>
+<p>
+  Years before your club started tracking full history are reconstructed from payment
+  records, so they can undercount. That's exactly what the
+  <a href="#accuracy">data-accuracy notice</a> is warning about. Going forward, each year
+  is captured as a frozen roster and stays accurate.
+</p>
+
+<h3>The PDF button says export isn't available.</h3>
+<p>
+  PDF generation needs a library that may not be installed on every host. CSV always
+  works; ask your webmaster to enable PDF export if you need it (see
+  <a href="install.html">Installation</a>).
+</p>
+
+<h3>I emailed the "not yet renewed" group but some members didn't get it.</h3>
+<p>
+  Only members with an email address and "Allow email" enabled are contacted; everyone
+  else is skipped on purpose. Check the member's
+  <a href="members.html#communication">contact preferences</a>.
+</p>
+
+<h3>Do reports move money or charge anyone?</h3>
+<p>
+  No. Like the rest of the app, reports only summarize records you've already entered —
+  RC Flight Operations never processes payments. See
+  <a href="renewals.html#about-payments">About Payments</a>.
+</p>
+
+  </main>
+</div>
+
+<footer class="docs-footer">
+  <span>RC Flight Operations — open-source, MIT licensed</span>
+  <span>
+    <a href="compliance.html">← AMA &amp; FAA</a>
+    &nbsp;·&nbsp;
+    <a href="admin.html">Next: Administration →</a>
+  </span>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+<script>
+  const headings = document.querySelectorAll('.docs-content h2[id], .docs-content h3[id]');
+  const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    headings.forEach(h => { if (window.scrollY >= h.offsetTop - 80) current = h.id; });
+    sidebarLinks.forEach(a => { a.classList.toggle('active', a.getAttribute('href') === '#' + current); });
+  }, { passive: true });
+</script>
+
+</body>
+</html>
