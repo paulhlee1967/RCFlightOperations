@@ -24,21 +24,18 @@ function flightops_send_security_headers(): void
     $n = flightops_csp_nonce();
     $nonceSrc = "'nonce-" . $n . "'";
 
-    $cdns = 'https://cdn.jsdelivr.net https://cdnjs.cloudflare.com';
-    $fontCdns = 'https://fonts.googleapis.com ' . $cdns;
-
-    // script-src: app bundle under /js + CDNs. No script-src-attr (no inline handlers).
+    // script-src: app bundle under /js and /assets/vendor/. No script-src-attr (no inline handlers).
     // style-src-elem / style-src-attr: inline <style> nonces + style="" on elements (Bootstrap).
     $directives = [
         "default-src 'self'",
         "base-uri 'self'",
         "form-action 'self'",
         "frame-ancestors 'self'",
-        "script-src 'self' $nonceSrc $cdns",
-        "style-src-elem 'self' $nonceSrc $fontCdns",
+        "script-src 'self' $nonceSrc",
+        "style-src-elem 'self' $nonceSrc",
         "style-src-attr 'unsafe-inline'",
-        "style-src 'self' $nonceSrc $fontCdns 'unsafe-inline'",
-        "font-src 'self' https://fonts.gstatic.com https://cdn.jsdelivr.net",
+        "style-src 'self' $nonceSrc 'unsafe-inline'",
+        "font-src 'self'",
         "img-src 'self' data: blob: https:",
         "connect-src 'self'",
     ];

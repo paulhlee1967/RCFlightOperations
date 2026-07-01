@@ -8,11 +8,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Badge Designer &amp; Printing — RC Flight Operations Docs</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/vendor/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
   <link rel="stylesheet" href="docs.css">
   <link rel="stylesheet" href="docs-theme.php">
 </head>
@@ -38,12 +35,13 @@
   <nav class="docs-sidebar">
     <div class="sidebar-title">On this page</div>
     <a href="#overview">Overview</a>
+    <a href="#designs">Multiple Designs</a>
     <a href="#designer">Badge Designer</a>
     <a href="#fields">Available Data Fields</a>
     <a href="#front">Designing the Front</a>
     <a href="#back">Designing the Back</a>
     <a href="#preview">Live Member Preview</a>
-    <a href="#save">Saving the Template</a>
+    <a href="#save">Saving a Design</a>
     <a href="#print">Printing a Badge</a>
     <a href="#tips">Printing Tips</a>
     <hr class="sidebar-divider">
@@ -54,20 +52,43 @@
   <main class="docs-content">
 
     <h1>Badge Designer &amp; Printing</h1>
-    <p class="page-lead">Design your club's CR80 ID card template once — then print personalized badges for each member with one click.</p>
+    <p class="page-lead">Design one or more CR80 ID card templates for your club — then print personalized badges for each member with one click.</p>
 
     <!-- ── Overview ── -->
     <h2 id="overview">Overview</h2>
     <p>
       RC Flight Operations includes a drag-and-drop badge designer for standard CR80 credit-card
-      sized ID cards (85.6 × 53.98 mm). You design one template per club; every member's
-      badge is printed from that template filled in with their data.
+      sized ID cards (85.6 × 53.98 mm). You can save <strong>multiple named designs</strong>
+      (for example, a standard member card and a special-event layout). Each member's badge
+      is printed from a design you choose, filled in with their data.
     </p>
     <p>
       The designer is powered by <strong>Fabric.js</strong> (free, open-source). No
       special software or plugin needed — it runs entirely in your browser.
     </p>
-    <p>Access the designer at <strong>Administration → Badge design</strong> (Editor or Admin role required).</p>
+    <p>Access the designer at <strong>Badge Design</strong> in the main navigation (Editor or Admin role required).</p>
+
+    <!-- ── Multiple designs ── -->
+    <h2 id="designs">Multiple Designs</h2>
+    <p>
+      Use the <strong>Design</strong> dropdown at the top of the designer to switch between
+      saved templates, create a new design, or delete an existing one (you must keep at least one).
+    </p>
+    <ul>
+      <li>
+        <strong>Default design</strong> — Check <em>Set as default</em> when saving. The default
+        is auto-selected when printing unless you pick a different design on the print page.
+      </li>
+      <li>
+        <strong>Per-design background</strong> — Each design stores its own front background
+        image under <code>uploads/branding/</code>. Uploading a new background for one design
+        does not affect others.
+      </li>
+      <li>
+        <strong>Design picker when printing</strong> — On the print page, choose which saved
+        design to use before printing. If you do not choose, the default design is used.
+      </li>
+    </ul>
 
     <!-- ── Designer interface ── -->
     <h2 id="designer">Badge Designer Interface</h2>
@@ -75,12 +96,12 @@
     <ul>
       <li>
         <strong>Left sidebar</strong> — field panel (click any field to add it to the canvas)
-        and a property panel that appears when an object is selected (font size, bold,
-        italic, color, alignment).
+        and a property panel that appears when an object is selected (font family, font size,
+        bold, italic, colour, alignment).
       </li>
       <li>
         <strong>Right column</strong> — the canvas area with <strong>Front</strong> and
-        <strong>Back</strong> tabs at the top.
+        <strong>Back</strong> tabs at the top, plus zoom controls (Fit, 1×, 1.5×, 2×).
       </li>
     </ul>
     <p>
@@ -103,7 +124,7 @@
           <tr><td>Last name</td><td>Last name only</td></tr>
           <tr><td>Member since</td><td>Date joined, formatted as MM/DD/YYYY</td></tr>
           <tr><td>Date joined</td><td>Raw date joined value</td></tr>
-          <tr><td>Membership type</td><td>Adult / Youth / Senior / Spouse</td></tr>
+          <tr><td>Membership type</td><td>Adult / Youth / Senior / Spouse (your club's labels)</td></tr>
           <tr><td>Renewal year</td><td>Current membership year (e.g., "2025")</td></tr>
           <tr><td>AMA number</td><td>Member's AMA membership number</td></tr>
           <tr><td>FAA number</td><td>Member's FAA registration number</td></tr>
@@ -123,11 +144,11 @@
     <h2 id="front">Designing the Front</h2>
     <ol class="step-list">
       <li>Click the <strong>Front</strong> tab in the canvas column.</li>
-      <li>Optionally set a <strong>background image</strong> — upload a PNG/JPEG to use as the card background.</li>
+      <li>Optionally set a <strong>background image</strong> for this design — upload a PNG/JPEG to use as the card background.</li>
       <li>Add a <strong>Static image</strong> for your club logo.</li>
       <li>Add a <strong>Photo</strong> field for the member headshot (position it where you want faces).</li>
       <li>Add text fields: member name, AMA number, renewal year — whatever your club puts on the front.</li>
-      <li>Style each field using the property panel: font size, bold, color, alignment.</li>
+      <li>Style each field using the property panel: font family, font size, bold, color, alignment.</li>
       <li>Choose the card <strong>orientation</strong>: Landscape (horizontal) or Portrait (vertical).</li>
     </ol>
     <div class="callout callout-tip">
@@ -162,31 +183,40 @@
       name, AMA number, photo, etc. — so you can see exactly how the card will look.
     </p>
     <p>
-      Preview mode is display only. Clicking Save Template while previewing a member still
+      Preview mode is display only. Clicking Save while previewing a member still
       saves your design layout, not the member's specific data.
     </p>
 
     <!-- ── Save ── -->
-    <h2 id="save">Saving the Template</h2>
+    <h2 id="save">Saving a Design</h2>
     <p>
-      Click <strong>Save template</strong>. The template is stored for your club
-      in the database. There is one template per club; saving overwrites the previous design.
+      Enter a <strong>design name</strong>, optionally check <strong>Set as default</strong>,
+      then click <strong>Save template</strong>. The design is stored in the database with
+      its own background image and canvas JSON.
+    </p>
+    <p>
+      To start a fresh layout, choose <strong>New design</strong> from the Design dropdown,
+      build the card, and save with a new name.
     </p>
     <div class="callout callout-warning">
       <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
       <div class="callout-body">
         There is no version history for badge templates. If you want to keep the old design,
-        export a screenshot or copy the template JSON before saving a new version.
+        save it under a different name or export a screenshot before overwriting.
       </div>
     </div>
 
     <!-- ── Printing ── -->
     <h2 id="print">Printing a Badge</h2>
     <ol class="step-list">
-      <li>Open the member's record from the Members list.</li>
-      <li>Click <strong>Print card</strong> (visible to Editor and Admin roles).</li>
+      <li>Open the member's record from the Members list, or finish a renewal in the renewal workflow.</li>
+      <li>Click <strong>Print card</strong> (visible to Editor, Admin, and Treasurer roles).</li>
       <li>
-        The print preview opens in a new tab showing the front and/or back of the card.
+        On the print page, choose a <strong>design</strong> if you have more than one saved
+        template. The default design is pre-selected.
+      </li>
+      <li>
+        The print preview shows the front and/or back of the card.
         Use the toggle at the top to choose <strong>Front only</strong>, <strong>Back only</strong>,
         or <strong>Both</strong>.
       </li>
@@ -218,8 +248,8 @@
       </li>
       <li>
         <strong>Badge not showing member photo?</strong> Make sure the member has a photo
-        uploaded on their Contact tab, and your template has a Photo field placed on the
-        front canvas.
+        uploaded on their Contact tab (stored under <code>uploads/</code>), and your template
+        has a Photo field placed on the front canvas.
       </li>
       <li>
         <strong>"Badges unprinted" dashboard card:</strong> After renewal, a member's
@@ -231,16 +261,17 @@
 </div>
 
 <footer class="docs-footer">
-  <span>RC Flight Operations — open-source, MIT licensed</span>
+  <span>Copyright 2025–2026 Paul H Lee · MIT</span>
   <span>
+    <a href="../about.php">About</a>
+    &nbsp;·&nbsp;
     <a href="compliance.html">← AMA &amp; FAA</a>
     &nbsp;·&nbsp;
     <a href="import-export.html">Next: Import &amp; Export →</a>
   </span>
 </footer>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+<script src="../assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 <script>
   const headings = document.querySelectorAll('.docs-content h2[id], .docs-content h3[id]');
   const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');

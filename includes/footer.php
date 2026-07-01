@@ -11,10 +11,13 @@
  *   from the club row): --club-bg, --club-primary, --club-text, --club-muted, etc.
  */
 
-// Grab app version from a constant if defined (set it in config.php or db.php)
-// Falls back gracefully if not defined.
-$_footerVersion = defined('FLIGHT_OPS_VERSION') ? FLIGHT_OPS_VERSION : '1.0';
-$_footerYear    = date('Y');
+// Grab app version from FLIGHT_OPS_VERSION (defined in includes/db.php).
+$_footerVersion = defined('FLIGHT_OPS_VERSION') ? FLIGHT_OPS_VERSION : '1.5';
+$_copyrightStart = defined('FLIGHT_OPS_COPYRIGHT_YEAR_START') ? (int) FLIGHT_OPS_COPYRIGHT_YEAR_START : 2025;
+$_copyrightEnd   = (int) date('Y');
+$_footerCopyrightYears = $_copyrightEnd > $_copyrightStart
+    ? $_copyrightStart . '–' . $_copyrightEnd
+    : (string) $_copyrightStart;
 ?>
 
 </div><!-- /.container (opened in header.php) -->
@@ -43,7 +46,7 @@ $_footerYear    = date('Y');
         <div class="fo-footer-meta">
             <span>v<?= htmlspecialchars($_footerVersion) ?></span>
             <span class="fo-footer-dot" aria-hidden="true">·</span>
-            <span>&copy; <?= $_footerYear ?> RC Flight Operations</span>
+            <span>Copyright <?= htmlspecialchars($_footerCopyrightYears) ?> Paul H Lee</span>
             <span class="fo-footer-dot" aria-hidden="true">·</span>
             <span>Open source · MIT</span>
         </div>
@@ -124,10 +127,9 @@ $_footerYear    = date('Y');
 @media print { .fo-footer { display: none !important; } }
 </style>
 
-<!-- Bootstrap 5 bundle (Popper included) — CDN, no cost, version-pinned -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
-        integrity="sha512-HvOjJrdwNpDbkGJIG2ZNqDlVqMo77qbs4Me4cah0HoDrfhrbA+8SBlZn1KrvAQw7cILLPFJvdwIgphzQmMm+Pw=="
-        crossorigin="anonymous"></script>
+<?php require_once __DIR__ . '/vendor_assets.php'; ?>
+<!-- Bootstrap 5 bundle (Popper included) — local copy in assets/vendor/ -->
+<script src="<?= htmlspecialchars(flightops_bootstrap_js_url()) ?>"></script>
 <script src="js/flightops_ui.js" defer></script>
 </body>
 </html>

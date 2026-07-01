@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Dues stored in `dues_rules` only** — Removed legacy `club.dues_adult_*` / `dues_reduced` columns. Each membership type slot (1–4) has its own row in `dues_rules`; fresh installs are seeded with default rates. Existing databases: idempotent migration in [schema_full.sql](schema_full.sql) backfills missing `dues_rules` rows from legacy columns, then drops them.
+- **Front-end assets vendored locally** — Bootstrap 5.3.8, Bootstrap Icons 1.11.3, and Fabric.js 7.4.0 ship in `assets/vendor/` (no jsDelivr/Google Fonts at runtime). Refresh with `bash scripts/fetch_vendor_assets.sh`. CSP tightened to `'self'` for scripts, styles, and fonts.
+
+## [1.5] - 2026-07-01
+
 ### Added
 
 - **Per-year membership history** — [schema_full.sql](schema_full.sql) `member_membership_years` frozen roster (who was a current member each calendar year), recorded on renewal/import/edit and used for accurate year-over-year counts. Helpers in [includes/membership_status.php](includes/membership_status.php); backfill via [scripts/backfill_membership_years.php](scripts/backfill_membership_years.php).
@@ -15,16 +22,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Cached logo thumbnails** — [includes/logo_thumb.php](includes/logo_thumb.php) produces a small, memory-safe raster of the club logo (Imagick → GD fallback) so high-resolution uploads no longer exhaust memory in PDFs/emails.
 - **Data-accuracy notice** — Reports flag years before a configurable "complete data" year (`reports_accurate_from_year`, default 2027) on screen, in the PDF/email, and as a CSV footnote.
 - **Configurable renewal pre-book day** — `renewal_prebook_start_day` (default 15) added alongside the start month, so the renewal year rolls forward on a specific date (e.g. October 15). Both settable under Administration → Installation.
+- **Multiple badge designs** — Save, name, and switch between several CR80 templates; per-design background images; font family picker; Fabric 7 text alignment fixes. Shared Fabric helpers in [js/badge_fabric.js](js/badge_fabric.js).
+- **`FLIGHT_OPS_VERSION`** — Defined in [includes/db.php](includes/db.php) (default `1.5`); shown in the app footer.
 
 ### Changed
 
 - **Payments are now hard-deleted** — Replaced the soft "void" mechanism with [payment_delete.php](payment_delete.php): erroneous payments are removed outright, the action is recorded in `audit_log`, and the member's frozen membership-year roster is re-synced. Dropped the `voided_at` / `voided_by` columns from `payments` (guarded migration in [schema_full.sql](schema_full.sql)).
 - **"Not yet renewed" follows the renewal season** — [includes/run_report.php](includes/run_report.php) and the dashboard ([index.php](index.php)) target the working renewal year (rolls to next year on the configured pre-book date) using the same snapshot-aware filter, so the report and the dashboard card always agree.
 - **Branded emails use the cached logo** — [templates/email/email_layout.php](templates/email/email_layout.php) now embeds the cached logo thumbnail and accepts `eyebrow` / `footer_note` overrides so non-member emails (report snapshots) read correctly.
+- **Badge code streamlined** — Fabric.js compatibility helpers extracted from [badge_design.php](badge_design.php) and [badge_print.php](badge_print.php) into [js/badge_fabric.js](js/badge_fabric.js).
+- **Documentation** — [docs/badges.html](docs/badges.html), [docs/reports.html](docs/reports.html), and related pages updated for v1.5 (multi-design badges, rebuilt reports).
 
 ### Removed
 
 - **Legacy reports engine** — `includes/report_helpers.php` and `templates/email/report_list.php` removed; superseded by the rebuilt report engine, PDF, and email flows above.
+- **Board member tracking in the app** — Removed the member checkbox and badge auto-selection UI. Database columns (`members.is_board_member`, `badge_templates.is_board_default`) remain for possible future use.
+- **Legacy `pics/` photo directory** — Member photos use `uploads/` only; bulk import via [scripts/import_member_photos.php](scripts/import_member_photos.php).
 
 ## [1.0.2] - 2026-03-25
 

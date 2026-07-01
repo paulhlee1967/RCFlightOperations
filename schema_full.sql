@@ -16,7 +16,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- ---------------------------------------------------------------------------
--- Club (single row: branding, theme, membership labels, legacy dues defaults)
+-- Club (single row: branding, theme, membership type labels)
 -- ---------------------------------------------------------------------------
 CREATE TABLE `club` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
@@ -36,10 +36,6 @@ CREATE TABLE `club` (
   `membership_type2_enabled` tinyint(1) NOT NULL DEFAULT 1,
   `membership_type3_enabled` tinyint(1) NOT NULL DEFAULT 1,
   `membership_type4_enabled` tinyint(1) NOT NULL DEFAULT 1,
-  `dues_adult_regular` decimal(10,2) NOT NULL DEFAULT 160.00,
-  `dues_adult_prorated` decimal(10,2) NOT NULL DEFAULT 80.00,
-  `dues_initiation` decimal(10,2) NOT NULL DEFAULT 50.00,
-  `dues_reduced` decimal(10,2) NOT NULL DEFAULT 20.00,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -202,7 +198,13 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- ---------------------------------------------------------------------------
 -- Seed data: one club row, one admin user (password set via set_password.php)
 -- ---------------------------------------------------------------------------
-INSERT INTO `club` (`id`, `name`, `color_primary`, `color_primary_dark`, `color_bg`, `color_muted`, `color_text`, `membership_type1_label`, `membership_type2_label`, `membership_type3_label`, `membership_type4_label`, `membership_type1_enabled`, `membership_type2_enabled`, `membership_type3_enabled`, `membership_type4_enabled`, `dues_adult_regular`, `dues_adult_prorated`, `dues_initiation`, `dues_reduced`) VALUES (1, 'RC Flight Operations', '#6f7c3d', '#556030', '#f3efe4', '#665e52', '#252018', 'Adult', 'Youth', 'Senior', 'Spouse', 1, 1, 1, 1, 160.00, 80.00, 50.00, 20.00);
+INSERT INTO `club` (`id`, `name`, `color_primary`, `color_primary_dark`, `color_bg`, `color_muted`, `color_text`, `membership_type1_label`, `membership_type2_label`, `membership_type3_label`, `membership_type4_label`, `membership_type1_enabled`, `membership_type2_enabled`, `membership_type3_enabled`, `membership_type4_enabled`) VALUES (1, 'RC Flight Operations', '#6f7c3d', '#556030', '#f3efe4', '#665e52', '#252018', 'Adult', 'Youth', 'Senior', 'Spouse', 1, 1, 1, 1);
+
+INSERT INTO `dues_rules` (`membership_type_slot`, `annual_dues`, `prorated_dues`, `initiation_fee`, `prorate_start_month`, `prorate_end_month`) VALUES
+(1, 160.00, 80.00, 50.00, 7, 10),
+(2,  20.00, 20.00,  0.00, 7, 10),
+(3,  20.00, 20.00,  0.00, 7, 10),
+(4,  20.00, 20.00,  0.00, 7, 10);
 
 INSERT INTO `users` (`email`, `password_hash`, `name`, `role`) VALUES
 ('admin@yourclub.local', '', 'Club Admin', 'admin');
@@ -550,3 +552,72 @@ SET @sql_board = IF(
 PREPARE stmt_board FROM @sql_board;
 EXECUTE stmt_board;
 DEALLOCATE PREPARE stmt_board;
+
+-- -----------------------------------------------------------------------------
+-- Migration: dues in dues_rules only — backfill from legacy club columns, then drop
+-- -----------------------------------------------------------------------------
+SET @club_dues_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'club' AND COLUMN_NAME = 'dues_adult_regular'
+);
+
+SET @sql_dr_slot1 = IF(
+  @club_dues_col > 0,
+  'INSERT INTO `dues_rules` (`membership_type_slot`, `annual_dues`, `prorated_dues`, `initiation_fee`, `prorate_start_month`, `prorate_end_month`)
+   SELECT 1, c.`dues_adult_regular`, c.`dues_adult_prorated`, c.`dues_initiation`, 7, 10
+     FROM `club` c WHERE c.`id` = 1
+      AND NOT EXISTS (SELECT 1 FROM `dues_rules` d WHERE d.`membership_type_slot` = 1)',
+  'SELECT 1'
+);
+PREPARE stmt_dr1 FROM @sql_dr_slot1;
+EXECUTE stmt_dr1;
+DEALLOCATE PREPARE stmt_dr1;
+
+SET @sql_dr_slot2 = IF(
+  @club_dues_col > 0,
+  'INSERT INTO `dues_rules` (`membership_type_slot`, `annual_dues`, `prorated_dues`, `initiation_fee`, `prorate_start_month`, `prorate_end_month`)
+   SELECT 2, c.`dues_reduced`, c.`dues_reduced`, 0, 7, 10
+     FROM `club` c WHERE c.`id` = 1
+      AND NOT EXISTS (SELECT 1 FROM `dues_rules` d WHERE d.`membership_type_slot` = 2)',
+  'SELECT 1'
+);
+PREPARE stmt_dr2 FROM @sql_dr_slot2;
+EXECUTE stmt_dr2;
+DEALLOCATE PREPARE stmt_dr2;
+
+SET @sql_dr_slot3 = IF(
+  @club_dues_col > 0,
+  'INSERT INTO `dues_rules` (`membership_type_slot`, `annual_dues`, `prorated_dues`, `initiation_fee`, `prorate_start_month`, `prorate_end_month`)
+   SELECT 3, c.`dues_reduced`, c.`dues_reduced`, 0, 7, 10
+     FROM `club` c WHERE c.`id` = 1
+      AND NOT EXISTS (SELECT 1 FROM `dues_rules` d WHERE d.`membership_type_slot` = 3)',
+  'SELECT 1'
+);
+PREPARE stmt_dr3 FROM @sql_dr_slot3;
+EXECUTE stmt_dr3;
+DEALLOCATE PREPARE stmt_dr3;
+
+SET @sql_dr_slot4 = IF(
+  @club_dues_col > 0,
+  'INSERT INTO `dues_rules` (`membership_type_slot`, `annual_dues`, `prorated_dues`, `initiation_fee`, `prorate_start_month`, `prorate_end_month`)
+   SELECT 4, c.`dues_reduced`, c.`dues_reduced`, 0, 7, 10
+     FROM `club` c WHERE c.`id` = 1
+      AND NOT EXISTS (SELECT 1 FROM `dues_rules` d WHERE d.`membership_type_slot` = 4)',
+  'SELECT 1'
+);
+PREPARE stmt_dr4 FROM @sql_dr_slot4;
+EXECUTE stmt_dr4;
+DEALLOCATE PREPARE stmt_dr4;
+
+SET @sql_drop_club_dues = IF(
+  @club_dues_col > 0,
+  'ALTER TABLE `club`
+     DROP COLUMN `dues_adult_regular`,
+     DROP COLUMN `dues_adult_prorated`,
+     DROP COLUMN `dues_initiation`,
+     DROP COLUMN `dues_reduced`',
+  'SELECT 1'
+);
+PREPARE stmt_drop_dues FROM @sql_drop_club_dues;
+EXECUTE stmt_drop_dues;
+DEALLOCATE PREPARE stmt_drop_dues;

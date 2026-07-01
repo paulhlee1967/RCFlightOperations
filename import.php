@@ -13,7 +13,6 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 
 requireLogin();
-requireFeature('csv_import');
 
 if (!canEditMembers()) {
     header('Location: index.php');

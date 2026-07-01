@@ -17,10 +17,10 @@ This document describes how the application is built and how its parts work toge
 | Path | Purpose |
 |------|--------|
 | **/** (project root) | Entry-point scripts (`index.php`, `login.php`, `members.php`, etc.), `config.php`, `schema_full.sql` |
-| **includes/** | Shared PHP: DB, auth, helpers, layout, CSRF, validation, feature flags, mail |
+| **includes/** | Shared PHP: DB, auth, helpers, layout, CSRF, validation, mail |
 | **docs/** | End-user documentation (HTML). Styled with `docs.css`; `docs-theme.php` injects club colours |
 | **scripts/** | CLI maintenance scripts (set password, verify DB, export, reminders) |
-| **js/** | `flightops_ui.js` — CSP-safe UI helpers (loaded deferred from `includes/footer.php`). |
+| **js/** | `flightops_ui.js` — CSP-safe UI helpers (loaded deferred from `includes/footer.php`). `badge_fabric.js` — shared Fabric.js helpers for badge design and print. |
 | **templates/** | Email and letter templates (PHP/HTML) |
 | **uploads/** | Member photos and club branding (written by the app; photos served via `badge_photo.php`, not direct URLs) |
 | **vendor/** | Composer dependencies (Dompdf, PHPMailer, etc.) |
@@ -47,7 +47,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 
 | File | Purpose |
 |------|--------|
-| **db.php** | Loads `config.php`, creates PDO `$pdo`, bootstraps `helpers.php`, `session_ini.php` (session cookie defaults), and `features.php`. Defines `flightops_refresh_maintenance_mode_global()`; **`includes/auth.php` calls it after `session_start()`** so the maintenance banner sees the logged-in session. **Include first** on any page that needs the database. |
+| **db.php** | Loads `config.php`, defines `FLIGHT_OPS_VERSION` and `FLIGHT_OPS_COPYRIGHT_YEAR_START`, creates PDO `$pdo`, bootstraps `helpers.php`, `session_ini.php` (session cookie defaults). Defines `flightops_refresh_maintenance_mode_global()`; **`includes/auth.php` calls it after `session_start()`** so the maintenance banner sees the logged-in session. **Include first** on any page that needs the database. |
 | **helpers.php** | Common utilities: `h()` (HTML escape), `checked()`, `selected()`, `formatMoney()`, `formatDate()`, `defaultRenewalYear(?PDO)` (uses `renewal_prebook_start_month` from `system_config` when `$pdo` passed), `memberStatusBadge()`. Required by `db.php` so they are available everywhere. |
 | **flash.php** | One-time messages after redirects: `flash($message, $type)`. Messages stored in `$_SESSION['flash']`; `header.php` renders them as Bootstrap toasts and clears them. `getFlash()` returns one message for simple inline use. |
 | **auth.php** | Session and permissions. `requireLogin()`, `requireAdmin()`, `currentUserId()`, `isAdmin()`, `canEditMembers()`, `canProcessMemberships()`, `canManagePayments()` (void mistaken payments: editors and treasurers). Uses `safe_redirect.php` for redirect URLs. Include **after** `db.php`. |
@@ -61,7 +61,6 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **header.php** | Shared layout: HTML head, navbar (with club theme, active nav, user menu), breadcrumbs, flash toasts. Set `$pageTitle`, optional `$noNav`, optional `$breadcrumbs` before including. Loads theme from `club` (`id = 1`) and defines `navActive()`. Nav items use `function_exists('canEditMembers')` (etc.) so including `header.php` without `auth.php` fails quietly — always include `auth.php` on app pages. |
 | **footer.php** | Closes container, RC Flight Operations attribution bar (uses theme CSS variables), Bootstrap JS, `flightops_ui.js`. |
 | **validation.php** | Server-side validation: `validate_member_input()`, `validate_payment_input()`, `validate_email()`, `validate_date()`, `validate_positive_number()`. Return structured errors for forms and APIs. |
-| **features.php** | Optional modules registry. `FEATURES` constant (e.g. `badge_designer`, `csv_import`, `ama_lookup`, `multi_user`). `featureEnabled($slug)`, `requireFeature($slug)`. |
 | **audit_log.php** | `audit_log($pdo, $userId, $action, $targetType, $targetId, $detail)`. Writes to `audit_log` table; safe if table is missing. **Admin UI:** `audit_log_viewer.php` (Administration → Audit log). |
 | **mail.php** | Email sending via config: `send_mail($to, $subject, $bodyHtml, $bodyText, $emailConfig)`. Uses PHPMailer; SMTP or PHP `mail()` depending on config. |
 | **installation_config.php** | Loads/saves `system_config` keys; merges with `config.php` email for Installation screen. |
@@ -92,7 +91,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **member_delete.php** | Deletes member and related data (phones, addresses, payments); removes photo file from `uploads/`. |
 | **users.php** | List app users (Admin only). |
 | **user_edit.php** | Add/edit app user, role, active flag, password (Admin only). |
-| **config_site.php** | Club configuration: General (name), Design (logo, favicon, colours), Dues rules. Admin only. Writes to `club` and `dues_rules`. |
+| **config_site.php** | Club configuration: General (name), Design (logo, favicon, colours), membership type labels, and **dues_rules** per slot. Admin only. |
 | **reports.php** | Reports module: report picker, year selector, table render, CSV/PDF export, and email panels. Read access via `canViewReports()`. Report data comes from `includes/run_report.php`. |
 | **report_email.php** | POST: email a report. `action=snapshot` sends the rendered table to one or more addresses; `action=members` emails a per-member message to a cohort report (e.g. not-yet-renewed) for members with `allow_email = 1`. The member blast requires editor/treasurer. |
 | **incidents.php** / **incident_edit.php** / **incident_delete.php** | Safety / field incident log; editors add/edit, treasurer/viewer can read per nav rules. |
@@ -105,6 +104,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **member_mailer.php** | Sends member-facing emails (e.g. renewal letter). |
 | **member_envelope.php** | Envelope/letter view for mailing. |
 | **profile.php** | Current user profile (name, password change). |
+| **about.php** | App information: version (`FLIGHT_OPS_VERSION`), club name, role, license, links to docs. Linked from navbar Help → About. |
 | **audit_log_viewer.php** | Admin-only, paginated audit log. |
 
 ---
@@ -133,9 +133,11 @@ Run from project root: `php scripts/script_name.php`.
 
 ## Database (high level)
 
-- **schema_full.sql** — Full, ready-to-import schema. Main tables: `club`, `users`, `members`, `member_phones`, `member_addresses`, `payments`, `dues_rules`, `badge_templates`, `incidents`, `member_fulfillments`, `login_attempts`, `audit_log`, `password_reset_tokens`, `password_reset_ip_events`, `system_config`, `operator_messages`, etc.
+- **schema_full.sql** — Full, ready-to-import schema. Main tables: `club`, `users`, `members`, `member_phones`, `member_addresses`, `payments`, `dues_rules`, `member_membership_years`, `badge_templates`, `incidents`, `member_fulfillments`, `login_attempts`, `audit_log`, `password_reset_tokens`, `password_reset_ip_events`, `system_config`, `operator_messages`, etc.
 
-- **`members` communication preferences:** `allow_email` (default 1) gates club email: CSV email export and `scripts/send_reminders.php` AMA/FAA notices (and the rebuilt reports' email features once they land). `allow_postal` (default 1) is stored for compliance with postal opt-out; `member_mailer.php` and `member_envelope.php` show a warning when it is 0.
+- **`dues_rules`:** One row per membership type slot (1–4). Each enabled type (Adult, Youth, Spouse, etc.) has its own annual, prorated, and initiation amounts — slots are independent even when rates match.
+
+- **`members` communication preferences:** `allow_email` (default 1) gates club email: CSV email export, `scripts/send_reminders.php` AMA/FAA notices, and report email flows. `allow_postal` (default 1) is stored for postal opt-out; `member_mailer.php` and `member_envelope.php` show a warning when it is 0.
 
 There is a single logical club: queries use `club.id = 1` where a club row is needed.
 
@@ -146,17 +148,17 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 - **Email:** Defaults in `config.php` under `email`; **Administration → Installation** can store SMTP and other keys in `system_config` (see `includes/installation_config.php` and `includes/mail.php`).
   - **Scheduled reminders:** `scripts/send_reminders.php` (cron) sends AMA/FAA expiry templates to members with `allow_email = 1`.
   - **CSV:** `export.php` format `email` skips members with `allow_email = 0`.
-  - **Report email** (member-cohort and snapshot sends) will return with the rebuilt reports module; recipients must have `allow_email = 1` and a non-empty email.
-- **PDF:** Dompdf (Composer) is available for PDF generation; the rebuilt reports module will use it for report export.
+  - **Report email:** `report_email.php` — snapshot to arbitrary addresses; member cohort blasts require `allow_email = 1` and a non-empty email.
+- **PDF:** Dompdf (Composer) powers report PDF export via `includes/report_pdf.php`. Run `composer install` on the server; `reportPdfAvailable()` guards when `vendor/` is missing.
 
 ---
 
 ## Docs (`docs/`)
 
-- **index.html** — Help center hub; links to overview, members, renewals, compliance, badges, incidents, import/export, administration, installation.
+- **index.html** — Help center hub; links to overview, members, renewals, compliance, badges, reports, incidents, import/export, administration, installation.
 - **docs.css** — Styles for all doc pages.
 - **docs-theme.php** — Served as CSS: outputs `:root` custom properties with the **logged-in club’s** colours (from `club`), so the docs match the app theme. If no session or DB, falls back to default RC Flight Operations palette.
-- Other **.html** files — One per topic (overview, members, renewals, compliance, badges, incidents, import-export, admin, install, about). Static HTML; the theme stylesheet is served by `docs-theme.php`. The reports help page will return when the reports module is rebuilt.
+- Other **.html** files — One per topic. Footers use a consistent copyright line; version details live on **`about.php`** in the app (linked from Help → About). `docs/about.html` redirects readers there.
 
 ---
 
@@ -177,10 +179,9 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 | Change nav or layout | `includes/header.php`, `includes/footer.php` |
 | Add a global helper | `includes/helpers.php` |
 | Add a flash message before redirect | `flash()` in `includes/flash.php` |
-| Add or change a report | Reports module (being rebuilt — see the report-module plan) |
-| Change badge layout / data | `badge_design.php`, `badge_print.php`, `badge_templates` table |
-| Change dues or proration logic | `dues_rules` table, `member_process.php`, `config_site.php` |
-| Toggle optional modules (registry) | `includes/features.php` (`FEATURES`) |
+| Add or change a report | `includes/run_report.php`, `reports.php`, `report_email.php`, `includes/report_pdf.php` |
+| Change badge layout / data | `badge_design.php`, `badge_print.php`, `js/badge_fabric.js`, `badge_templates` table |
+| Change dues or proration logic | `dues_rules` table, `member_process.php`, `config_site.php`, `includes/dues_helpers.php` |
 | Change email content | `templates/email/`, `includes/email_templates.php` |
 | Change SMTP / installation behaviour | `installation.php`, `system_config`, `config.php` → `email`, `includes/mail.php` |
 | Run one-off or scheduled tasks | `scripts/` |

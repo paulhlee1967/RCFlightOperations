@@ -4,7 +4,7 @@
  *
  * Club configuration: name, logo, favicon, theme colours, membership types, dues.
  *
- * Admin only. POST saves to `club` and dues_rules; file uploads go to uploads/branding/.
+ * Admin only. POST saves to `club` (branding, type labels) and `dues_rules`; file uploads go to uploads/branding/.
  */
 
 require_once __DIR__ . '/includes/db.php';
@@ -152,12 +152,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // dues_rules table may not exist on very old installs — ignore
         }
     }
-
-    $slot1Annual = (float) ($_POST['dues_slot1_annual'] ?? 0);
-    try {
-        $pdo->prepare('UPDATE club SET dues_adult_regular = ? WHERE id = ?')
-            ->execute([$slot1Annual, $clubId]);
-    } catch (Throwable $e) {}
 
     $saved = true;
 
@@ -402,10 +396,9 @@ require_once __DIR__ . '/includes/header.php';
             $slotEnabled = (bool) ($club["membership_type{$slot}_enabled"] ?? true);
             $rule        = $duesRules[$slot] ?? null;
 
-            // Fallback dues from the legacy club columns when no dues_rules row exists yet
-            $annual     = $rule ? $rule['annual_dues']          : (float) ($slot === 1 ? ($club['dues_adult_regular']  ?? 160) : ($club['dues_reduced'] ?? 20));
-            $prorated   = $rule ? $rule['prorated_dues']        : (float) ($slot === 1 ? ($club['dues_adult_prorated'] ?? 80)  : ($club['dues_reduced'] ?? 20));
-            $initiation = $rule ? $rule['initiation_fee']       : (float) ($slot === 1 ? ($club['dues_initiation']     ?? 50)  : 0);
+            $annual     = $rule ? (float) $rule['annual_dues']    : 0.0;
+            $prorated   = $rule ? (float) $rule['prorated_dues']  : 0.0;
+            $initiation = $rule ? (float) $rule['initiation_fee'] : 0.0;
             $psMonth    = $rule ? (int) $rule['prorate_start_month'] : 7;
             $peMonth    = $rule ? (int) $rule['prorate_end_month']   : 10;
 

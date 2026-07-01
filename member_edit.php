@@ -49,7 +49,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     $suspended      = $c['suspended'];
     $lifeMember     = $c['life_member'];
     $freeMembership = $c['free_membership'];
-    $isBoardMember  = $c['is_board_member'];
     $gateKey        = $c['gate_key_number'];
     $amaNumber      = $c['ama_number'];
     $amaExp         = $c['ama_expiration'];
@@ -63,11 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     $allowPostal    = $c['allow_postal'];
 
     if ($memberId) {
-        $stmt = $pdo->prepare('UPDATE members SET title=?, first_name=?, last_name=?, email=?, birthday=?, notes=?, date_joined=?, membership_type_slot=?, membership_renewal_year=?, inactive=?, suspended=?, life_member=?, free_membership=?, is_board_member=?, gate_key_number=?, ama_number=?, ama_expiration=?, ama_life_member=?, faa_number=?, faa_expiration=?, emergency_contact_name=?, emergency_contact_relationship=?, emergency_contact_phone=?, allow_email=?, allow_postal=? WHERE id=?');
-        $stmt->execute([$title, $firstName, $lastName, $email, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $isBoardMember, $gateKey, $amaNumber, $amaExp, $amaLife, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $allowEmail, $allowPostal, $memberId]);
+        $stmt = $pdo->prepare('UPDATE members SET title=?, first_name=?, last_name=?, email=?, birthday=?, notes=?, date_joined=?, membership_type_slot=?, membership_renewal_year=?, inactive=?, suspended=?, life_member=?, free_membership=?, gate_key_number=?, ama_number=?, ama_expiration=?, ama_life_member=?, faa_number=?, faa_expiration=?, emergency_contact_name=?, emergency_contact_relationship=?, emergency_contact_phone=?, allow_email=?, allow_postal=? WHERE id=?');
+        $stmt->execute([$title, $firstName, $lastName, $email, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $gateKey, $amaNumber, $amaExp, $amaLife, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $allowEmail, $allowPostal, $memberId]);
     } else {
-        $stmt = $pdo->prepare('INSERT INTO members (title, first_name, last_name, email, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, is_board_member, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, allow_email, allow_postal) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-        $stmt->execute([$title, $firstName, $lastName, $email, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $isBoardMember, $gateKey, $amaNumber, $amaExp, $amaLife, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $allowEmail, $allowPostal]);
+        $stmt = $pdo->prepare('INSERT INTO members (title, first_name, last_name, email, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, allow_email, allow_postal) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+        $stmt->execute([$title, $firstName, $lastName, $email, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $gateKey, $amaNumber, $amaExp, $amaLife, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $allowEmail, $allowPostal]);
         $memberId = (int) $pdo->lastInsertId();
     }
 
@@ -454,7 +453,6 @@ require_once __DIR__ . '/includes/header.php';
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="inactive" value="1"<?= checked($member['inactive'] ?? 0) ?>><label class="form-check-label">Inactive (archived — not a current member)</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="life_member" value="1"<?= checked($member['life_member'] ?? 0) ?>><label class="form-check-label">Life member</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="free_membership" value="1"<?= checked($member['free_membership'] ?? 0) ?>><label class="form-check-label">Free membership</label></div>
-                                <div class="form-check"><input class="form-check-input" type="checkbox" name="is_board_member" value="1"<?= checked($member['is_board_member'] ?? 0) ?>><label class="form-check-label">Board member</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="suspended" value="1"<?= checked($member['suspended'] ?? 0) ?>><label class="form-check-label">Suspended</label></div>
                             </div>
                         </div>

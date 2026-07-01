@@ -1,6 +1,6 @@
 # RC Flight Operations
 
-**Version 1.0.2** — See [CHANGELOG.md](CHANGELOG.md).
+**Version 1.5** — See [CHANGELOG.md](CHANGELOG.md).
 
 Open-source (**MIT**) LAMP membership app for RC clubs: members, contact info, AMA/FAA compliance, payments, badge design & printing, reports, and an optional incident log. **Single-club** deployment (one installation per club database); themeable (logo, favicon, colors). Home dashboard, system users with roles (admin, editor, treasurer, viewer), and club configuration.
 

@@ -145,14 +145,8 @@ if (!$member) {
     exit;
 }
 
-/** @var array<string, mixed>|null Legacy dues defaults from club row (passed to calculateDues to avoid repeated queries). */
-$clubDuesRow = null;
-try {
-    $cds = $pdo->query('SELECT dues_adult_regular, dues_adult_prorated, dues_initiation, dues_reduced FROM club WHERE id = 1 LIMIT 1');
-    $clubDuesRow = $cds ? $cds->fetch(PDO::FETCH_ASSOC) : null;
-} catch (Throwable $e) {
-    $clubDuesRow = null;
-}
+/** Prefetch dues rules once for renewal POST + preview UI. */
+$prefetchedRules = duesRules($pdo);
 
 // Which year are we working on?
 $workYear = isset($_GET['year']) ? (int) $_GET['year'] : defaultRenewalYear($pdo);
@@ -203,8 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
     // Calculate dues — fetch rules once and pass in to avoid extra DB queries
     $paidAt          = date('Y-m-d');
     $typeSlot        = (int) ($member['membership_type_slot'] ?? 0);
-    $prefetchedRules = duesRules($pdo);
-    $calc            = calculateDues($pdo, $typeSlot, $renewalType, $prefetchedRules, $clubDuesRow);
+    $calc            = calculateDues($pdo, $typeSlot, $renewalType, $prefetchedRules);
     $dues            = (float) $calc['dues'];
     $init            = (float) $calc['init'];
 
@@ -362,19 +355,17 @@ if (empty($member['membership_type_slot'])) {
 }
 
 // ---------------------------------------------------------------------------
-// Dues preview — fetch rules once; club dues defaults are passed into each
-// calculateDues() call so legacy club columns are not re-queried per type.
+// Dues preview — rules prefetched at page load ($prefetchedRules).
 // ---------------------------------------------------------------------------
-$typeSlot        = (int) ($member['membership_type_slot'] ?? 0);
-$prefetchedRules = duesRules($pdo);
+$typeSlot = (int) ($member['membership_type_slot'] ?? 0);
 
-$previewCalc = calculateDues($pdo, $typeSlot, 'on_time', $prefetchedRules, $clubDuesRow);
+$previewCalc = calculateDues($pdo, $typeSlot, 'on_time', $prefetchedRules);
 $regPreview  = (float) $previewCalc['regularDues'];
 $proPreview  = (float) $previewCalc['proratedDues'];
 $iniPreview  = (float) $previewCalc['initiationFee'];
 
-$calcNew  = calculateDues($pdo, $typeSlot, 'new',  $prefetchedRules, $clubDuesRow);
-$calcLate = calculateDues($pdo, $typeSlot, 'late', $prefetchedRules, $clubDuesRow);
+$calcNew  = calculateDues($pdo, $typeSlot, 'new',  $prefetchedRules);
+$calcLate = calculateDues($pdo, $typeSlot, 'late', $prefetchedRules);
 
 $duesPreview = [
     'new'     => (float) $calcNew['dues']  + (float) $calcNew['init'],

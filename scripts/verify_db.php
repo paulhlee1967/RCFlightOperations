@@ -54,7 +54,7 @@ $expectedColumns = [
         'color_bg', 'color_muted', 'color_text',
         'membership_type1_label', 'membership_type2_label', 'membership_type3_label', 'membership_type4_label',
         'membership_type1_enabled', 'membership_type2_enabled', 'membership_type3_enabled', 'membership_type4_enabled',
-        'dues_adult_regular', 'dues_adult_prorated', 'dues_initiation', 'dues_reduced', 'created_at',
+        'created_at',
     ],
     'users' => ['id', 'email', 'password_hash', 'name', 'role', 'active', 'created_at'],
     'members' => [

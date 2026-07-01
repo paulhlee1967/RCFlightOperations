@@ -23,7 +23,6 @@ function sendAmaJson($data, int $status = 200) {
 }
 
 requireLogin();
-if (!featureEnabled('ama_lookup')) { http_response_code(404); echo json_encode(['error'=>'Feature not available']); exit; }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     sendAmaJson(['valid' => false, 'message' => 'Method not allowed.'], 405);

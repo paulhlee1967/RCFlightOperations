@@ -1,6 +1,6 @@
 /*
  * docs/docs.css — shared styles for all RC Flight Operations documentation pages
- * Open-source stack only: Bootstrap 5, Bootstrap Icons, Google Fonts (Nunito + Inter).
+ * Open-source stack only: Bootstrap 5, Bootstrap Icons (local copies in assets/vendor/).
  *
  * Design intent: professional but approachable; default theme is a warm 1970s
  * “sunroom” palette (olive/avocado, cream, harvest gold + terracotta accents).
@@ -115,7 +115,7 @@
 
 /* ── Base ──────────────────────────────────────────────────────────────────── */
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   background: var(--club-bg);
   color: var(--club-text);
   font-size: 0.95rem;
@@ -135,7 +135,7 @@ body {
   box-shadow: 0 2px 8px rgba(0,0,0,.18);
 }
 .docs-navbar .brand {
-  font-family: 'Nunito', sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-weight: 800;
   font-size: 1.15rem;
   color: var(--club-on-primary);
@@ -240,7 +240,7 @@ body {
 
 /* ── Typography ────────────────────────────────────────────────────────────── */
 .docs-content h1 {
-  font-family: 'Nunito', sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-weight: 800;
   font-size: clamp(1.6rem, 3.5vw, 2.2rem);
   letter-spacing: -.02em;
@@ -252,7 +252,7 @@ body {
   margin-bottom: 2rem;
 }
 .docs-content h2 {
-  font-family: 'Nunito', sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   font-weight: 800;
   font-size: 1.3rem;
   margin-top: 2.5rem;
@@ -393,6 +393,9 @@ body {
   gap: .5rem;
 }
 .docs-footer a { color: var(--club-primary); text-decoration: none; }
+
+/* Standard footer: Copyright 2025–2026 Paul H Lee · MIT (left span);
+   About + page nav links (right span). Version: about.php in the app. */
 
 /* ── Mobile: collapse sidebar ──────────────────────────────────────────────── */
 @media (max-width: 767px) {

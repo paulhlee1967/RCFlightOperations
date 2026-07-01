@@ -9,7 +9,6 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 
 requireLogin();
-requireFeature('badge_designer');
 
 if (!canEditMembers() && !canProcessMemberships()) {
     header('Location: index.php');
@@ -42,7 +41,6 @@ if ($memberId <= 0) {
 $stmt = $pdo->prepare('
     SELECT m.id, m.first_name, m.last_name, m.email, m.date_joined, m.membership_type_slot,
            m.membership_renewal_year, m.ama_number, m.faa_number, m.gate_key_number, m.photo_path,
-           m.is_board_member,
            m.emergency_contact_name, m.emergency_contact_relationship, m.emergency_contact_phone,
            a.street, a.street2, a.city, a.state, a.postal_code
     FROM members m
@@ -121,13 +119,11 @@ $memberData = [
 ];
 
 // ── Choose which design to print ────────────────────────────────────────────
-// Priority: explicit ?design_id → board-member design (if member is a board
-// member) → default design → oldest design.
-$isBoardMember = (int) ($member['is_board_member'] ?? 0) === 1;
+// Priority: explicit ?design_id → default design → oldest design.
 $designs = [];
 try {
     $designs = $pdo->query(
-        'SELECT id, name, template_data, is_default, is_board_default
+        'SELECT id, name, template_data, is_default
            FROM badge_templates
           ORDER BY is_default DESC, name ASC, id ASC'
     )->fetchAll(PDO::FETCH_ASSOC);
@@ -141,11 +137,6 @@ $selectedDesign    = null;
 if ($requestedDesignId > 0) {
     foreach ($designs as $d) {
         if ((int) $d['id'] === $requestedDesignId) { $selectedDesign = $d; break; }
-    }
-}
-if (!$selectedDesign && $isBoardMember) {
-    foreach ($designs as $d) {
-        if ((int) $d['is_board_default'] === 1) { $selectedDesign = $d; break; }
     }
 }
 if (!$selectedDesign) {
@@ -191,7 +182,7 @@ require_once __DIR__ . '/includes/header.php';
    class="btn btn-outline-secondary btn-sm">← Back to Member</a>
 <?php endif; ?>
 
-<?php /* Design picker — choose which saved design to print (auto-picked by board flag) */ ?>
+<?php /* Design picker — choose which saved design to print */ ?>
 <?php if (count($designs) > 1): ?>
 <form method="get" class="d-flex align-items-center gap-1" id="design-picker-form">
     <input type="hidden" name="id" value="<?= $memberId ?>">
@@ -206,8 +197,7 @@ require_once __DIR__ . '/includes/header.php';
         <?php foreach ($designs as $d): ?>
             <?php
             $tags = [];
-            if ((int) $d['is_default'])       { $tags[] = 'default'; }
-            if ((int) $d['is_board_default']) { $tags[] = 'board'; }
+            if ((int) $d['is_default']) { $tags[] = 'default'; }
             $label = $d['name'] . ($tags ? ' (' . implode(', ', $tags) . ')' : '');
             ?>
             <option value="<?= (int) $d['id'] ?>"<?= (int) $d['id'] === $selectedDesignId ? ' selected' : '' ?>>
@@ -217,9 +207,6 @@ require_once __DIR__ . '/includes/header.php';
     </select>
     <noscript><button type="submit" class="btn btn-outline-secondary btn-sm">Go</button></noscript>
 </form>
-<?php if ($isBoardMember): ?>
-<span class="badge text-bg-info" title="This member is flagged as a board member">Board member</span>
-<?php endif; ?>
 <?php endif; ?>
 
 <?php /* Primary print action */ ?>
@@ -448,32 +435,13 @@ require_once __DIR__ . '/includes/header.php';
 }
 </style>
 
-<script src="https://cdn.jsdelivr.net/npm/fabric@7.4.0/dist/index.min.js"
-        integrity="sha512-aZp8qCI631QgG02ShOom0Rhmi1F/f5l7k+Y3PA9hUHOcaoydNyikEwNe6fAYpCJaBwSrYkB0QeDk9IY3hT3McA=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<?php require_once __DIR__ . '/includes/vendor_assets.php'; ?>
+<script src="<?= htmlspecialchars(flightops_fabric_js_url()) ?>"></script>
+<script src="js/badge_fabric.js"></script>
 <script<?= csp_nonce_attr() ?>>
 (function() {
     var memberData = <?= json_encode($memberData) ?>;
     var templateData = <?= $templateData ? json_encode($templateData) : 'null' ?>;
-
-    // ── Fabric v7 compatibility shims (see badge_design.php for details) ──
-    var FabricImageClass = fabric.Image || fabric.FabricImage;
-
-    /** Image.fromURL is promise-based in v6+ (crossOrigin lives in options). */
-    function loadFabricImage(url, opts, cb) {
-        try {
-            FabricImageClass.fromURL(url, opts || {})
-                .then(function (img) { cb(img || null); })
-                .catch(function () { cb(null); });
-        } catch (e) { cb(null); }
-    }
-
-    /** v6+ removed setBackgroundImage(); the background is a plain property. */
-    function setCanvasBackgroundImage(c, img, cb) {
-        c.backgroundImage = img || null;
-        c.requestRenderAll();
-        if (typeof cb === 'function') cb();
-    }
 
     var printArea = document.getElementById('card-print-area');
     var printFront = printArea && printArea.getAttribute('data-print-front') === '1';
@@ -744,10 +712,20 @@ if (templateData.backgroundPath) {
                 return;
             } else {
                 var val = getMemberValue(field);
+                var saved = savedObjs[i] || {};
+                var fixedW = saved._fixedWidth || obj._fixedWidth || 0;
                 if (typeof obj.setText === 'function') obj.setText(val);
                 else obj.set('text', val);
                 if (field === 'full_name' || field === 'full_name_first_last') {
                     obj.set('fontSize', 24);
+                }
+                normalizeBadgeTextOrigin(obj);
+                if (saved.textAlign) obj.set('textAlign', saved.textAlign);
+                if (fixedW) {
+                    applyBadgeTextFixedWidth(obj, fixedW);
+                } else {
+                    obj.initDimensions();
+                    obj.setCoords();
                 }
             }
         });
@@ -785,6 +763,7 @@ if (templateData.backgroundPath) {
     // Order: load canvas (objects only), then set background (so it is not overwritten), then apply member data, then export to img for reliable printing.
     // Delay allows async photo load + canvas paint to complete before toDataURL().
     canvas.loadFromJSON(templateData.canvas).then(function() {
+        restoreBadgeTextObjects(canvas, templateData.canvas);
         setBackground(function() {
             applyMemberData(function() {
                 canvas.requestRenderAll();

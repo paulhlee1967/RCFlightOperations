@@ -14,6 +14,10 @@ This project uses Composer dependencies. Their licenses are listed below. The ap
 
 Full license texts are in each package’s directory under `vendor/` (e.g. `vendor/dompdf/dompdf/LICENSE`, `vendor/masterminds/html5/LICENSE.txt`). Run `composer install` to obtain them.
 
-**Fabric.js** (v7.4.0) is loaded from a CDN (jsDelivr) for the badge designer; it is not a Composer dependency. Its license: MIT. See https://github.com/fabricjs/fabric.js/blob/master/LICENSE.
+**Fabric.js** (v7.4.0), **Bootstrap** (v5.3.8), and **Bootstrap Icons** (v1.11.3) are vendored under `assets/vendor/` for the UI and badge designer (not Composer dependencies). Licenses: MIT. See `scripts/fetch_vendor_assets.sh` to refresh pinned copies.
 
-**Bootstrap** (v5.3.8) is loaded from a CDN (jsDelivr) for the UI; it is not a Composer dependency. Its license: MIT. See https://github.com/twbs/bootstrap/blob/main/LICENSE.
+| Asset | Version | License |
+|-------|---------|---------|
+| Bootstrap | 5.3.8 | [MIT](https://github.com/twbs/bootstrap/blob/main/LICENSE) |
+| Bootstrap Icons | 1.11.3 | [MIT](https://github.com/twbs/icons/blob/main/LICENSE) |
+| Fabric.js | 7.4.0 | [MIT](https://github.com/fabricjs/fabric.js/blob/master/LICENSE) |

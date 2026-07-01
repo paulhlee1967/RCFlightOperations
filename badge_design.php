@@ -5,7 +5,7 @@
  * Improvements over the original:
  *   - Two-column layout: left sidebar (field panel + properties) / right canvas
  *   - Field panel: click any field to add it; no hunting through a dropdown
- *   - Selected-object property panel: font size, bold, italic, colour, alignment
+ *   - Selected-object property panel: font, font size, bold, italic, colour, alignment
  *   - Live member preview: pick any real member from a dropdown and the canvas
  *     renders with their actual data so you can see exactly how the card looks
  *   - Front/back tabs integrated cleanly in the canvas column
@@ -23,7 +23,6 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 
 requireLogin();
-requireFeature('badge_designer');
 
 if (!canEditMembers()) {
     header('Location: index.php');
@@ -39,11 +38,70 @@ function badge_api_json(array $payload): void {
     exit;
 }
 
+/** Per-template background files live under uploads/branding/. */
+function badge_background_dir(): string {
+    return __DIR__ . '/uploads/branding';
+}
+
+/** Relative URL path for a template's background file. */
+function badge_background_rel_path(int $templateId, int $userId, string $ext): string {
+    if ($templateId > 0) {
+        return 'uploads/branding/badge_bg_' . $templateId . '.' . $ext;
+    }
+    return 'uploads/branding/badge_bg_pending_' . $userId . '.' . $ext;
+}
+
+/** Remove any existing background image files for a template (or pending upload for a user). */
+function badge_delete_background_files(int $templateId, int $userId = 0): void {
+    $dir = badge_background_dir();
+    if (!is_dir($dir)) {
+        return;
+    }
+    $pattern = $templateId > 0
+        ? $dir . '/badge_bg_' . $templateId . '.*'
+        : $dir . '/badge_bg_pending_' . $userId . '.*';
+    foreach (glob($pattern) ?: [] as $file) {
+        if (is_file($file)) {
+            @unlink($file);
+        }
+    }
+}
+
+/**
+ * When a new design is first saved, rename a pending background upload to the
+ * template-specific filename and update template JSON.
+ */
+function badge_finalize_background_in_template(string $json, int $templateId, int $userId): string {
+    $data = json_decode($json, true);
+    if (!is_array($data)) {
+        return $json;
+    }
+    $path = $data['backgroundPath'] ?? '';
+    $pendingPrefix = 'uploads/branding/badge_bg_pending_' . $userId . '.';
+    if (!is_string($path) || strpos($path, $pendingPrefix) !== 0) {
+        return $json;
+    }
+    $ext = pathinfo($path, PATHINFO_EXTENSION);
+    if ($ext === '') {
+        return $json;
+    }
+    $newPath = badge_background_rel_path($templateId, $userId, $ext);
+    $oldFull = __DIR__ . '/' . $path;
+    $newFull = __DIR__ . '/' . $newPath;
+    if (is_file($oldFull)) {
+        badge_delete_background_files($templateId);
+        @rename($oldFull, $newFull);
+    }
+    $data['backgroundPath'] = $newPath;
+    unset($data['backgroundDataUrl']);
+    return json_encode($data);
+}
+
 /** Return all badge designs (metadata only) with normalised integer flags. */
 function badge_designs_list(PDO $pdo): array {
     try {
         $rows = $pdo->query(
-            'SELECT id, name, is_default, is_board_default
+            'SELECT id, name, is_default
                FROM badge_templates
               ORDER BY is_default DESC, name ASC, id ASC'
         )->fetchAll(PDO::FETCH_ASSOC);
@@ -51,9 +109,8 @@ function badge_designs_list(PDO $pdo): array {
         return [];
     }
     foreach ($rows as &$r) {
-        $r['id']               = (int) $r['id'];
-        $r['is_default']       = (int) $r['is_default'];
-        $r['is_board_default'] = (int) $r['is_board_default'];
+        $r['id']         = (int) $r['id'];
+        $r['is_default'] = (int) $r['is_default'];
     }
     unset($r);
     return $rows;
@@ -82,8 +139,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'load') {
 }
 
 // ── API: save ──────────────────────────────────────────────────────────────
-// template_id=0 → create new; >0 → update existing. Enforces a single
-// is_default and a single is_board_default across all rows.
+// template_id=0 → create new; >0 → update existing. Enforces a single is_default.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
     csrf_validate(['json' => true]);
     header('Content-Type: application/json; charset=utf-8');
@@ -91,12 +147,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if ($json === '') {
         badge_api_json(['ok' => false, 'error' => 'No template data']);
     }
-    $templateId     = (int) ($_POST['template_id'] ?? 0);
-    $name           = trim((string) ($_POST['name'] ?? ''));
+    $templateId = (int) ($_POST['template_id'] ?? 0);
+    $name       = trim((string) ($_POST['name'] ?? ''));
     if ($name === '') { $name = 'Untitled design'; }
-    $name           = function_exists('mb_substr') ? mb_substr($name, 0, 100) : substr($name, 0, 100);
-    $isDefault      = !empty($_POST['is_default'])       ? 1 : 0;
-    $isBoardDefault = !empty($_POST['is_board_default']) ? 1 : 0;
+    $name       = function_exists('mb_substr') ? mb_substr($name, 0, 100) : substr($name, 0, 100);
+    $isDefault  = !empty($_POST['is_default']) ? 1 : 0;
 
     try {
         $pdo->beginTransaction();
@@ -108,23 +163,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $pdo->rollBack();
                 badge_api_json(['ok' => false, 'error' => 'Design not found']);
             }
-            $stmt = $pdo->prepare('UPDATE badge_templates SET name = ?, template_data = ?, is_default = ?, is_board_default = ? WHERE id = ?');
-            $stmt->execute([$name, $json, $isDefault, $isBoardDefault, $templateId]);
+            $stmt = $pdo->prepare('UPDATE badge_templates SET name = ?, template_data = ?, is_default = ? WHERE id = ?');
+            $stmt->execute([$name, $json, $isDefault, $templateId]);
         } else {
-            $stmt = $pdo->prepare('INSERT INTO badge_templates (name, template_data, is_default, is_board_default) VALUES (?,?,?,?)');
-            $stmt->execute([$name, $json, $isDefault, $isBoardDefault]);
+            $stmt = $pdo->prepare('INSERT INTO badge_templates (name, template_data, is_default) VALUES (?,?,?)');
+            $stmt->execute([$name, $json, $isDefault]);
             $templateId = (int) $pdo->lastInsertId();
+            $json = badge_finalize_background_in_template($json, $templateId, $userId);
+            $pdo->prepare('UPDATE badge_templates SET template_data = ? WHERE id = ?')->execute([$json, $templateId]);
         }
 
-        // Only one row may be the (board) default.
         if ($isDefault) {
             $pdo->prepare('UPDATE badge_templates SET is_default = 0 WHERE id <> ?')->execute([$templateId]);
-        }
-        if ($isBoardDefault) {
-            $pdo->prepare('UPDATE badge_templates SET is_board_default = 0 WHERE id <> ?')->execute([$templateId]);
+            $pdo->prepare('UPDATE badge_templates SET is_default = 1 WHERE id = ?')->execute([$templateId]);
         }
 
-        // Guarantee a default always exists.
         $hasDefault = (int) $pdo->query('SELECT COUNT(*) FROM badge_templates WHERE is_default = 1')->fetchColumn();
         if ($hasDefault === 0) {
             $pdo->prepare('UPDATE badge_templates SET is_default = 1 WHERE id = ?')->execute([$templateId]);
@@ -133,12 +186,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
         $pdo->commit();
         badge_api_json([
-            'ok'               => true,
-            'id'               => $templateId,
-            'name'             => $name,
-            'is_default'       => $isDefault,
-            'is_board_default' => $isBoardDefault,
-            'designs'          => badge_designs_list($pdo),
+            'ok'         => true,
+            'id'         => $templateId,
+            'name'       => $name,
+            'is_default' => $isDefault,
+            'designs'    => badge_designs_list($pdo),
         ]);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) { $pdo->rollBack(); }
@@ -167,6 +219,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
 
         $pdo->beginTransaction();
+        badge_delete_background_files($templateId);
         $pdo->prepare('DELETE FROM badge_templates WHERE id = ?')->execute([$templateId]);
         // If we removed the default, promote the oldest remaining design.
         if ((int) $existing['is_default'] === 1) {
@@ -184,6 +237,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 // ── API: background image upload ───────────────────────────────────────────
+// Each design stores its own file: badge_bg_{template_id}.ext (or pending per user).
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['background']) && is_uploaded_file($_FILES['background']['tmp_name'])) {
     csrf_validate(['json' => true]);
     header('Content-Type: application/json; charset=utf-8');
@@ -194,14 +248,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['background']) && is_
         echo json_encode(['ok' => false, 'error' => 'Invalid or too-large file (max 3 MB, JPEG/PNG/GIF)']);
         exit;
     }
-    $uploadDir = __DIR__ . '/uploads/branding';
-    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-    $ext      = $allowed[$mime];
-    $filename = 'badge_background.' . $ext;
-    $path     = $uploadDir . '/' . $filename;
-    if (move_uploaded_file($_FILES['background']['tmp_name'], $path)) {
-        $url = 'uploads/branding/' . $filename;
-        echo json_encode(['ok' => true, 'url' => $url]);
+    $templateId = (int) ($_POST['template_id'] ?? 0);
+    $uploadDir  = badge_background_dir();
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+    $ext = $allowed[$mime];
+    badge_delete_background_files($templateId, $userId);
+    $relPath  = badge_background_rel_path($templateId, $userId, $ext);
+    $fullPath = __DIR__ . '/' . $relPath;
+    if (move_uploaded_file($_FILES['background']['tmp_name'], $fullPath)) {
+        echo json_encode(['ok' => true, 'url' => $relPath]);
     } else {
         echo json_encode(['ok' => false, 'error' => 'Upload failed — check permissions on uploads/']);
     }
@@ -384,15 +441,11 @@ $dataFields = [
             <div class="d-flex flex-column gap-1">
                 <div class="form-check mb-0">
                     <input class="form-check-input" type="checkbox" id="design-default">
-                    <label class="form-check-label small" for="design-default">Default design <span class="text-muted">(non-board members)</span></label>
-                </div>
-                <div class="form-check mb-0">
-                    <input class="form-check-input" type="checkbox" id="design-board-default">
-                    <label class="form-check-label small" for="design-board-default">Board-member design</label>
+                    <label class="form-check-label small" for="design-default">Default design</label>
                 </div>
             </div>
         </div>
-        <div class="form-text mt-1">Default &amp; board flags are saved with the design when you click <strong>Save Design</strong>.</div>
+        <div class="form-text mt-1">The default design is used when printing badges unless another is chosen. Saved with <strong>Save Design</strong>.</div>
     </div>
 </div>
 
@@ -472,6 +525,20 @@ $dataFields = [
             </div>
             <div class="card-body py-2 px-3">
                 <div class="mb-2">
+                    <label class="form-label small mb-1" for="prop-fontfamily">Font</label>
+                    <select id="prop-fontfamily" class="form-select form-select-sm">
+                        <option value="Arial">Arial</option>
+                        <option value="Helvetica">Helvetica</option>
+                        <option value="Verdana">Verdana</option>
+                        <option value="Tahoma">Tahoma</option>
+                        <option value="Trebuchet MS">Trebuchet MS</option>
+                        <option value="Georgia">Georgia</option>
+                        <option value="Times New Roman">Times New Roman</option>
+                        <option value="Courier New">Courier New</option>
+                        <option value="Impact">Impact</option>
+                    </select>
+                </div>
+                <div class="mb-2">
                     <label class="form-label small mb-1" for="prop-fontsize">Font size</label>
                     <input type="number" id="prop-fontsize" class="form-control form-control-sm"
                            min="6" max="72" step="1" value="14">
@@ -493,10 +560,11 @@ $dataFields = [
                 <div class="mb-2">
                     <label class="form-label small mb-1">Alignment</label>
                     <div class="btn-group btn-group-sm" role="group" id="prop-align">
-                        <button type="button" class="btn btn-outline-secondary" data-align="left">⬛️←</button>
-                        <button type="button" class="btn btn-outline-secondary" data-align="center">↔</button>
-                        <button type="button" class="btn btn-outline-secondary" data-align="right">→⬛️</button>
+                        <button type="button" class="btn btn-outline-secondary" data-align="left" title="Align left">⬅</button>
+                        <button type="button" class="btn btn-outline-secondary" data-align="center" title="Align center">↔</button>
+                        <button type="button" class="btn btn-outline-secondary" data-align="right" title="Align right">➡</button>
                     </div>
+                    <div class="form-text">Text is anchored at its top-left corner. For center/right within a box, set a fixed width wider than the text.</div>
                 </div>
                 <div class="mb-2">
                     <label class="form-label small mb-1" for="prop-width">
@@ -670,10 +738,12 @@ $dataFields = [
 #prop-align .btn.active { background: var(--club-primary, #6f7c3d); color: var(--club-on-primary, #faf7f0); border-color: var(--club-primary, #6f7c3d); }
 </style>
 
-<?php /* Fabric.js — version pinned, must match badge_print.php */ ?>
-<script src="https://cdn.jsdelivr.net/npm/fabric@7.4.0/dist/index.min.js"
-        integrity="sha512-aZp8qCI631QgG02ShOom0Rhmi1F/f5l7k+Y3PA9hUHOcaoydNyikEwNe6fAYpCJaBwSrYkB0QeDk9IY3hT3McA=="
-        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<?php
+require_once __DIR__ . '/includes/vendor_assets.php';
+/* Fabric.js — version pinned; shared helpers in js/badge_fabric.js */
+?>
+<script src="<?= htmlspecialchars(flightops_fabric_js_url()) ?>"></script>
+<script src="js/badge_fabric.js"></script>
 
 <script<?= csp_nonce_attr() ?>>
 (function () {
@@ -681,6 +751,7 @@ $dataFields = [
 
 /** Single source for badge field metadata (same keys as PHP $dataFields). */
 var BADGE_DATA_FIELDS = <?= json_encode($dataFields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+var DEFAULT_BADGE_FONT = 'Arial';
 
 /* ── Constants ──────────────────────────────────────────────────────────────── */
 var CARD_W_L = <?= $cardWidthLandscape ?>;
@@ -689,6 +760,7 @@ var CARD_W_P = <?= $cardWidthPortrait ?>;
 var CARD_H_P = <?= $cardHeightPortrait ?>;
 
 var dataFieldProp = 'dataField';   // custom Fabric property key
+badgeFabricExtendDataFieldSerialization(dataFieldProp);
 var previewMode   = false;         // true when showing a real member's data
 
 /* ── Undo / redo stack (design mode; preview mode bypasses history) ─────── */
@@ -730,44 +802,6 @@ function applyHistoryJSON(jsonStr) {
         propsPanel.style.display = 'none';
     });
 }
-
-/* ── Fabric v7 compatibility shims ───────────────────────────────────────────
- * Fabric 6+ renamed some globals (Object/Image/Text → FabricObject/FabricImage/
- * FabricText), made Image.fromURL() / loadFromJSON() promise-based, removed
- * setBackgroundImage() (background is now a plain property) and changed object
- * `type` values to capitalised class names. The aliases + helpers below keep the
- * rest of this file working across versions. */
-var FabricObjectClass = fabric.Object || fabric.FabricObject;
-var FabricTextClass   = fabric.Text  || fabric.FabricText;
-var FabricImageClass  = fabric.Image || fabric.FabricImage;
-var FabricGroupClass  = fabric.Group;
-
-/** Image.fromURL is promise-based in v6+ (crossOrigin lives in the options arg).
- *  Preserves the old callback style: cb receives the image, or null on error. */
-function loadFabricImage(url, opts, cb) {
-    try {
-        FabricImageClass.fromURL(url, opts || {})
-            .then(function (img) { cb(img || null); })
-            .catch(function () { cb(null); });
-    } catch (e) { cb(null); }
-}
-
-/** v6+ removed setBackgroundImage(); the background is now a plain property. */
-function setCanvasBackgroundImage(c, img, cb) {
-    c.backgroundImage = img || null;
-    c.requestRenderAll();
-    if (typeof cb === 'function') cb();
-}
-
-/* ── Extend Fabric serialisation to include our custom dataField ──────────── */
-FabricObjectClass.prototype.toObject = (function (toObject) {
-    return function (properties) {
-        return Object.assign(toObject.call(this, properties || []), {
-            dataField:   this[dataFieldProp],
-            _fixedWidth: this._fixedWidth || 0   // persist fixed width across saves
-        });
-    };
-})(FabricObjectClass.prototype.toObject);
 
 /* ── Canvas setup ────────────────────────────────────────────────────────── */
 var canvas = new fabric.Canvas('badge-canvas', {
@@ -946,6 +980,7 @@ document.getElementById('bg-upload').addEventListener('change', function () {
     bgStatus.textContent = 'Uploading…';
     var fd = new FormData();
     fd.append('background', file);
+    fd.append('template_id', String(currentDesignId || 0));
     var csrfEl = document.getElementById('csrf_token_value');
     if (csrfEl) fd.append('csrf_token', csrfEl.value);
     fetch('badge_design.php', { method: 'POST', body: fd, credentials: 'same-origin' })
@@ -976,7 +1011,10 @@ function addTextField(field, placeholder) {
     var text = new fabric.IText(placeholder, {
         left: 20,
         top: 20,
-        fontFamily: 'Arial',
+        originX: 'left',
+        originY: 'top',
+        textAlign: 'left',
+        fontFamily: DEFAULT_BADGE_FONT,
         fontSize: 14,
         fill: '#000000'
     });
@@ -986,13 +1024,76 @@ function addTextField(field, placeholder) {
     canvas.requestRenderAll();
 }
 
+function normalizePhotoPlaceholder(obj) {
+    if (!obj || !FabricGroupClass || !(obj instanceof FabricGroupClass)) return;
+    if (obj[dataFieldProp] !== 'photo') return;
+
+    var canvasPos = null;
+    try {
+        if (typeof obj.getPositionByOrigin === 'function') {
+            canvasPos = obj.getPositionByOrigin('left', 'top');
+        }
+    } catch (e) {}
+
+    var rect = null;
+    var label = null;
+    obj.getObjects().forEach(function (o) {
+        var t = (o.type || '').toLowerCase();
+        if (t === 'rect') rect = o;
+        else if (t === 'text' || t === 'itext' || t === 'i-text') label = o;
+    });
+    if (!rect) return;
+
+    var w = rect.width || 80;
+    var h = rect.height || 100;
+    rect.set({ left: 0, top: 0, originX: 'left', originY: 'top' });
+    if (label) {
+        label.set({
+            left: w / 2,
+            top: h / 2,
+            originX: 'center',
+            originY: 'center',
+            textAlign: 'center'
+        });
+    }
+    if (typeof obj.triggerLayout === 'function') {
+        obj.triggerLayout();
+    }
+    if (canvasPos) {
+        obj.set({ originX: 'left', originY: 'top', left: canvasPos.x, top: canvasPos.y });
+    } else {
+        obj.set({ originX: 'left', originY: 'top' });
+    }
+    obj.setCoords();
+}
+
 function addPhotoField() {
-    var rect  = new fabric.Rect({ width: 80, height: 100, fill: '#e0e0e0',
-                                   stroke: '#aaa', strokeWidth: 1 });
-    var label = new fabric.Text('Photo', { fontSize: 11, fill: '#555',
-                                            originX: 'center', originY: 'center',
-                                            left: 40, top: 50 });
-    var grp   = new fabric.Group([rect, label], { left: 20, top: 20 });
+    var rect = new fabric.Rect({
+        width: 80,
+        height: 100,
+        left: 0,
+        top: 0,
+        originX: 'left',
+        originY: 'top',
+        fill: '#e0e0e0',
+        stroke: '#aaa',
+        strokeWidth: 1
+    });
+    var label = new fabric.Text('Photo', {
+        fontSize: 11,
+        fill: '#555',
+        left: 40,
+        top: 50,
+        originX: 'center',
+        originY: 'center',
+        textAlign: 'center'
+    });
+    var grp = new fabric.Group([rect, label], {
+        left: 20,
+        top: 20,
+        originX: 'left',
+        originY: 'top'
+    });
     grp.set(dataFieldProp, 'photo');
     canvas.add(grp);
     canvas.setActiveObject(grp);
@@ -1055,6 +1156,7 @@ document.addEventListener('keydown', function (e) {
 resetHistoryFromCanvas();
 
 /* ── Selection → properties panel ──────────────────────────────────────── */
+var propFontFamily = document.getElementById('prop-fontfamily');
 var propFontSize  = document.getElementById('prop-fontsize');
 var propBold      = document.getElementById('prop-bold');
 var propItalic    = document.getElementById('prop-italic');
@@ -1074,6 +1176,7 @@ function syncPropsPanel(obj) {
     var fi = BADGE_DATA_FIELDS[field];
     propsLabel.textContent = (fi && fi.label) ? fi.label : (field || '');
 
+    propFontFamily.value     = obj.fontFamily || DEFAULT_BADGE_FONT;
     propFontSize.value       = obj.fontSize || 14;
     propBold.checked         = obj.fontWeight === 'bold';
     propItalic.checked       = obj.fontStyle === 'italic';
@@ -1100,6 +1203,9 @@ function applyPropChange(fn) {
     canvas.requestRenderAll();
 }
 
+propFontFamily.addEventListener('change', function () {
+    applyPropChange(function (o) { o.set('fontFamily', propFontFamily.value); });
+});
 propFontSize.addEventListener('input', function () {
     applyPropChange(function (o) { o.set('fontSize', parseInt(propFontSize.value, 10) || 14); });
 });
@@ -1114,7 +1220,12 @@ propColor.addEventListener('input', function () {
 });
 alignBtns.forEach(function (btn) {
     btn.addEventListener('click', function () {
-        applyPropChange(function (o) { o.set('textAlign', btn.dataset.align); });
+        applyPropChange(function (o) {
+            normalizeBadgeTextOrigin(o);
+            o.set('textAlign', btn.dataset.align);
+            o.initDimensions();
+            o.setCoords();
+        });
         alignBtns.forEach(function (b) { b.classList.toggle('active', b === btn); });
     });
 });
@@ -1122,24 +1233,13 @@ alignBtns.forEach(function (btn) {
 document.getElementById('prop-width').addEventListener('input', function () {
     var w = parseInt(this.value, 10) || 0;
     applyPropChange(function (o) {
+        normalizeBadgeTextOrigin(o);
         if (w > 0) {
-            // IText recalculates its own width aggressively — we have to
-            // override _calcTextWidth so the box truly stays at our fixed size
-            // instead of snapping back to fit the text content.
-            o._fixedWidth = w;
-            o.set({
-                width:         w,
-                lockScalingX:  true   // prevent resize handle from changing width
-            });
-            // Patch _calcTextWidth so Fabric stops overriding our width
-            o._calcTextWidth = function () { return this._fixedWidth; };
-            o.initDimensions();
-            o.setCoords();
+            applyBadgeTextFixedWidth(o, w);
         } else {
-            // Restore auto-sizing: remove the patch and recalculate naturally
             o._fixedWidth = 0;
             o.lockScalingX = false;
-            delete o._calcTextWidth;   // restore Fabric's original method
+            delete o._calcTextWidth;
             o.initDimensions();
             o.setCoords();
         }
@@ -1276,8 +1376,16 @@ function applyPreview(memberData) {
                     canvas.requestRenderAll();
                 });
             }
-        } else if (FabricTextClass && obj instanceof FabricTextClass) {
+        } else if (isBadgeTextObject(obj)) {
+            var fixedW = obj._fixedWidth || 0;
             obj.set('text', memberData[field] !== undefined ? String(memberData[field]) : obj.text);
+            normalizeBadgeTextOrigin(obj);
+            if (fixedW) {
+                applyBadgeTextFixedWidth(obj, fixedW);
+            } else {
+                obj.initDimensions();
+                obj.setCoords();
+            }
         }
     });
     canvas.requestRenderAll();
@@ -1294,7 +1402,7 @@ function enterPreview(memberData) {
     canvas.getObjects().forEach(function (obj) {
         var field = obj[dataFieldProp];
         if (!field) return;
-        if (FabricTextClass && obj instanceof FabricTextClass) {
+        if (isBadgeTextObject(obj)) {
             previewSnapshot.push({ obj: obj, text: obj.text });
         }
     });
@@ -1304,7 +1412,15 @@ function enterPreview(memberData) {
 
 function exitPreview() {
     previewSnapshot.forEach(function (item) {
+        var fixedW = item.obj._fixedWidth || 0;
         item.obj.set('text', item.text);
+        normalizeBadgeTextOrigin(item.obj);
+        if (fixedW) {
+            applyBadgeTextFixedWidth(item.obj, fixedW);
+        } else {
+            item.obj.initDimensions();
+            item.obj.setCoords();
+        }
     });
     // Remove any photo images added during preview and restore the
     // (hidden) photo placeholder so it survives a save.
@@ -1409,9 +1525,8 @@ var newDesignBtn   = document.getElementById('newDesign');
 var renameBtn      = document.getElementById('renameDesign');
 var deleteBtn      = document.getElementById('deleteDesign');
 var defaultCheck   = document.getElementById('design-default');
-var boardCheck     = document.getElementById('design-board-default');
 
-var designs         = [];   // [{id, name, is_default, is_board_default}]
+var designs         = [];   // [{id, name, is_default}]
 var currentDesignId = 0;    // 0 = unsaved new design
 var currentName     = 'Default';
 
@@ -1432,8 +1547,7 @@ function populateDesignSelect() {
         var opt = document.createElement('option');
         opt.value = String(d.id);
         var tags = [];
-        if (d.is_default)       tags.push('default');
-        if (d.is_board_default) tags.push('board');
+        if (d.is_default) tags.push('default');
         opt.textContent = d.name + (tags.length ? '  [' + tags.join(', ') + ']' : '');
         designSelect.appendChild(opt);
     });
@@ -1443,7 +1557,6 @@ function populateDesignSelect() {
 function syncFlagChecks() {
     var d = findDesign(currentDesignId);
     defaultCheck.checked = d ? !!d.is_default : false;
-    boardCheck.checked   = d ? !!d.is_board_default : false;
 }
 
 function setSaveStatus(text, cls) {
@@ -1472,7 +1585,6 @@ function doSave(overrideName) {
     fd.append('template_id', String(currentDesignId || 0));
     fd.append('name', currentName || 'Untitled design');
     fd.append('is_default', defaultCheck.checked ? '1' : '0');
-    fd.append('is_board_default', boardCheck.checked ? '1' : '0');
     var csrfEl = document.getElementById('csrf_token_value');
     if (csrfEl) fd.append('csrf_token', csrfEl.value);
 
@@ -1520,7 +1632,6 @@ newDesignBtn.addEventListener('click', function () {
     currentDesignId = 0;
     currentName     = name;
     defaultCheck.checked = false;
-    boardCheck.checked   = false;
     populateDesignSelect();
     applyDesignData(null);
     setSaveStatus('New design — click “Save Design” to store it.', 'text-muted');
@@ -1583,18 +1694,12 @@ function restoreDataFields(fabricCanvas, savedCanvas) {
     var savedObjs = (savedCanvas && savedCanvas.objects) || [];
     savedObjs.forEach(function (saved, i) {
         if (!objects[i]) return;
-        if (saved.dataField)   objects[i].set(dataFieldProp, saved.dataField);
-// Re-apply fixed width so textAlign keeps working after a page reload.
-        // The _calcTextWidth patch must be re-applied — it doesn't serialise.
-        if (saved._fixedWidth) {
-            var fw = saved._fixedWidth;
-            objects[i]._fixedWidth = fw;
-            objects[i].set({ width: fw, lockScalingX: true });
-            objects[i]._calcTextWidth = function () { return this._fixedWidth; };
-            objects[i].initDimensions();
-            objects[i].setCoords();
+        if (saved.dataField) objects[i].set(dataFieldProp, saved.dataField);
+        if (saved.dataField === 'photo') {
+            normalizePhotoPlaceholder(objects[i]);
         }
-        });
+        restoreBadgeTextObject(objects[i], saved);
+    });
 }
 // Render one design's data onto the canvas. Pass null/empty for a blank card.
 function applyDesignData(data) {

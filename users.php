@@ -3,8 +3,6 @@
  * users.php — System users list and add.
  *
  * People who can log in to this app (not club members). Admin only.
- * The add-user form is gated by the multi_user feature flag. The admin
- * can always edit their own account regardless of the flag.
  */
 
 require_once __DIR__ . '/includes/db.php';
@@ -18,21 +16,11 @@ $saved       = false;
 $error       = '';
 $newPassword = '';
 
-// multi_user flag: controls whether adding new users is permitted.
-$canAddUsers = featureEnabled('multi_user');
+$showForm = isset($_GET['add']) || ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['add_user']));
 
-$showForm = $canAddUsers && (isset($_GET['add']) || ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['add_user'])));
-
-// ── Add user (only if feature is enabled) ────────────────────────────────────
+// ── Add user ─────────────────────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
     csrf_validate();
-
-    if (!$canAddUsers) {
-        // Belt-and-suspenders: reject POST if flag is off even if form was somehow submitted.
-        flash('Multiple users feature is not enabled for this club.', 'warning');
-        header('Location: users.php');
-        exit;
-    }
 
     $email    = trim($_POST['email']    ?? '');
     $name     = trim($_POST['name']     ?? '');
@@ -149,13 +137,7 @@ require_once __DIR__ . '/includes/header.php';
             use the Members section for those.
         </p>
     </div>
-    <?php if ($canAddUsers): ?>
     <button class="btn btn-primary" id="addUserToggle" type="button">+ Add user</button>
-    <?php else: ?>
-    <span class="text-muted small" title="Contact your system operator to enable multiple users.">
-        <i class="bi bi-lock me-1"></i> Adding users is not enabled for this club.
-    </span>
-    <?php endif; ?>
 </div>
 
 <!-- ── Flash alerts ─────────────────────────────────────────────────────────── -->
@@ -178,8 +160,7 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 <?php endif; ?>
 
-<!-- ── Add user form (collapsible, only shown when feature is enabled) ────────── -->
-<?php if ($canAddUsers): ?>
+<!-- ── Add user form (collapsible) ─────────────────────────────────────────── -->
 <div class="card shadow-sm mb-4 <?= $showForm ? 'open' : '' ?>" id="addUserCard">
     <div class="card-header d-flex align-items-center justify-content-between">
         <span class="fw-semibold">Add a new user</span>
@@ -227,7 +208,6 @@ require_once __DIR__ . '/includes/header.php';
         </form>
     </div>
 </div>
-<?php endif; ?>
 
 <!-- ── Users table ───────────────────────────────────────────────────────────── -->
 <div class="card shadow-sm">
@@ -323,7 +303,7 @@ require_once __DIR__ . '/includes/header.php';
     if (close1) close1.addEventListener('click', closeForm);
     if (close2) close2.addEventListener('click', closeForm);
 
-    <?php if ($error && $canAddUsers): ?>
+    <?php if ($error): ?>
     openForm();
     <?php endif; ?>
 })();

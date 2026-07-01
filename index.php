@@ -190,7 +190,7 @@ require_once __DIR__ . '/includes/header.php';
 
     <!-- Unprinted badges -->
     <div class="col-6 col-sm-4 col-xl">
-        <?php if (canEditMembers() && featureEnabled('badge_designer')): ?>
+        <?php if (canEditMembers()): ?>
         <a href="members.php?status=current" class="card stat-card text-decoration-none h-100">
         <?php else: ?><div class="card stat-card h-100"><?php endif; ?>
             <div class="card-body p-3">
@@ -204,7 +204,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="stat-label">Badges unprinted</div>
                 <div class="stat-sub text-muted"><?= $currentYear ?> renewals</div>
             </div>
-        <?php if (canEditMembers() && featureEnabled('badge_designer')): ?></a><?php else: ?></div><?php endif; ?>
+        <?php if (canEditMembers()): ?></a><?php else: ?></div><?php endif; ?>
     </div>
 
     <!-- AMA/FAA compliance -->
@@ -333,7 +333,7 @@ if ($missingAma > 0) {
     </div>
     <?php endif; ?>
 
-    <?php if (canEditMembers() && featureEnabled('badge_designer')): ?>
+    <?php if (canEditMembers()): ?>
     <div class="col-sm-6 col-lg-4">
         <a href="badge_design.php" class="card nav-card text-decoration-none text-body h-100">
             <div class="card-body d-flex align-items-start gap-3">

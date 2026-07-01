@@ -2,9 +2,8 @@
 /**
  * includes/db.php
  *
- * Database connection (PDO). Also bootstraps shared helpers and feature flags
- * so every page that includes db.php automatically has access to h(),
- * featureEnabled(), etc. without needing separate require_once calls.
+ * Database connection (PDO). Also bootstraps shared helpers so every page
+ * that includes db.php automatically has access to h(), etc.
  *
  * Requires config.php returning an array with key 'db' containing:
  *   host, name, user, password, charset (optional, default utf8mb4)
@@ -27,6 +26,14 @@ if (!isset($config)) {
         die('Missing config.php. Copy config.php.example to config.php and set your database credentials.');
     }
     $config = require $configFile;
+}
+
+if (!defined('FLIGHT_OPS_VERSION')) {
+    define('FLIGHT_OPS_VERSION', '1.5');
+}
+
+if (!defined('FLIGHT_OPS_COPYRIGHT_YEAR_START')) {
+    define('FLIGHT_OPS_COPYRIGHT_YEAR_START', 2025);
 }
 
 // Force a single canonical host (e.g. apex over www) before any session/output,
@@ -57,11 +64,6 @@ try {
     }
     die('Database connection failed. Check server logs and configuration.');
 }
-
-// ── Feature registry (see features.php for behaviour) ────────────────────────
-// features.php defines FEATURES constant and featureEnabled()/requireFeature().
-// Including here ensures every page has the functions available.
-require_once __DIR__ . '/features.php';
 
 // Default: header.php reads this for the maintenance banner. Refreshed after
 // session_start() in auth.php when a club user is logged in (see

@@ -152,7 +152,6 @@ function validate_member_input(array $post): array {
     $clean['suspended']      = !empty($post['suspended'])      ? 1 : 0;
     $clean['life_member']    = !empty($post['life_member'])    ? 1 : 0;
     $clean['free_membership']= !empty($post['free_membership'])? 1 : 0;
-    $clean['is_board_member']= !empty($post['is_board_member'])? 1 : 0;
     $clean['ama_life_member']= !empty($post['ama_life_member'])? 1 : 0;
 
     // ── Optional free-text fields ─────────────────────────────────────────

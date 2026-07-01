@@ -9,6 +9,9 @@ composer.phar
 uploads/*
 !uploads/.htaccess
 
+# Legacy member photo directory (removed in v1.5 — use uploads/ and scripts/import_member_photos.php)
+pics/
+
 # OS and editor
 .DS_Store
 Thumbs.db

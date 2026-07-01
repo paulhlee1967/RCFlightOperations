@@ -14,6 +14,10 @@
 return [
 
     // ── Application ───────────────────────────────────────────────────────
+    // App version is defined as FLIGHT_OPS_VERSION in includes/db.php (default 1.5).
+    // Override in config.php before db.php loads if needed:
+    // define('FLIGHT_OPS_VERSION', '1.5');
+    //
     // When true, PDO connection errors include the exception message (development only).
     // Omit or false in production — errors are still written to the server log.
     // 'debug' => false,

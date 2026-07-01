@@ -9,8 +9,8 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` and the cod
 - **Single-club deployment:** One database per installation; branding and settings live in the **`club`** table (one row, typically `id = 1`).
 - **Members:** CRUD with Contact (phones, addresses, photo; `allow_email` / `allow_postal` for communication preferences), Compliance (AMA/FAA, verify AMA), Membership (type slot, renewal year, gate key, life/free/inactive/suspended), Payment history.
 - **Record signup/renewal:** On-time, late, or new prorated; configurable dues; complementary option; optional free membership / life member flag.
-- **Badge design & print:** CR80 card designer (Fabric.js): front (background, text fields, photo) and back (HTML). Print front and/or back as separate jobs; front/back orientation independent.
-- **Reports _(being rebuilt)_:** Membership year-over-year, retention, revenue by year, compliance, demographics, and operational lists — built on the per-year membership history (`member_membership_years`, `payments`, `member_fulfillments`). Export CSV/PDF; email members (opt-in) or a snapshot to a board address. See the report-module plan.
+- **Badge design & print:** CR80 card designer (Fabric.js): front (background, text fields, photo) and back (HTML). Multiple named designs per club; per-design backgrounds. Print front and/or back as separate jobs; front/back orientation independent. Shared Fabric helpers in `js/badge_fabric.js`.
+- **Reports:** Six built-in reports — membership by year, retention & churn, type mix, not yet renewed, revenue, and AMA/FAA compliance — built on per-year membership history (`member_membership_years`, `payments`, `member_fulfillments`). Export CSV/PDF; email members (opt-in) or a snapshot to a board address.
 - **Incidents:** Safety / field incident log (optional workflow for AMA or club records).
 - **Import/export:** CSV import for members; CSV/PDF export.
 - **Admin:** Users (roles: admin, editor, treasurer, viewer), club config (General, Design: logo, favicon, colors), audit log viewer, **Installation** (SMTP, maintenance, health).
@@ -27,7 +27,7 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` and the cod
 - **payments** – paid_at, year, amount_dues, amount_initiation, amount_late_fee, comp. Erroneous rows are hard-deleted (the action is recorded in `audit_log`).
 - **member_fulfillments** – One row per member per year: `renewal_type` (new/on_time/late/complementary), processed_at/by, card/mailer printed timestamps.
 - **member_membership_years** – Frozen per-year roster: who was a current member each calendar year. Append-only history that survives renewal-year overwrites; the basis for accurate year-over-year reporting.
-- **dues_rules** – Per membership type slot: annual_dues, initiation_fee, prorate months.
+- **dues_rules** – Per membership type slot (1–4): `annual_dues`, `prorated_dues`, `initiation_fee`, prorate window months. Configured under Administration → Configuration → Dues.
 - **badge_templates** – JSON (canvas, background, orientation, backOrientation, backHtml).
 - **incidents** – Date, location, type, severity, status, optional linked member, description, AMA reporting fields.
 

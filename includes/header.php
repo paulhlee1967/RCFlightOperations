@@ -13,6 +13,7 @@
 require_once __DIR__ . '/security_headers.php';
 flightops_send_security_headers();
 
+require_once __DIR__ . '/vendor_assets.php';
 require_once __DIR__ . '/csrf.php';
 
 $pageTitle = isset($pageTitle) ? $pageTitle : 'RC Flight Operations';
@@ -143,8 +144,7 @@ $_headerBaseHref = '';
     <?php if ($_faviconHref !== null): ?>
     <link rel="icon" href="<?= $_faviconHref ?>"<?= $_faviconType ? (' type="' . htmlspecialchars($_faviconType) . '"') : '' ?>>
     <?php endif; ?>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
-          integrity="sha512-2bBQCjcnw658Lho4nlXJcc6WkV/UxpE/sAokbXPxQNGqmNdQrWqtw26Ns9kFF/yG792pKR1Sx8/Y1Lf1XN4GKA==" crossorigin="anonymous">
+    <link href="<?= htmlspecialchars(flightops_bootstrap_css_url()) ?>" rel="stylesheet">
     <style<?= csp_nonce_attr() ?>>
         /* ── CSS custom properties (theme) ─────────────────────────────── */
         :root {
@@ -425,7 +425,7 @@ $_headerBaseHref = '';
                 <?php endif; ?>
 
                 <!-- Badge Design — gated by badge_designer feature flag -->
-                <?php if (function_exists('canEditMembers') && canEditMembers() && function_exists('featureEnabled') && featureEnabled('badge_designer')): ?>
+                <?php if (canEditMembers()): ?>
                 <li class="nav-item">
                     <a class="nav-link<?= navActive('badge_design.php') ?>"
                        href="<?= $_headerBaseHref ?>badge_design.php">Badge Design</a>
@@ -471,19 +471,32 @@ $_headerBaseHref = '';
             <?php if (!empty($_SESSION['user_id'])): ?>
             <ul class="navbar-nav ms-auto align-items-center gap-1">
 
-                <!-- Help / Docs icon — always visible, not buried in a dropdown -->
-                <li class="nav-item">
-                    <a class="nav-link d-flex align-items-center px-2"
-                       href="<?= $_headerBaseHref ?>docs/index.html"
-                       title="Help &amp; Documentation">
-                        <!-- Bootstrap bi-question-circle -->
+                <!-- Help dropdown — documentation + about -->
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle d-flex align-items-center gap-1 px-2<?= navActive('about.php') ?>"
+                       href="#" id="navHelp" role="button"
+                       data-bs-toggle="dropdown" aria-expanded="false"
+                       title="Help">
                         <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17"
                              fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
                             <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
                             <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"/>
                         </svg>
-                        <span class="visually-hidden">Help</span>
+                        <span class="d-none d-xl-inline">Help</span>
                     </a>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navHelp">
+                        <li>
+                            <a class="dropdown-item" href="<?= $_headerBaseHref ?>docs/index.html">
+                                Documentation
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item<?= navActive('about.php') ? ' active' : '' ?>"
+                               href="<?= $_headerBaseHref ?>about.php">
+                                About
+                            </a>
+                        </li>
+                    </ul>
                 </li>
 
                 <!-- User avatar + account dropdown -->

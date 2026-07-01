@@ -4,6 +4,8 @@
  *
  * Membership type labels, dues rules, and renewal amount calculation.
  * Loaded from helpers.php so it is available anywhere the DB is bootstrapped.
+ *
+ * Dues amounts live only in `dues_rules` (one row per membership type slot 1–4).
  */
 
 /**
@@ -99,69 +101,27 @@ function duesRules(PDO $pdo): array {
 /**
  * Calculate dues + initiation fee for a membership type slot.
  *
- * @param array|null $prefetchedRules      Result of duesRules(); null = fetch internally.
- * @param array|null $prefetchedClubDuesRow Row from `club` with dues_adult_regular, dues_adult_prorated,
- *                                          dues_initiation, dues_reduced; null = query club inside this call.
+ * @param array|null $prefetchedRules Result of duesRules(); null = fetch internally.
  */
 function calculateDues(
     PDO $pdo,
     int $typeSlot,
     string $renewalType,
-    ?array $prefetchedRules = null,
-    ?array $prefetchedClubDuesRow = null
+    ?array $prefetchedRules = null
 ): array {
+    $rules = $prefetchedRules ?? duesRules($pdo);
+    $rule  = $rules[$typeSlot] ?? null;
 
-    $duesConfig = [
-        'dues_adult_regular'  => 160,
-        'dues_adult_prorated' => 80,
-        'dues_initiation'     => 50,
-        'dues_reduced'        => 20,
-    ];
-
-    $tRow = $prefetchedClubDuesRow;
-    if ($tRow === null) {
-        try {
-            $tStmt = $pdo->query(
-                'SELECT dues_adult_regular, dues_adult_prorated, dues_initiation, dues_reduced
-                   FROM club WHERE id = 1 LIMIT 1'
-            );
-            $tRow = $tStmt ? $tStmt->fetch(PDO::FETCH_ASSOC) : false;
-        } catch (Throwable $e) {
-            $tRow = false;
-        }
-    }
-    if ($tRow) {
-        foreach (['dues_adult_regular', 'dues_adult_prorated', 'dues_initiation', 'dues_reduced'] as $k) {
-            if (isset($tRow[$k])) {
-                $duesConfig[$k] = (float) $tRow[$k];
-            }
-        }
+    if ($rule === null) {
+        $regularDues   = 0.0;
+        $proratedDues  = 0.0;
+        $initiationFee = 0.0;
+    } else {
+        $regularDues   = (float) ($rule['annual_dues'] ?? 0);
+        $proratedDues  = (float) ($rule['prorated_dues'] ?? 0);
+        $initiationFee = (float) ($rule['initiation_fee'] ?? 0);
     }
 
-    $duesRules = $prefetchedRules ?? duesRules($pdo);
-    $rule      = $duesRules[$typeSlot] ?? null;
-
-    // Slots 2–4 are traditionally "reduced" rate; slot 1 is "adult regular".
-    $reducedSlots = [2, 3, 4];
-    $usesReduced  = in_array($typeSlot, $reducedSlots, true);
-
-    $regularDues = $rule
-        ? (float) ($rule['annual_dues']    ?? 0)
-        : ($usesReduced
-            ? (float) $duesConfig['dues_reduced']
-            : (float) $duesConfig['dues_adult_regular']);
-
-    $proratedDues = $rule
-        ? (float) ($rule['prorated_dues']  ?? 0)
-        : ($usesReduced
-            ? (float) $duesConfig['dues_reduced']
-            : (float) $duesConfig['dues_adult_prorated']);
-
-    $initiationFee = $rule
-        ? (float) ($rule['initiation_fee'] ?? 0)
-        : (float) $duesConfig['dues_initiation'];
-
-    // ── Apply renewal type ────────────────────────────────────────────────────
     $dues = 0.0;
     $init = 0.0;
 
@@ -177,10 +137,10 @@ function calculateDues(
     }
 
     return [
-        'regularDues'  => $regularDues,
-        'proratedDues' => $proratedDues,
-        'initiationFee'=> $initiationFee,
-        'dues'         => $dues,
-        'init'         => $init,
+        'regularDues'   => $regularDues,
+        'proratedDues'  => $proratedDues,
+        'initiationFee' => $initiationFee,
+        'dues'          => $dues,
+        'init'          => $init,
     ];
 }
