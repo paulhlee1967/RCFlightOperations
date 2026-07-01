@@ -66,27 +66,30 @@ After uploading files and importing the database:
    Confirms schema matches expectations. Run after pulling code that changes `schema_full.sql`.
 
 4. **Composer**  
-   If `vendor/` wasn’t uploaded: `composer install` (needed for PDF export and email).
+   If `vendor/` wasn’t uploaded: `composer install` (needed for PDF export and email). Dev dependencies include PHPUnit (`composer test`).
 
-5. **HTTPS**  
+5. **Front-end vendor assets**  
+   Bootstrap, Bootstrap Icons, and Fabric.js are served from **`assets/vendor/`** (committed to the repo). If missing, run `bash scripts/fetch_vendor_assets.sh` from the project root.
+
+6. **HTTPS**  
    Use HTTPS in production. Sessions and passwords should not be sent over plain HTTP.
 
-6. **`js/` static file**  
-   Deploy `js/flightops_ui.js` with the app (confirm dialogs, colour pickers, etc.). It is loaded from `includes/footer.php`.
+7. **`js/` and `assets/vendor/`**  
+   Deploy all files under `js/` (including `badge_design.js`, `badge_print.js`, `members_list.js`, `badge_fabric.js`, `flightops_ui.js`) and **`assets/vendor/`** (Bootstrap, Bootstrap Icons, Fabric). If `assets/vendor/` is missing, run `bash scripts/fetch_vendor_assets.sh`.
 
-7. **Writable `uploads/`**  
+8. **Writable `uploads/`**  
    Ensure the web server can write to `uploads/` (and `uploads/member_photos/` if used). Required for member photos, club logos, favicons.
 
-8. **Uploads directory on Nginx**  
+9. **Uploads directory on Nginx**  
    `uploads/.htaccess` only affects Apache. On Nginx, block execution of PHP (and other scripts) under `uploads/` in your server config — e.g. `location ^~ /uploads/ { location ~ \.php$ { return 403; } }` — so uploaded files cannot be executed as code.
 
-9. **`scripts/` on Nginx**  
+10. **`scripts/` on Nginx**  
    The repo includes `scripts/.htaccess` to deny web access on Apache/LiteSpeed. On Nginx, deny the whole path, e.g. `location ^~ /scripts/ { return 403; }` — these files are **CLI-only** (password setup, DB verify, cron, etc.).
 
-10. **Reverse proxy / HTTPS**  
+11. **Reverse proxy / HTTPS**  
     If TLS terminates in front of PHP (load balancer, Cloudflare, etc.), set `'trust_forwarded_https' => true` in `config.php` so session cookies use the `Secure` flag and password-reset emails use `https://` links. Add `'trusted_proxies' => ['127.0.0.1']` (or your proxy’s IP/CIDR as seen by PHP in `REMOTE_ADDR`) so `X-Forwarded-Proto` is not applied for arbitrary clients. Only enable `trust_forwarded_https` when the edge sets forwarded headers correctly.
 
-11. **Canonical host (www vs apex)**
+12. **Canonical host (www vs apex)**
     The app should answer on a single hostname so session cookies and absolute URLs
     stay consistent (mismatched hosts cause repeated login prompts and broken
     redirects). `includes/canonical_host.php` enforces this in PHP on any server,
@@ -96,7 +99,7 @@ After uploading files and importing the database:
     On Nginx, add the redirect in your server config, e.g.
     `if ($host ~* ^www\.(.+)$) { return 301 $scheme://$1$request_uri; }`.
 
-12. **Scheduled reminders (cron, optional)**  
+13. **Scheduled reminders (cron, optional)**  
    If you send reminder emails, configure a cron job to run:
    ```bash
    php /path/to/RCFlightOperations/scripts/send_reminders.php

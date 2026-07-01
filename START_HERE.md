@@ -87,10 +87,17 @@ To generate `<hash>`, run in PHP: `echo password_hash('YourPassword', PASSWORD_D
 
 ## 5. Install Composer dependencies (optional but recommended)
 
-If you use PDF export or want to match production:
+If you use PDF export, email, or want to run tests:
 
 ```bash
 composer install
+composer test
+```
+
+Front-end libraries (Bootstrap, Bootstrap Icons, Fabric.js) ship in **`assets/vendor/`**. If that folder is missing after clone, run:
+
+```bash
+bash scripts/fetch_vendor_assets.sh
 ```
 
 ---
@@ -157,6 +164,8 @@ After you log in as an **admin**, open **Administration → Installation** (`ins
 | `api_verify_ama.php` | AMA verification (Compliance tab) |
 | `scripts/set_password.php` | One-time admin password set (CLI) |
 | `scripts/verify_db.php` | Check database matches schema (CLI) |
+| `scripts/verify_ama_health.php` | Probe AMA verify form (CLI health check) |
+| `scripts/fetch_vendor_assets.sh` | Download pinned Bootstrap / Fabric into `assets/vendor/` |
 | `installation.php` | Installation / SMTP / maintenance (admin only) |
 | `LOCAL_DEV.md` | Local development on Mac |
 | `PLAN.md` | Architecture and plan |

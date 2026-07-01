@@ -12,7 +12,7 @@
  */
 
 // Grab app version from FLIGHT_OPS_VERSION (defined in includes/db.php).
-$_footerVersion = defined('FLIGHT_OPS_VERSION') ? FLIGHT_OPS_VERSION : '1.5';
+$_footerVersion = defined('FLIGHT_OPS_VERSION') ? FLIGHT_OPS_VERSION : '1.5.1';
 $_copyrightStart = defined('FLIGHT_OPS_COPYRIGHT_YEAR_START') ? (int) FLIGHT_OPS_COPYRIGHT_YEAR_START : 2025;
 $_copyrightEnd   = (int) date('Y');
 $_footerCopyrightYears = $_copyrightEnd > $_copyrightStart

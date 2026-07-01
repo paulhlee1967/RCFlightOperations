@@ -142,6 +142,8 @@ To stop the server: `Ctrl+C` in the terminal.
 |--------|-----------------|
 | Start MariaDB (if not already running) | `brew services start mariadb` |
 | Start the app | `cd /path/to/RCFlightOperations && php -S localhost:8000` |
+| Run unit tests | `composer test` (after `composer install`) |
+| Refresh vendored UI assets | `bash scripts/fetch_vendor_assets.sh` |
 | Stop the app | `Ctrl+C` in the terminal where the server is running |
 | Stop MariaDB when done for the day (optional) | `brew services stop mariadb` |
 

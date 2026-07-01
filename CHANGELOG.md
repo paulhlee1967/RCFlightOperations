@@ -6,10 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-07-01
+
+### Added
+
+- **PHPUnit test suite** — `composer test` runs unit tests for dues calculation, membership SQL helpers, badge design/print/member-data helpers, members list query parsing, and AMA response parsing (`tests/`, `phpunit.xml`). GitHub Actions workflow [`.github/workflows/test.yml`](.github/workflows/test.yml) runs the suite on PHP 8.1 and 8.4.
+- **AMA verify module** — Shared scraper in [includes/ama_verify.php](includes/ama_verify.php): cookie-jar session, `form_build_id` cache, Drupal AJAX JSON parsing, retries, and distinct error statuses. Health probe: `php scripts/verify_ama_health.php`.
+
 ### Changed
 
 - **Dues stored in `dues_rules` only** — Removed legacy `club.dues_adult_*` / `dues_reduced` columns. Each membership type slot (1–4) has its own row in `dues_rules`; fresh installs are seeded with default rates. Existing databases: idempotent migration in [schema_full.sql](schema_full.sql) backfills missing `dues_rules` rows from legacy columns, then drops them.
 - **Front-end assets vendored locally** — Bootstrap 5.3.8, Bootstrap Icons 1.11.3, and Fabric.js 7.4.0 ship in `assets/vendor/` (no jsDelivr/Google Fonts at runtime). Refresh with `bash scripts/fetch_vendor_assets.sh`. CSP tightened to `'self'` for scripts, styles, and fonts.
+- **Dropped unused board-member columns** — Removed `members.is_board_member` and `badge_templates.is_board_default` (UI removed in 1.5). Idempotent `DROP COLUMN` migration at end of [schema_full.sql](schema_full.sql).
+- **Documentation** — Configuration tab label aligned with UI: **Membership & Dues** (was “Dues Rules” in docs).
+- **Badge designer split** — API handlers in [includes/badge_design_api.php](includes/badge_design_api.php), PHP helpers in [includes/badge_design_helpers.php](includes/badge_design_helpers.php), UI logic in [js/badge_design.js](js/badge_design.js); [badge_design.php](badge_design.php) is layout + config only.
+- **Member list split** — Query/filter logic in [includes/members_list_query.php](includes/members_list_query.php), display helpers in [includes/members_list_helpers.php](includes/members_list_helpers.php), bulk-select and quick-view JS in [js/members_list.js](js/members_list.js); [members.php](members.php) is layout + config only.
+- **Badge print split** — Print helpers in [includes/badge_print_helpers.php](includes/badge_print_helpers.php), shared member→badge field map in [includes/badge_member_data.php](includes/badge_member_data.php), Fabric print logic in [js/badge_print.js](js/badge_print.js); [badge_print.php](badge_print.php) is layout + config only. Badge designer preview API reuses `badge_member_data_from_row()`.
 
 ## [1.5] - 2026-07-01
 
@@ -36,7 +48,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Removed
 
 - **Legacy reports engine** — `includes/report_helpers.php` and `templates/email/report_list.php` removed; superseded by the rebuilt report engine, PDF, and email flows above.
-- **Board member tracking in the app** — Removed the member checkbox and badge auto-selection UI. Database columns (`members.is_board_member`, `badge_templates.is_board_default`) remain for possible future use.
+- **Board member tracking in the app** — Removed the member checkbox and badge auto-selection UI. Orphaned database columns dropped in a later schema migration.
 - **Legacy `pics/` photo directory** — Member photos use `uploads/` only; bulk import via [scripts/import_member_photos.php](scripts/import_member_photos.php).
 
 ## [1.0.2] - 2026-03-25

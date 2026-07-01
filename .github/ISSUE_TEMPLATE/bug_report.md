@@ -19,6 +19,7 @@ What you expected to happen.
 
 ## Environment
 - PHP version (if relevant):
+- App version (`FLIGHT_OPS_VERSION` from About page, if known):
 - Browser (if UI bug):
 - Deployment (e.g. cPanel subfolder, local PHP server) if relevant:
 

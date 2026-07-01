@@ -74,7 +74,6 @@ CREATE TABLE `members` (
   `suspended` tinyint(1) NOT NULL DEFAULT 0,
   `life_member` tinyint(1) NOT NULL DEFAULT 0,
   `free_membership` tinyint(1) NOT NULL DEFAULT 0,
-  `is_board_member` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Board members can be auto-assigned a different badge design',
   `gate_key_number` varchar(32) DEFAULT NULL,
   `badge_printed_at` datetime DEFAULT NULL,
   `ama_number` varchar(64) DEFAULT NULL,
@@ -165,8 +164,7 @@ CREATE TABLE `badge_templates` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL DEFAULT 'Default' COMMENT 'Display name shown in the designer/print pickers',
   `template_data` longtext NOT NULL COMMENT 'JSON: canvas, backgroundPath, orientation, backOrientation, backHtml',
-  `is_default` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Auto-selected design for non-board members (only one row should be 1)',
-  `is_board_default` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Auto-selected design for board members (only one row should be 1)',
+  `is_default` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Auto-selected design in badge print (only one row should be 1)',
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -210,7 +208,7 @@ INSERT INTO `users` (`email`, `password_hash`, `name`, `role`) VALUES
 ('admin@yourclub.local', '', 'Club Admin', 'admin');
 -- Run scripts/set_password.php after first deploy to set the admin password.
 
-INSERT INTO `badge_templates` (`name`, `template_data`, `is_default`, `is_board_default`) VALUES ('Default', '{}', 1, 0);
+INSERT INTO `badge_templates` (`name`, `template_data`, `is_default`) VALUES ('Default', '{}', 1);
 
 -- ---------------------------------------------------------------------------
 -- Migration: member_fulfillments table
@@ -621,3 +619,32 @@ SET @sql_drop_club_dues = IF(
 PREPARE stmt_drop_dues FROM @sql_drop_club_dues;
 EXECUTE stmt_drop_dues;
 DEALLOCATE PREPARE stmt_drop_dues;
+
+-- -----------------------------------------------------------------------------
+-- Migration: drop unused board-member badge columns (removed from app in 1.5)
+-- -----------------------------------------------------------------------------
+SET @board_member_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'is_board_member'
+);
+SET @sql_drop_board_member = IF(
+  @board_member_col > 0,
+  'ALTER TABLE `members` DROP COLUMN `is_board_member`',
+  'SELECT 1'
+);
+PREPARE stmt_drop_board_member FROM @sql_drop_board_member;
+EXECUTE stmt_drop_board_member;
+DEALLOCATE PREPARE stmt_drop_board_member;
+
+SET @board_default_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'badge_templates' AND COLUMN_NAME = 'is_board_default'
+);
+SET @sql_drop_board_default = IF(
+  @board_default_col > 0,
+  'ALTER TABLE `badge_templates` DROP COLUMN `is_board_default`',
+  'SELECT 1'
+);
+PREPARE stmt_drop_board_default FROM @sql_drop_board_default;
+EXECUTE stmt_drop_board_default;
+DEALLOCATE PREPARE stmt_drop_board_default;

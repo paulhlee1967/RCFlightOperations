@@ -10,7 +10,7 @@ assignees: []
 A clear description of the feature or improvement.
 
 ## Why it would help
-How this would improve the app or workflow (e.g. for clubs, admins, or operators).
+How this would improve the app or workflow (e.g. for clubs or admins).
 
 ## Possible approach (optional)
 Rough idea of how it could work (UI, new page, config option, etc.).

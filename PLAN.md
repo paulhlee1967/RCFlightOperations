@@ -19,7 +19,7 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` and the cod
 
 ## Data model
 
-- **club** – Single row for the installation: `name`, `logo_path`, `favicon_path`, `color_*`, membership type labels, legacy dues defaults, etc.
+- **club** – Single row for the installation: `name`, `logo_path`, `favicon_path`, `color_*`, membership type labels, etc. Dues amounts live in **`dues_rules`** (per slot).
 - **users** – App logins. `email` (unique), `password_hash`, `name`, `role`, `active`.
 - **members** – One per person. Identity, contact, `allow_email` / `allow_postal`, `date_joined`, `membership_type_slot`, `membership_renewal_year`, `gate_key_number`, `badge_printed_at`, AMA/FAA, flags (inactive, suspended, life_member, free_membership).
 - **member_phones** – Type (Home/Work/Cell/Other) + number.
@@ -27,7 +27,7 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` and the cod
 - **payments** – paid_at, year, amount_dues, amount_initiation, amount_late_fee, comp. Erroneous rows are hard-deleted (the action is recorded in `audit_log`).
 - **member_fulfillments** – One row per member per year: `renewal_type` (new/on_time/late/complementary), processed_at/by, card/mailer printed timestamps.
 - **member_membership_years** – Frozen per-year roster: who was a current member each calendar year. Append-only history that survives renewal-year overwrites; the basis for accurate year-over-year reporting.
-- **dues_rules** – Per membership type slot (1–4): `annual_dues`, `prorated_dues`, `initiation_fee`, prorate window months. Configured under Administration → Configuration → Dues.
+- **dues_rules** – Per membership type slot (1–4): `annual_dues`, `prorated_dues`, `initiation_fee`, prorate window months. Configured under Administration → Configuration → **Membership & Dues**.
 - **badge_templates** – JSON (canvas, background, orientation, backOrientation, backHtml).
 - **incidents** – Date, location, type, severity, status, optional linked member, description, AMA reporting fields.
 
@@ -36,8 +36,8 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` and the cod
 ## Tech stack
 
 - PHP 8.x, MySQL/MariaDB, Apache (or PHP built-in server for local). PDO.
-- UI: HTML, Bootstrap 5, server-rendered; Fabric.js for badge designer; no front-end framework.
-- Composer: [dompdf](https://github.com/dompdf/dompdf) (PDF export), [PHPMailer](https://github.com/PHPMailer/PHPMailer) (SMTP / club and report email).
+- UI: HTML, Bootstrap 5 (vendored in `assets/vendor/`), server-rendered; Fabric.js for badge designer; no front-end framework.
+- Composer: [dompdf](https://github.com/dompdf/dompdf) (PDF export), [PHPMailer](https://github.com/PHPMailer/PHPMailer) (SMTP / club and report email). Dev: PHPUnit (`composer test`).
 
 ---
 
@@ -46,3 +46,4 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` and the cod
 1. Run through [START_HERE.md](START_HERE.md) to get a working install.
 2. Use [LOCAL_DEV.md](LOCAL_DEV.md) for Mac development.
 3. Run `php scripts/verify_db.php` to confirm database matches `schema_full.sql`.
+4. Run `composer test` after `composer install` when changing PHP helpers.

@@ -20,7 +20,8 @@ This document describes how the application is built and how its parts work toge
 | **includes/** | Shared PHP: DB, auth, helpers, layout, CSRF, validation, mail |
 | **docs/** | End-user documentation (HTML). Styled with `docs.css`; `docs-theme.php` injects club colours |
 | **scripts/** | CLI maintenance scripts (set password, verify DB, export, reminders) |
-| **js/** | `flightops_ui.js` — CSP-safe UI helpers (loaded deferred from `includes/footer.php`). `badge_fabric.js` — shared Fabric.js helpers for badge design and print. |
+| **assets/** | Club logo (`rc-flight-operations-logo.png`) and **vendored front-end** libraries under `assets/vendor/` (Bootstrap, Bootstrap Icons, Fabric.js). URLs via `includes/vendor_assets.php`. Refresh with `scripts/fetch_vendor_assets.sh`. |
+| **js/** | `flightops_ui.js` (global UI helpers, deferred from footer). `badge_fabric.js` — shared Fabric.js helpers. `badge_design.js`, `badge_print.js`, `members_list.js` — page-specific logic extracted from large PHP entry points. |
 | **templates/** | Email and letter templates (PHP/HTML) |
 | **uploads/** | Member photos and club branding (written by the app; photos served via `badge_photo.php`, not direct URLs) |
 | **vendor/** | Composer dependencies (Dompdf, PHPMailer, etc.) |
@@ -70,6 +71,16 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **flightops_logo.php** | Default PNG badge (`assets/rc-flight-operations-logo.png`) when the club has no uploaded logo. |
 | **run_report.php** | Report engine: `reportRegistry()`, `runReport($pdo, $slug, $params)`, per-report builders, and cohort/year helpers. Returns a uniform `{columns, rows, totals, note}` structure built on `member_membership_years` / `payments` / `member_fulfillments`. |
 | **report_pdf.php** | Renders a report structure to a downloadable PDF via Dompdf. `reportPdfAvailable()` guards against a missing `vendor/`. |
+| **vendor_assets.php** | URL helpers for pinned assets in `assets/vendor/` (Bootstrap CSS/JS, Bootstrap Icons, Fabric.js). |
+| **dues_helpers.php** | Membership type labels, `dues_rules` fetch, and renewal amount calculation (`calculateDues()`). |
+| **membership_status.php** | Current-member SQL (`currentMemberWhereSql`), per-year roster helpers, status counts for lists and reports. |
+| **ama_verify.php** | AMA number lookup scraper (cookie session, Drupal AJAX parsing, retries). Used by `api_verify_ama.php` and `scripts/memberapp_precheck.php`. |
+| **badge_design_helpers.php** | Badge designer paths, background file handling, design list helpers. |
+| **badge_design_api.php** | JSON/AJAX handlers for `badge_design.php` (save, load, upload, member preview). |
+| **badge_member_data.php** | Shared member→badge field map (`badge_member_data_from_row()`), CR80 dimensions, member+address SQL. |
+| **badge_print_helpers.php** | Design selection, mark-printed POST, member load for `badge_print.php`. |
+| **members_list_query.php** | Filter/pagination query builder for `members.php`. |
+| **members_list_helpers.php** | URL builder and list display badges (type, year, initials colour). |
 
 ---
 
@@ -95,12 +106,12 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **reports.php** | Reports module: report picker, year selector, table render, CSV/PDF export, and email panels. Read access via `canViewReports()`. Report data comes from `includes/run_report.php`. |
 | **report_email.php** | POST: email a report. `action=snapshot` sends the rendered table to one or more addresses; `action=members` emails a per-member message to a cohort report (e.g. not-yet-renewed) for members with `allow_email = 1`. The member blast requires editor/treasurer. |
 | **incidents.php** / **incident_edit.php** / **incident_delete.php** | Safety / field incident log; editors add/edit, treasurer/viewer can read per nav rules. |
-| **badge_design.php** | Badge template designer (Fabric.js). Loads/saves `badge_templates` JSON and back HTML. Editor or Admin. |
+| **badge_design.php** | Badge template designer page (layout + Fabric config). JSON API in `includes/badge_design_api.php`; UI in `js/badge_design.js`. Editor or Admin. |
 | **badge_print.php** | Print view for one member’s badge (front/back). Marks badge as printed. |
 | **badge_photo.php** | Securely serves member photo from `uploads/` (no direct URL to uploads). |
 | **import.php** | CSV import: upload, column mapping, preview, insert/update members (and optional payment rows). |
 | **export.php** / **export_options.php** | CSV export (full, short, email-only); filters by year/renewal status. **`export.php` is POST + CSRF only** (forms in the UI and `export_options.php`). |
-| **api_verify_ama.php** | AJAX endpoint: verifies AMA number against AMA lookup; returns JSON. |
+| **api_verify_ama.php** | AJAX endpoint: verifies AMA number against AMA lookup via `includes/ama_verify.php`; returns JSON. |
 | **member_mailer.php** | Sends member-facing emails (e.g. renewal letter). |
 | **member_envelope.php** | Envelope/letter view for mailing. |
 | **profile.php** | Current user profile (name, password change). |
@@ -117,10 +128,14 @@ Run from project root: `php scripts/script_name.php`.
 |--------|--------|
 | **set_password.php** | Interactively set or reset a **club** user password (e.g. first admin from seed data). |
 | **verify_db.php** | Checks that the live database schema matches expectations (e.g. after pulling updates). |
+| **verify_ama_health.php** | Probes AMA verify page for `form_build_id` (exit 0/1). Cron-friendly health check. |
+| **fetch_vendor_assets.sh** | Downloads pinned Bootstrap, Bootstrap Icons, and Fabric.js into `assets/vendor/`. |
 | **export_db_for_cpanel.php** | Exports SQL dump suitable for cPanel/phpMyAdmin import. |
 | **send_reminders.php** | Sends reminder emails (AMA/FAA expiry). Cron-friendly. `--dry-run`, `--test-email=`. |
 | **mark_expired_inactive.php** | Optional maintenance: mark members as inactive based on rules. |
 | **import_member_photos.php** | Bulk import member photos (e.g. from a directory keyed by member ID or name). |
+
+**Tests:** After `composer install` (includes dev deps), run `composer test` for PHPUnit unit tests (`tests/`, `phpunit.xml`). CI runs the same suite on push/PR to `main` (PHP 8.1 and 8.4 via [`.github/workflows/test.yml`](.github/workflows/test.yml)). Production deploys can skip dev dependencies; tests cover pure PHP helpers without a live database.
 
 ---
 
@@ -180,7 +195,8 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 | Add a global helper | `includes/helpers.php` |
 | Add a flash message before redirect | `flash()` in `includes/flash.php` |
 | Add or change a report | `includes/run_report.php`, `reports.php`, `report_email.php`, `includes/report_pdf.php` |
-| Change badge layout / data | `badge_design.php`, `badge_print.php`, `js/badge_fabric.js`, `badge_templates` table |
+| Change badge layout / data | `badge_design.php`, `includes/badge_design_api.php`, `includes/badge_design_helpers.php`, `includes/badge_member_data.php`, `badge_print.php`, `includes/badge_print_helpers.php`, `js/badge_fabric.js`, `js/badge_design.js`, `js/badge_print.js`, `badge_templates` table |
+| Change member list filters / UI | `members.php`, `includes/members_list_query.php`, `includes/members_list_helpers.php`, `js/members_list.js` |
 | Change dues or proration logic | `dues_rules` table, `member_process.php`, `config_site.php`, `includes/dues_helpers.php` |
 | Change email content | `templates/email/`, `includes/email_templates.php` |
 | Change SMTP / installation behaviour | `installation.php`, `system_config`, `config.php` → `email`, `includes/mail.php` |

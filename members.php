@@ -31,260 +31,29 @@ header('Pragma: no-cache');
 $currentYear = membershipStatusYear();
 $membershipTypeLabels = enabledMembershipTypeLabels($pdo);
 $renewedMemberIds = renewedMemberIdsForYear($pdo, $currentYear);
-$currentMemberWhere = currentMemberWhereSql('m', $currentYear);
-$currentMemberParams = currentMemberWhereParams($currentYear);
 
-// ── Input sanitisation (unchanged from original) ─────────────────────────────
-$searchQ = trim((string) ($_GET['q'] ?? ''));
+require_once __DIR__ . '/includes/members_list_query.php';
+require_once __DIR__ . '/includes/members_list_helpers.php';
 
-$perPage = isset($_GET['per']) ? (int) $_GET['per'] : 25;
-if (!in_array($perPage, [25, 50, 100, 0], true)) {
-    $perPage = 25;
-}
+$filters = members_list_parse_request($_GET);
+$searchQ              = $filters['searchQ'];
+$perPage              = $filters['perPage'];
+$page                 = $filters['page'];
+$memberTypeFilter     = $filters['memberTypeFilter'];
+$memberTypeSlotFilter = $filters['memberTypeSlotFilter'];
+$statusFilter         = $filters['statusFilter'];
+$sort                 = $filters['sort'];
 
-$page = max(1, (int) ($_GET['page'] ?? 1));
-
-$memberTypeFilter = (string) ($_GET['member_type'] ?? '');
-$memberTypeSlotFilter = null;
-if ($memberTypeFilter !== '') {
-    $slot = is_numeric($memberTypeFilter) ? (int) $memberTypeFilter : 0;
-    $memberTypeSlotFilter = ($slot >= 1 && $slot <= 4) ? $slot : null;
-    if ($memberTypeSlotFilter === null) $memberTypeFilter = '';
-}
-
-$statusFilter = (string) ($_GET['status'] ?? 'current');
-if ($statusFilter === 'active') {
-    $statusFilter = 'current';
-}
-if (!in_array($statusFilter, ['all', 'current', 'inactive'], true)) {
-    $statusFilter = 'current';
-}
-
-// ── ORDER BY clauses (avoid fragile string-replacement) ──────────────────────
-// We build two explicit ORDER BY clauses: one for the non-aliased query, and
-// one for the search query where `members` is aliased as `m`.
-// $sort must be a key of $orderByMap only — never concatenate raw $_GET into SQL.
-$orderByMap = [
-    'name' => [
-        'main'   => 'ORDER BY last_name, first_name',
-        'search' => 'ORDER BY m.last_name, m.first_name',
-    ],
-    'name_desc' => [
-        'main'   => 'ORDER BY last_name DESC, first_name DESC',
-        'search' => 'ORDER BY m.last_name DESC, m.first_name DESC',
-    ],
-    'year' => [
-        'main'   => 'ORDER BY membership_renewal_year ASC, last_name, first_name',
-        'search' => 'ORDER BY m.membership_renewal_year ASC, m.last_name, m.first_name',
-    ],
-    'year_desc' => [
-        'main'   => 'ORDER BY membership_renewal_year DESC, last_name, first_name',
-        'search' => 'ORDER BY m.membership_renewal_year DESC, m.last_name, m.first_name',
-    ],
-    'type' => [
-        'main'   => 'ORDER BY membership_type_slot ASC, last_name, first_name',
-        'search' => 'ORDER BY m.membership_type_slot ASC, m.last_name, m.first_name',
-    ],
-    'type_desc' => [
-        'main'   => 'ORDER BY membership_type_slot DESC, last_name, first_name',
-        'search' => 'ORDER BY m.membership_type_slot DESC, m.last_name, m.first_name',
-    ],
-];
-
-$sort = (string) ($_GET['sort'] ?? 'name');
-if (!array_key_exists($sort, $orderByMap)) {
-    $sort = 'name';
-}
-$orderBy       = $orderByMap[$sort]['main'];
-$orderBySearch = $orderByMap[$sort]['search'];
-
-// ── Build main query ──────────────────────────────────────────────────────────
-// NOTE: extra columns (inactive, suspended, flags, photo_path, badge_printed_at,
-//       gate_key_number) are added so the list can render status indicators.
-$selectCols = 'id, first_name, last_name, email, membership_type_slot, membership_renewal_year,
-               inactive, suspended, life_member, free_membership,
-               gate_key_number, badge_printed_at, photo_path';
-
-$params   = [];
-$baseSql  = '';
-$countSql = '';
-
-if ($searchQ === '') {
-    $baseSql  = "SELECT $selectCols FROM members WHERE 1=1";
-    $countSql = 'SELECT COUNT(*) FROM members WHERE 1=1';
-
-    if ($memberTypeSlotFilter !== null) {
-        $baseSql  .= ' AND membership_type_slot = ?';
-        $countSql .= ' AND membership_type_slot = ?';
-        $params[]  = $memberTypeSlotFilter;
-    }
-    if ($statusFilter === 'current') {
-        $baseSql  .= ' AND ' . currentMemberWhereSql('', $currentYear);
-        $countSql .= ' AND ' . currentMemberWhereSql('', $currentYear);
-        $params    = array_merge($params, currentMemberWhereParams($currentYear));
-    } elseif ($statusFilter === 'inactive') {
-        $baseSql  .= ' AND NOT ' . currentMemberWhereSql('', $currentYear);
-        $countSql .= ' AND NOT ' . currentMemberWhereSql('', $currentYear);
-        $params    = array_merge($params, currentMemberWhereParams($currentYear));
-    }
-    $baseSql .= " $orderBy";
-
-} else {
-    // Multi-token search across name, email, phone, address, AMA/FAA, type, year
-    $tokens = array_filter(array_map('trim', preg_split('/[\s,]+/', $searchQ)));
-    if (empty($tokens)) {
-        $tokens = [$searchQ];
-    }
-
-    $likeClause = '(
-        m.first_name LIKE ? OR m.last_name LIKE ? OR m.email LIKE ? OR m.title LIKE ?
-        OR m.notes LIKE ? OR CAST(m.membership_type_slot AS CHAR) LIKE ? OR m.gate_key_number LIKE ?
-        OR m.ama_number LIKE ? OR m.faa_number LIKE ?
-        OR CAST(m.membership_renewal_year AS CHAR) LIKE ?
-        OR mp.number LIKE ? OR ma.street LIKE ? OR ma.street2 LIKE ?
-        OR ma.city LIKE ? OR ma.state LIKE ? OR ma.postal_code LIKE ?
-    )';
-
-    $tokenConditions = implode(' AND ', array_fill(0, count($tokens), $likeClause));
-
-    $baseSql  = "SELECT DISTINCT m.$selectCols
-        FROM members m
-        LEFT JOIN member_phones mp  ON mp.member_id  = m.id
-        LEFT JOIN member_addresses ma ON ma.member_id = m.id
-        WHERE $tokenConditions";
-    // Rewrite selectCols with m. prefix for the search path
-    $baseSql = str_replace(
-        "SELECT DISTINCT m.$selectCols",
-        'SELECT DISTINCT ' . implode(', ', array_map(fn($c) => 'm.' . trim($c), explode(',', $selectCols))),
-        $baseSql
-    );
-
-    $countSql = "SELECT COUNT(DISTINCT m.id)
-        FROM members m
-        LEFT JOIN member_phones mp  ON mp.member_id  = m.id
-        LEFT JOIN member_addresses ma ON ma.member_id = m.id
-        WHERE $tokenConditions";
-
-    if ($memberTypeSlotFilter !== null) {
-        $baseSql  .= ' AND m.membership_type_slot = ?';
-        $countSql .= ' AND m.membership_type_slot = ?';
-    }
-    if ($statusFilter === 'current') {
-        $baseSql  .= ' AND ' . currentMemberWhereSql('m', $currentYear);
-        $countSql .= ' AND ' . currentMemberWhereSql('m', $currentYear);
-    } elseif ($statusFilter === 'inactive') {
-        $baseSql  .= ' AND NOT ' . currentMemberWhereSql('m', $currentYear);
-        $countSql .= ' AND NOT ' . currentMemberWhereSql('m', $currentYear);
-    }
-    $baseSql .= " $orderBySearch";
-
-    $params = [];
-    foreach ($tokens as $t) {
-        $like = '%' . $t . '%';
-        for ($i = 0; $i < 16; $i++) {
-            $params[] = $like;
-        }
-    }
-    if ($memberTypeSlotFilter !== null) {
-        $params[] = $memberTypeSlotFilter;
-    }
-    if ($statusFilter === 'current' || $statusFilter === 'inactive') {
-        $params = array_merge($params, currentMemberWhereParams($currentYear));
-    }
-}
-
-// ── Counts ────────────────────────────────────────────────────────────────────
-$stmt       = $pdo->prepare($countSql);
-$stmt->execute($params);
-$totalCount = (int) $stmt->fetchColumn();
-
-// Filter-chip counts (current / inactive totals regardless of current status filter)
-$statusCounts = membershipStatusCounts($pdo, $currentYear);
-$chipCounts = [
-    'current'  => $statusCounts['current'],
-    'inactive' => $statusCounts['inactive'],
-];
-
-// Type chip counts for all status filters (embedded for chip labels + bfcache-safe JS refresh)
-$typeCountsByStatus = membershipTypeSlotCountsByStatus($pdo, $currentYear);
-$typeCounts         = $typeCountsByStatus[$statusFilter] ?? [];
-
-// ── Paginate ──────────────────────────────────────────────────────────────────
-if ($perPage > 0) {
-    $offset   = ($page - 1) * $perPage;
-    $baseSql .= ' LIMIT ' . (int) $perPage . ' OFFSET ' . (int) $offset;
-}
-$stmt    = $pdo->prepare($baseSql);
-$stmt->execute($params);
-$members = $stmt->fetchAll();
-
-$totalPages = $perPage > 0 ? max(1, (int) ceil($totalCount / $perPage)) : 1;
-$from       = $totalCount === 0 ? 0 : ($perPage > 0 ? ($page - 1) * $perPage + 1 : 1);
-$to         = $perPage === 0 ? $totalCount : min($page * $perPage, $totalCount);
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-/**
- * Build a members.php URL preserving current active params, with overrides.
- */
-$queryParams = array_filter([
-    'q'           => $searchQ !== '' ? $searchQ : null,
-    'per'         => $perPage !== 25 ? $perPage : null,
-    'member_type' => $memberTypeFilter !== '' ? $memberTypeFilter : null,
-    'status'      => $statusFilter,
-    'sort'        => $sort !== 'name' ? $sort : null,
-], fn($v) => $v !== null);
-
-function membersUrl(array $params, ?int $pg = null): string {
-    $p = $params;
-    if ($pg !== null) {
-        $p['page'] = $pg;
-    }
-    return 'members.php' . (count($p) > 0 ? '?' . http_build_query($p) : '');
-}
-
-/**
- * Return CSS initials-avatar background colour deterministically from a name.
- * Uses a palette of 8 muted colours safe on white text.
- */
-function initialsColor(string $name): string {
-    $palette = ['#5b7fa6', '#6b8f6b', '#9b6b6b', '#7b6b9b', '#9b8b5b', '#5b9b8b', '#9b6b8b', '#6b7b9b'];
-    return $palette[abs(crc32($name)) % count($palette)];
-}
-
-/**
- * Return Bootstrap badge class and label for membership type.
- */
-function typeBadge(?int $slot, array $labels): string {
-    $slot = (int) ($slot ?? 0);
-    $map = [
-        1 => ['bg-primary',   $labels[1] ?? 'Type 1'],
-        2 => ['bg-info',      $labels[2] ?? 'Type 2'],
-        3 => ['bg-success',   $labels[3] ?? 'Type 3'],
-        4 => ['bg-secondary', $labels[4] ?? 'Type 4'],
-    ];
-    [$cls, $label] = $map[$slot] ?? ['bg-light text-dark', '—'];
-    return '<span class="badge ' . $cls . ' member-type-badge">' . h($label) . '</span>';
-}
-
-/**
- * Return coloured badge for renewal year:
- *   current year  → green
- *   last year     → amber (needs renewal)
- *   older         → red (lapsed)
- *   null/0        → grey
- */
-function yearBadge(mixed $year, int $currentYear): string {
-    $y = (int) $year;
-    if ($y <= 0) {
-        return '<span class="badge bg-light text-muted border">—</span>';
-    }
-    $cls = match (true) {
-        $y >= $currentYear      => 'badge-year-current',
-        $y === $currentYear - 1 => 'badge-year-due',
-        default                 => 'badge-year-lapsed',
-    };
-    return '<span class="badge ' . $cls . '">' . $y . '</span>';
-}
+$list = members_list_fetch($pdo, $filters, $currentYear);
+$members              = $list['members'];
+$totalCount           = $list['totalCount'];
+$chipCounts           = $list['chipCounts'];
+$typeCounts           = $list['typeCounts'];
+$typeCountsByStatus   = $list['typeCountsByStatus'];
+$totalPages           = $list['totalPages'];
+$from                 = $list['from'];
+$to                   = $list['to'];
+$queryParams          = $list['queryParams'];
 
 $pageTitle = 'Members';
 require_once __DIR__ . '/includes/header.php';
@@ -525,7 +294,7 @@ if (!empty($_GET['deleted'])) {
     $lastName    = $m['last_name']  ?? '';
     $fullName    = trim("$firstName $lastName") ?: 'Unknown';
     $initials    = mb_strtoupper(mb_substr($firstName, 0, 1) . mb_substr($lastName, 0, 1));
-    $bgColor     = initialsColor($fullName);
+    $bgColor     = members_initials_color($fullName);
     $isInactive  = !memberIsCurrent($m, $currentYear, $renewedMemberIds);
     $isSuspended = (bool) ($m['suspended'] ?? false);
     $renewalYear = (int) ($m['membership_renewal_year'] ?? 0);
@@ -631,7 +400,7 @@ if (!empty($_GET['deleted'])) {
                 $lastName    = $m['last_name']  ?? '';
                 $fullName    = trim("$firstName $lastName") ?: 'Unknown';
                 $initials    = mb_strtoupper(mb_substr($firstName, 0, 1) . mb_substr($lastName, 0, 1));
-                $bgColor     = initialsColor($fullName);
+                $bgColor     = members_initials_color($fullName);
                 $isInactive  = !memberIsCurrent($m, $currentYear, $renewedMemberIds);
                 $isSuspended = (bool) ($m['suspended'] ?? false);
                 $isLife      = (bool) ($m['life_member'] ?? false);
@@ -707,12 +476,12 @@ if (!empty($_GET['deleted'])) {
 
                 <!-- Type pill -->
                 <td class="align-middle">
-                    <?= $m['membership_type_slot'] ? typeBadge((int)$m['membership_type_slot'], $membershipTypeLabels) : '<span class="text-muted">—</span>' ?>
+                    <?= $m['membership_type_slot'] ? members_type_badge((int)$m['membership_type_slot'], $membershipTypeLabels) : '<span class="text-muted">—</span>' ?>
                 </td>
 
                 <!-- Renewal year (colour-coded) -->
                 <td class="align-middle">
-                    <?= yearBadge($m['membership_renewal_year'], $currentYear) ?>
+                    <?= members_year_badge($m['membership_renewal_year'], $currentYear) ?>
                 </td>
 
                 <!-- Email (hidden on small screens) -->
@@ -924,173 +693,8 @@ if (!empty($_GET['deleted'])) {
 
 <!-- ── Scripts ───────────────────────────────────────────────────────────── -->
 <script<?= csp_nonce_attr() ?>>
-(function () {
-    'use strict';
-
-    // ── Bulk select ───────────────────────────────────────────────────────
-    const form      = document.getElementById('bulk-form');
-    const selectAll = document.getElementById('select-all');
-    const deleteBtn = document.getElementById('bulk-delete-btn');
-    const countSpan = document.getElementById('selected-count');
-
-    if (deleteBtn && form) {
-        deleteBtn.addEventListener('click', function (e) {
-            const checked = form.querySelectorAll('.row-checkbox:checked').length;
-            if (checked <= 0) return;
-
-            // Explicit confirmation for the sensitive destructive action.
-            const msg = checked === 1
-                ? 'Are you sure you want to delete 1 member?'
-                : 'Are you sure you want to delete ' + checked + ' members?';
-            if (!window.confirm(msg)) e.preventDefault();
-        });
-    }
-
-    function updateBulkCount() {
-        if (!form) return;
-        const checked = form.querySelectorAll('.row-checkbox:checked').length;
-        if (deleteBtn) {
-            deleteBtn.disabled = checked === 0;
-            if (checked === 1) {
-                deleteBtn.textContent = 'Delete 1 member';
-            } else if (checked > 1) {
-                deleteBtn.textContent = 'Delete ' + checked + ' members';
-            } else {
-                deleteBtn.textContent = 'Delete selected';
-            }
-        }
-        if (countSpan) countSpan.textContent = checked ? checked + ' selected' : '';
-    }
-
-    if (selectAll) {
-        selectAll.addEventListener('change', function () {
-            form.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = selectAll.checked);
-            updateBulkCount();
-        });
-    }
-    if (form) {
-        form.querySelectorAll('.row-checkbox').forEach(cb => cb.addEventListener('change', updateBulkCount));
-    }
-    updateBulkCount();
-
-    // ── Type chip counts follow URL status (fixes stale counts on back/forward cache) ──
-    function membersPageStatus() {
-        const s = new URLSearchParams(window.location.search).get('status');
-        if (s === 'all' || s === 'current' || s === 'inactive') return s;
-        return 'current';
-    }
-
-    function refreshTypeChipCounts() {
-        const status = membersPageStatus();
-        document.querySelectorAll('.js-type-chip').forEach(function (chip) {
-            const label = chip.getAttribute('data-type-label') || '';
-            let counts = {};
-            try {
-                counts = JSON.parse(chip.getAttribute('data-type-counts') || '{}');
-            } catch (e) { /* ignore */ }
-            const n = Object.prototype.hasOwnProperty.call(counts, status) ? counts[status] : 0;
-            chip.textContent = label + ' (' + n + ')';
-        });
-    }
-
-    document.addEventListener('DOMContentLoaded', refreshTypeChipCounts);
-    window.addEventListener('pageshow', refreshTypeChipCounts);
-
-    // ── Quick-view offcanvas ──────────────────────────────────────────────
-    // Requires member_detail.php?id=N&format=json endpoint.
-    // Falls back gracefully if that endpoint doesn't exist yet.
-    const quickViewBody = document.getElementById('quickViewBody');
-
-    document.querySelectorAll('.quick-view-btn').forEach(btn => {
-        btn.addEventListener('click', function () {
-            const memberId = this.dataset.memberId;
-            if (!quickViewBody || !memberId) return;
-
-            quickViewBody.innerHTML = '<p class="text-muted small">Loading&hellip;</p>';
-
-            fetch('member_detail.php?id=' + encodeURIComponent(memberId) + '&format=json', {
-                credentials: 'same-origin',
-                headers: { 'Accept': 'application/json' },
-            })
-                .then(async r => {
-                    if (!r.ok) {
-                        const bodyText = await r.text().catch(() => '');
-                        const err = new Error('HTTP ' + r.status);
-                        err.status = r.status;
-                        err.bodyText = bodyText;
-                        throw err;
-                    }
-                    return r.json();
-                })
-                .then(data => {
-                    quickViewBody.innerHTML = buildQuickViewHtml(data);
-                })
-                .catch(err => {
-                    const status = (err && err.status) ? err.status : 'unknown';
-                    const requiresText =
-                        status === 404
-                            ? '<p class="text-muted small mb-3">Quick-view endpoint missing: <code>member_detail.php</code>.</p>'
-                            : '<p class="text-muted small mb-3">Quick-view failed to load (HTTP ' + status + ').</p>';
-                    quickViewBody.innerHTML =
-                        requiresText +
-                        '<a href="member_edit.php?id=' + encodeURIComponent(memberId) + '" class="btn btn-primary btn-sm">Open full record</a>';
-
-                    // Keep it debuggable without exposing internals to users.
-                    console.error('Quick-view fetch failed', err);
-                });
-        });
-    });
-
-    /**
-     * Render quick-view offcanvas body from the JSON payload returned by
-     * member_detail.php. Expected keys: name, type, renewal_year, ama_number,
-     * faa_number, gate_key, phones (array of {type, number}), email, flags.
-     *
-     * @param {Object} d
-     * @returns {string} HTML string
-     */
-    function buildQuickViewHtml(d) {
-        const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        const canEdit = <?= json_encode(canEditMembers()) ?>;
-        const recordUrl = canEdit ? ('member_edit.php?id=' + esc(d.id)) : ('member_view.php?id=' + esc(d.id));
-
-        let html = '<div class="d-flex align-items-center gap-3 mb-3">';
-        if (d.photo_url) {
-            html += '<img src="' + esc(d.photo_url) + '" class="member-avatar" style="width:52px;height:52px;" alt="">';
-        } else {
-            const initials = (d.name || '??').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
-            html += '<div class="member-initials member-avatar" style="width:52px;height:52px;font-size:1rem;background:#5b7fa6;">' + esc(initials) + '</div>';
-        }
-        html += '<div><div class="fw-semibold">' + esc(d.name) + '</div>';
-        if (d.type) html += '<span class="badge bg-secondary" style="font-size:11px;">' + esc(d.type) + '</span> ';
-        if (d.renewal_year) html += '<span class="badge bg-success" style="font-size:11px;">' + esc(d.renewal_year) + '</span>';
-        html += '</div></div>';
-
-        const rows = [
-            ['Email',      d.email],
-            ['AMA #',      d.ama_number],
-            ['FAA #',      d.faa_number],
-            ['Gate key',   d.gate_key],
-        ];
-        html += '<dl class="row g-1 small mb-3">';
-        rows.forEach(([label, val]) => {
-            if (val) {
-                html += '<dt class="col-5 text-muted">' + esc(label) + '</dt><dd class="col-7 mb-0">' + esc(val) + '</dd>';
-            }
-        });
-        if (d.phones && d.phones.length) {
-            d.phones.forEach(p => {
-                html += '<dt class="col-5 text-muted">' + esc(p.type) + '</dt><dd class="col-7 mb-0">' + esc(p.number) + '</dd>';
-            });
-        }
-        html += '</dl>';
-
-        if (d.id) {
-            html += '<a href="' + recordUrl + '" class="btn btn-outline-primary btn-sm w-100">Open full record →</a>';
-        }
-        return html;
-    }
-})();
+window.FLIGHTOPS_MEMBERS_LIST = <?= json_encode(['canEdit' => canEditMembers()], JSON_THROW_ON_ERROR) ?>;
 </script>
+<script src="js/members_list.js"></script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

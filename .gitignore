@@ -1,13 +1,14 @@
 # Local config (DB credentials) – never commit
 /config.php
 
-# Composer (vendor not committed; lock is committed for reproducible installs)
-vendor/
+# Composer (root vendor/ not committed; lock is committed for reproducible installs)
+/vendor/
 composer.phar
 
 # Uploaded files (logos, favicons, member photos)
 uploads/*
 !uploads/.htaccess
+uploads/.ama_verify_cache.json
 
 # Legacy member photo directory (removed in v1.5 — use uploads/ and scripts/import_member_photos.php)
 pics/
@@ -25,6 +26,7 @@ export_for_cpanel.sql
 
 # Logs and temp
 *.log
+.phpunit.cache/
 .env
 .env.local
 .env.*.local
