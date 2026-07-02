@@ -16,20 +16,13 @@ flightops_send_security_headers();
 require_once __DIR__ . '/vendor_assets.php';
 require_once __DIR__ . '/csrf.php';
 
+require_once __DIR__ . '/club_theme.php';
+
 $pageTitle = isset($pageTitle) ? $pageTitle : 'RC Flight Operations';
 $showNav   = empty($noNav) && !empty($_SESSION['user_id']);
 
 // ── Load club theme (single row in `club`) ────────────────────────────────────
-$theme = [
-    'name'               => 'RC Flight Operations',
-    'logo_path'          => null,
-    'favicon_path'       => null,
-    'color_primary'      => '#6f7c3d',
-    'color_primary_dark' => '#556030',
-    'color_bg'           => '#f3efe4',
-    'color_muted'        => '#665e52',
-    'color_text'         => '#252018',
-];
+$theme = flightops_club_theme_defaults();
 if (isset($pdo)) {
     try {
         $stmt = $pdo->query('SELECT name, logo_path, favicon_path, color_primary, color_primary_dark, color_bg, color_muted, color_text FROM club WHERE id = 1 LIMIT 1');
@@ -48,36 +41,12 @@ if (isset($pdo)) {
     }
 }
 
-function hexToRgb(string $hex): string {
-    $hex = ltrim($hex, '#');
-    if (strlen($hex) === 6) {
-        return implode(',', array_map('hexdec', str_split($hex, 2)));
-    }
-    return '111,124,61'; // default primary olive #6f7c3d
-}
-
-/** WCAG relative luminance (0–1); used to pick light/dark text on --club-primary. */
-function flightops_relative_luminance(string $hex): float {
-    $hex = ltrim($hex, '#');
-    if (strlen($hex) !== 6) {
-        return 0.2;
-    }
-    $toLin = static function (int $c): float {
-        $s = $c / 255;
-        return $s <= 0.03928 ? $s / 12.92 : (($s + 0.055) / 1.055) ** 2.4;
-    };
-    $r = $toLin(hexdec(substr($hex, 0, 2)));
-    $g = $toLin(hexdec(substr($hex, 2, 2)));
-    $b = $toLin(hexdec(substr($hex, 4, 2)));
-    return 0.2126 * $r + 0.7152 * $g + 0.0722 * $b;
-}
-
-$primaryRgb = hexToRgb($theme['color_primary']);
-$_clubPrimaryLum = flightops_relative_luminance($theme['color_primary']);
-// Bright primaries need dark navbar type; saturated dark primaries use light type.
-$_headerNavbarBsTheme = $_clubPrimaryLum >= 0.45 ? 'light' : 'dark';
-$_headerOnPrimary     = $_headerNavbarBsTheme === 'light' ? '#252018' : '#ffffff';
-$_headerOnPrimaryRgb  = $_headerNavbarBsTheme === 'light' ? '37,32,24' : '255,255,255';
+$primaryRgb = flightops_hex_to_rgb($theme['color_primary']);
+$_onPrimary = flightops_on_primary_for($theme['color_primary']);
+$_headerNavbarBsTheme = $_onPrimary['bs_theme'];
+$_headerOnPrimary     = $_onPrimary['color'];
+$_headerOnPrimaryRgb  = $_onPrimary['rgb'];
+$_clubStatus          = flightops_club_status_tokens();
 
 require_once __DIR__ . '/flightops_logo.php';
 
@@ -157,6 +126,15 @@ $_headerBaseHref = '';
             --club-bg:           <?= htmlspecialchars($theme['color_bg']) ?>;
             --club-muted:        <?= htmlspecialchars($theme['color_muted']) ?>;
             --club-text:         <?= htmlspecialchars($theme['color_text']) ?>;
+            --club-card:         color-mix(in srgb, <?= htmlspecialchars($theme['color_bg']) ?> 88%, #ffffff);
+            --club-border:       color-mix(in srgb, <?= htmlspecialchars($theme['color_muted']) ?> 35%, <?= htmlspecialchars($theme['color_bg']) ?>);
+            --club-success:      <?= $_clubStatus['success'] ?>;
+            --club-warning:      <?= $_clubStatus['warning'] ?>;
+            --club-danger:       <?= $_clubStatus['danger'] ?>;
+            --club-success-rgb:  <?= $_clubStatus['success_rgb'] ?>;
+            --club-warning-rgb:  <?= $_clubStatus['warning_rgb'] ?>;
+            --club-danger-rgb:   <?= $_clubStatus['danger_rgb'] ?>;
+            --club-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", "Liberation Sans", Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
             --bs-primary:        var(--club-primary);
             --bs-primary-rgb:    var(--club-primary-rgb);
         }
@@ -172,7 +150,7 @@ $_headerBaseHref = '';
         }
 
         /* ── Base ────────────────────────────────────────────────────── */
-        body { background-color: var(--club-bg); color: var(--club-text); }
+        body { background-color: var(--club-bg); color: var(--club-text); font-family: var(--club-font-sans); }
 
         /* ── Bootstrap primary overrides ─────────────────────────────── */
         .navbar.bg-primary                     { background-color: var(--club-primary) !important; }
@@ -185,20 +163,35 @@ $_headerBaseHref = '';
         .btn-danger:hover, .btn-danger:focus   { background-color: var(--club-primary-dark); border-color: var(--club-primary-dark); color: var(--club-on-primary); }
         .btn-outline-danger                    { color: var(--club-primary); border-color: var(--club-primary); }
         .btn-outline-danger:hover              { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
+        .btn-outline-secondary                 { color: var(--club-muted); border-color: var(--club-muted); }
+        .btn-outline-secondary:hover,
+        .btn-outline-secondary:focus           { background-color: var(--club-accent); border-color: var(--club-primary); color: var(--club-primary); }
+        .btn-secondary                         { background-color: color-mix(in srgb, var(--club-muted) 22%, var(--club-bg)); border-color: var(--club-muted); color: var(--club-text); }
+        .btn-secondary:hover,
+        .btn-secondary:focus                   { background-color: var(--club-accent-mid); border-color: var(--club-primary); color: var(--club-primary); }
         .form-check-input:checked              { background-color: var(--club-primary); border-color: var(--club-primary); }
         .border-primary                        { border-color: var(--club-primary) !important; }
         .text-primary                          { color: var(--club-primary) !important; }
         .text-muted                            { color: var(--club-muted) !important; }
+        .text-success                          { color: var(--club-success) !important; }
+        .text-warning                          { color: var(--club-warning) !important; }
+        .text-danger                           { color: var(--club-danger) !important; }
+        .text-info                             { color: var(--club-primary) !important; }
+        .text-secondary                        { color: var(--club-muted) !important; }
+        .alert-info                            { background-color: var(--club-accent); border-color: var(--club-border); color: var(--club-text); }
+        .alert-warning                         { background-color: color-mix(in srgb, var(--club-warning) 14%, var(--club-bg)); border-color: color-mix(in srgb, var(--club-warning) 35%, var(--club-border)); color: var(--club-text); }
 
         /* ── Fix Bootstrap's blue/purple focus rings and hover tints ─────
            Override every place Bootstrap uses its hardcoded blue tint so
-           club colours are used consistently throughout.                   */
+           club colors are used consistently throughout.                   */
         .form-control:focus,
         .form-select:focus                     { border-color: var(--club-primary) !important;
                                                  box-shadow: 0 0 0 0.2rem var(--club-focus-ring) !important; }
         .form-check-input:focus                { box-shadow: 0 0 0 0.2rem var(--club-focus-ring) !important; }
         .btn-primary:focus-visible,
         .btn-outline-primary:focus-visible,
+        .btn-outline-secondary:focus-visible,
+        .btn-secondary:focus-visible,
         .btn-danger:focus-visible,
         .btn-outline-danger:focus-visible      { box-shadow: 0 0 0 0.2rem var(--club-focus-ring) !important; }
 
@@ -231,7 +224,7 @@ $_headerBaseHref = '';
                 white-space: normal;
             }
         }
-        /* Club navbar: text colour follows primary luminance (gold → dark type). */
+        /* Club navbar: text color follows primary luminance (gold → dark type). */
         .navbar.navbar-club .navbar-brand,
         .navbar.navbar-club .nav-link { color: var(--club-on-primary); }
         .navbar.navbar-club .navbar-brand:hover,
@@ -322,25 +315,25 @@ $_headerBaseHref = '';
         #addressTabs .nav-link.active     { color: var(--club-primary); font-weight: 500; border-color: var(--club-muted); border-bottom-color: var(--club-bg); background: var(--club-bg); }
 
         /* ── AMA expiration status ───────────────────────────────────── */
-        #ama-expiration-wrap.ama-valid    { border-left: 4px solid #198754; padding-left: 0.5rem; margin-left: -0.5rem; }
-        #ama-expiration-wrap.ama-warning  { border-left: 4px solid #ffc107; padding-left: 0.5rem; margin-left: -0.5rem; }
-        #ama-expiration-wrap.ama-expired  { border-left: 4px solid #dc3545; padding-left: 0.5rem; margin-left: -0.5rem; }
+        #ama-expiration-wrap.ama-valid    { border-left: 4px solid var(--club-success); padding-left: 0.5rem; margin-left: -0.5rem; }
+        #ama-expiration-wrap.ama-warning  { border-left: 4px solid var(--club-warning); padding-left: 0.5rem; margin-left: -0.5rem; }
+        #ama-expiration-wrap.ama-expired  { border-left: 4px solid var(--club-danger); padding-left: 0.5rem; margin-left: -0.5rem; }
         .ama-status-badge                 { display: inline-block; margin-top: 0.25rem; font-size: 0.75rem; font-weight: 500; padding: 0.15rem 0.4rem; border-radius: 4px; }
-        .ama-status-badge.ama-valid       { background: #198754; color: #fff; }
-        .ama-status-badge.ama-warning     { background: #ffc107; color: #212529; }
-        .ama-status-badge.ama-expired     { background: #dc3545; color: #fff; }
+        .ama-status-badge.ama-valid       { background: var(--club-success); color: #fff; }
+        .ama-status-badge.ama-warning     { background: var(--club-warning); color: var(--club-text); }
+        .ama-status-badge.ama-expired     { background: var(--club-danger); color: #fff; }
 
         /* ── Card hover shadow (dashboard nav cards) ─────────────────── */
         .hover-shadow { transition: box-shadow 0.15s, border-color 0.15s; }
         .hover-shadow:hover { box-shadow: 0 4px 12px rgba(0,0,0,.1); border-color: var(--club-primary) !important; }
 
         /* ── Shared sidebar nav component ────────────────────────────────
-           Used by badge_design.php and any future page that
-           needs a left-rail navigation panel.                              */
+           Used by reports.php, badge_design.php, and any page with a
+           left-rail navigation panel.                              */
         .sidebar-nav-link {
-            display: block; padding: 0.35rem 1rem;
+            display: block; padding: 0.5rem 1rem;
             font-size: 0.875rem; text-decoration: none;
-            color: var(--bs-body-color);
+            color: var(--club-text);
             border-left: 3px solid transparent;
             transition: background 0.1s, color 0.1s;
         }
@@ -351,15 +344,75 @@ $_headerBaseHref = '';
             border-left-color: var(--club-primary);
             font-weight: 600;
         }
+        .sidebar-panel { overflow: hidden; }
+        .sidebar-panel-nav { border-bottom: 1px solid var(--club-border); }
+        .sidebar-panel-body .sidebar-section { padding: 0.75rem 1rem; }
+
+        /* Bootstrap hard-codes blue on list-group/pagination active states */
+        .list-group {
+            --bs-list-group-active-color: var(--club-on-primary);
+            --bs-list-group-active-bg: var(--club-primary);
+            --bs-list-group-active-border-color: var(--club-primary);
+        }
+        .pagination {
+            --bs-pagination-active-color: var(--club-on-primary);
+            --bs-pagination-active-bg: var(--club-primary);
+            --bs-pagination-active-border-color: var(--club-primary);
+        }
 
         /* ── Stat cards (dashboard + reports) ───────────────────────── */
-        .stat-card { border: 1px solid #e9ecef; cursor: default; }
+        .stat-card {
+            border: 1px solid var(--club-border);
+            border-radius: 8px;
+            cursor: default;
+            transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+            color: inherit;
+        }
         a.stat-card { cursor: pointer; }
-        a.stat-card:hover { border-color: var(--club-primary); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+        a.stat-card:hover {
+            border-color: var(--club-primary);
+            box-shadow: 0 4px 12px rgba(0,0,0,.08);
+            transform: translateY(-1px);
+            text-decoration: none;
+            color: inherit;
+        }
         .stat-icon { font-size: 1.25rem; margin-bottom: 0.35rem; }
         .stat-value { font-size: 1.9rem; font-weight: 700; line-height: 1.1; }
-        .stat-label { font-size: 0.8rem; font-weight: 600; color: #555; margin-top: 0.2rem; }
+        .stat-label { font-size: 0.8rem; font-weight: 600; color: var(--club-muted); margin-top: 0.2rem; }
         .stat-sub   { font-size: 0.75rem; margin-top: 0.1rem; }
+
+        /* ── Dashboard nav cards ─────────────────────────────────────── */
+        .nav-card {
+            border: 1px solid var(--club-border);
+            border-radius: 8px;
+            transition: box-shadow 0.15s, border-color 0.15s;
+        }
+        .nav-card:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,.07);
+            border-color: var(--club-primary);
+            text-decoration: none;
+            color: inherit;
+        }
+        .nav-card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            background: var(--club-accent);
+            color: var(--club-primary);
+        }
+
+        /* ── Needs-attention callout (dashboard) ─────────────────────── */
+        .card-needs-attention { border-left: 4px solid var(--club-primary) !important; }
+        .card-needs-attention > .card-header {
+            background: var(--club-accent);
+            border-bottom: 1px solid var(--club-border);
+            font-size: 0.9rem;
+        }
+        .badge-club { background: var(--club-primary); color: var(--club-on-primary); }
     </style>
 </head>
 <body>

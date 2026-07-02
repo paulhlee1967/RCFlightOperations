@@ -7,7 +7,7 @@
  *
  * Branding strategy:
  *   The footer is a subtle but permanent home for the RC Flight Operations identity.
- *   Colours come from the same CSS variables as the rest of the app (set in header.php
+ *   Colors come from the same CSS variables as the rest of the app (set in header.php
  *   from the club row): --club-bg, --club-primary, --club-text, --club-muted, etc.
  */
 
@@ -92,7 +92,6 @@ $_footerCopyrightYears = $_copyrightEnd > $_copyrightStart
 }
 
 .fo-footer-name {
-    font-family: 'Segoe UI', system-ui, sans-serif;
     font-weight: 700;
     font-size: 0.82rem;
     letter-spacing: 0.01em;
@@ -100,7 +99,6 @@ $_footerCopyrightYears = $_copyrightEnd > $_copyrightStart
 }
 
 .fo-footer-tag {
-    font-family: 'Segoe UI', system-ui, sans-serif;
     font-size: 0.72rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
@@ -114,7 +112,6 @@ $_footerCopyrightYears = $_copyrightEnd > $_copyrightStart
     display: flex;
     align-items: center;
     gap: 0.35rem;
-    font-family: 'Segoe UI', system-ui, sans-serif;
     font-size: 0.72rem;
     color: var(--club-muted);
     flex-wrap: wrap;

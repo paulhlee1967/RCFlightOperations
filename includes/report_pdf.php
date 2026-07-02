@@ -7,7 +7,7 @@
  * if it is not present, reportPdfAvailable() returns false so callers can fall
  * back gracefully instead of fataling.
  *
- * The PDF picks up club branding (name, logo, primary colours) from the `club`
+ * The PDF picks up club branding (name, logo, primary colors) from the `club`
  * table so reports match the rest of the portal.
  */
 
@@ -28,7 +28,7 @@ function reportPdfAvailable(): bool
 }
 
 /**
- * Validate a CSS hex colour, returning a fallback when it is missing/invalid.
+ * Validate a CSS hex color, returning a fallback when it is missing/invalid.
  */
 function reportPdfColor(?string $value, string $fallback): string
 {

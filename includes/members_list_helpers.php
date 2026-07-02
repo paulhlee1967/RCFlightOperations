@@ -20,7 +20,7 @@ function membersUrl(array $params, ?int $pg = null): string
     return 'members.php' . (count($p) > 0 ? '?' . http_build_query($p) : '');
 }
 
-/** Return CSS initials-avatar background colour deterministically from a name. */
+/** Return CSS initials-avatar background color deterministically from a name. */
 function members_initials_color(string $name): string
 {
     $palette = ['#5b7fa6', '#6b8f6b', '#9b6b6b', '#7b6b9b', '#9b8b5b', '#5b9b8b', '#9b6b8b', '#6b7b9b'];
@@ -43,7 +43,7 @@ function members_type_badge(?int $slot, array $labels): string
     return '<span class="badge ' . $cls . ' member-type-badge">' . h($label) . '</span>';
 }
 
-/** Coloured badge for renewal year. */
+/** Colored badge for renewal year. */
 function members_year_badge(mixed $year, int $currentYear): string
 {
     $y = (int) $year;

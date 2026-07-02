@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **New member wizard** — Guided five-step signup: `member_wizard.php` (contact, compliance, membership), then `member_process.php?wizard=1` (record signup, print & mail). Stepper in `includes/member_wizard_nav.php`; step JS in `js/member_wizard.js`. Shared save logic in `includes/member_save.php`. New members no longer open a blank `member_edit.php` form.
+- **Shared club theme** — `includes/club_theme.php` centralizes default palette, WCAG on-primary text, and status color tokens. Used by `includes/header.php`, `docs/docs-theme.php`, and branded email/PDF layouts.
+- **Badge designer overhaul** — Tabbed sidebar (card options, add fields, selected field, live preview), undo/redo, fixed-width text boxes for alignment, emergency-contact merge fields, back-side merge-tag buttons with live HTML preview, design rename, and browser session backup for unsaved edits.
+
+### Changed
+
+- **Unified UI/UX** — Consistent sidebar tool panels, card layout, and club-themed CSS variables across dashboard, members, reports, badge designer, configuration, incidents, and help docs (`docs/docs.css`, `docs/docs-theme.php`).
+- **Documentation** — `docs/badges.html`, `docs/members.html`, `docs/overview.html`, `docs/renewals.html`, `docs/index.html`, `docs/admin.html`, and `docs/install.html` updated for the wizard, badge designer, and theming.
+
 ## [1.5.1] - 2026-07-01
 
 ### Added
@@ -29,7 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Per-year membership history** — [schema_full.sql](schema_full.sql) `member_membership_years` frozen roster (who was a current member each calendar year), recorded on renewal/import/edit and used for accurate year-over-year counts. Helpers in [includes/membership_status.php](includes/membership_status.php); backfill via [scripts/backfill_membership_years.php](scripts/backfill_membership_years.php).
 - **Reports module (rebuilt)** — New report engine [includes/run_report.php](includes/run_report.php) powering six reports on [reports.php](reports.php): membership by year, retention & churn, membership type mix, not yet renewed, revenue by year, and AMA/FAA compliance. Counts go through the per-year frozen roster so reports match the dashboard. Help page: [docs/reports.html](docs/reports.html).
-- **Branded PDF export** — [includes/report_pdf.php](includes/report_pdf.php) renders reports as a club-branded PDF (logo, theme colours, page-numbered footer) via Dompdf, with a graceful fallback when Dompdf is unavailable.
+- **Branded PDF export** — [includes/report_pdf.php](includes/report_pdf.php) renders reports as a club-branded PDF (logo, theme colors, page-numbered footer) via Dompdf, with a graceful fallback when Dompdf is unavailable.
 - **Report email flows** — [report_email.php](report_email.php) emails a branded report snapshot to one or more addresses, and (for "not yet renewed") sends a personalised message to the cohort — only to members with `allow_email` on — via the shared [templates/email/email_layout.php](templates/email/email_layout.php) wrapper.
 - **Cached logo thumbnails** — [includes/logo_thumb.php](includes/logo_thumb.php) produces a small, memory-safe raster of the club logo (Imagick → GD fallback) so high-resolution uploads no longer exhaust memory in PDFs/emails.
 - **Data-accuracy notice** — Reports flag years before a configurable "complete data" year (`reports_accurate_from_year`, default 2027) on screen, in the PDF/email, and as a CSV footnote.

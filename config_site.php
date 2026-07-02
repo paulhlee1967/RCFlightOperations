@@ -2,7 +2,7 @@
 /**
  * config_site.php
  *
- * Club configuration: name, logo, favicon, theme colours, membership types, dues.
+ * Club configuration: name, logo, favicon, theme colors, membership types, dues.
  *
  * Admin only. POST saves to `club` (branding, type labels) and `dues_rules`; file uploads go to uploads/branding/.
  */
@@ -283,21 +283,21 @@ require_once __DIR__ . '/includes/header.php';
          ══════════════════════════════════════════════════════════════ -->
     <div class="tab-pane fade" id="design" role="tabpanel">
         <div class="card mb-4">
-            <div class="card-header fw-semibold">Theme colours</div>
+            <div class="card-header fw-semibold">Theme colors</div>
             <div class="card-body">
                 <p class="text-muted small mb-4">
-                    Match your club's official colours. Click the swatch to open a colour
+                    Match your club's official colors. Click the swatch to open a color
                     picker, or type a hex value directly (e.g. <code>#6f7c3d</code>).
                     Changes apply across the whole app on save.
                 </p>
                 <div class="row g-3">
 
                     <div class="col-md-6">
-                        <label class="form-label">Primary colour</label>
+                        <label class="form-label">Primary color</label>
                         <div class="input-group js-color-sync">
                             <input type="color" class="form-control form-control-color"
                                    value="<?= htmlspecialchars($club['color_primary'] ?: '#6f7c3d') ?>"
-                                   title="Pick a colour">
+                                   title="Pick a color">
                             <input type="text" class="form-control" name="color_primary"
                                    value="<?= htmlspecialchars($club['color_primary']) ?>"
                                    placeholder="#6f7c3d" maxlength="7">
@@ -310,7 +310,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="input-group js-color-sync">
                             <input type="color" class="form-control form-control-color"
                                    value="<?= htmlspecialchars($club['color_primary_dark'] ?: '#556030') ?>"
-                                   title="Pick a colour">
+                                   title="Pick a color">
                             <input type="text" class="form-control" name="color_primary_dark"
                                    value="<?= htmlspecialchars($club['color_primary_dark']) ?>"
                                    placeholder="#556030" maxlength="7">
@@ -323,7 +323,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="input-group js-color-sync">
                             <input type="color" class="form-control form-control-color"
                                    value="<?= htmlspecialchars($club['color_bg'] ?: '#f3efe4') ?>"
-                                   title="Pick a colour">
+                                   title="Pick a color">
                             <input type="text" class="form-control" name="color_bg"
                                    value="<?= htmlspecialchars($club['color_bg']) ?>"
                                    placeholder="#f3efe4" maxlength="7">
@@ -336,7 +336,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="input-group js-color-sync">
                             <input type="color" class="form-control form-control-color"
                                    value="<?= htmlspecialchars($club['color_muted'] ?: '#665e52') ?>"
-                                   title="Pick a colour">
+                                   title="Pick a color">
                             <input type="text" class="form-control" name="color_muted"
                                    value="<?= htmlspecialchars($club['color_muted']) ?>"
                                    placeholder="#665e52" maxlength="7">
@@ -349,12 +349,12 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="input-group js-color-sync">
                             <input type="color" class="form-control form-control-color"
                                    value="<?= htmlspecialchars($club['color_text'] ?: '#252018') ?>"
-                                   title="Pick a colour">
+                                   title="Pick a color">
                             <input type="text" class="form-control" name="color_text"
                                    value="<?= htmlspecialchars($club['color_text']) ?>"
                                    placeholder="#252018" maxlength="7">
                         </div>
-                        <div class="form-text">Main readable text colour — should contrast well against the background.</div>
+                        <div class="form-text">Main readable text color — should contrast well against the background.</div>
                     </div>
 
                 </div>

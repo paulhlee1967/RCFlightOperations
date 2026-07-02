@@ -36,6 +36,7 @@
     <div class="sidebar-title">On this page</div>
     <a href="#member-list">Member List</a>
     <a href="#search">Search &amp; Filter</a>
+    <a href="#wizard">New Member Wizard</a>
     <a href="#add">Adding a Member</a>
     <a href="#contact">Contact Tab</a>
     <a href="#communication">Email &amp; postal preferences</a>
@@ -90,23 +91,58 @@
       </div>
     </div>
 
+    <!-- ── New member wizard ── -->
+    <h2 id="wizard">New Member Wizard</h2>
+    <p>
+      Adding a member is a guided <strong>five-step wizard</strong> that walks officers through
+      contact details, compliance, membership type, first payment, and printing/mailing — without
+      jumping between separate screens. A progress stepper at the top shows where you are in the flow.
+    </p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Step</th><th>Screen</th><th>What you do</th></tr></thead>
+        <tbody>
+          <tr><td>1 — Contact</td><td>New member wizard</td><td>Name, email, phones, mailing address, emergency contact, photo, email/postal preferences.</td></tr>
+          <tr><td>2 — Compliance</td><td>New member wizard</td><td>AMA number and expiration (use <strong>Verify AMA membership</strong>), FAA if applicable.</td></tr>
+          <tr><td>3 — Membership</td><td>New member wizard</td><td>Membership type and date joined.</td></tr>
+          <tr><td>4 — Record signup</td><td>Process Signup / Renewal</td><td>Choose <em>New Member (Prorated)</em> or <em>New / Late Renewal</em>, confirm dues, and record the first payment.</td></tr>
+          <tr><td>5 — Print &amp; mail</td><td>Process Signup / Renewal</td><td>Print the ID card, prepare a mailing packet, and mark fulfillment tasks complete.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>
+      Steps 1–3 use <strong>Next</strong> / <strong>Back</strong> within the wizard form.
+      After step 3, click <strong>Save &amp; record signup</strong> — the app saves the member
+      and continues automatically to step 4.
+    </p>
+    <div class="callout callout-tip">
+      <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
+      <div class="callout-body">
+        <strong>Resume an in-progress signup</strong>
+        If you save contact/compliance details but leave before recording payment, open the member
+        from the list and click <strong>Continue signup</strong>, or use
+        <strong>Process Signup / Renewal</strong>. From the renewal screen, warning links take you
+        back to the right wizard step to fix missing AMA info or other issues, then return with
+        <strong>Save &amp; return to signup</strong>.
+      </div>
+    </div>
+
     <!-- ── Adding a member ── -->
     <h2 id="add">Adding a Member</h2>
     <ol class="step-list">
-      <li>Click <strong>New member</strong> (top right of the Members page) to open the <strong>new member wizard</strong>.</li>
-      <li><strong>Step 1 — Contact:</strong> name, email, phones, mailing address, emergency contact, optional photo.</li>
-      <li><strong>Step 2 — Compliance:</strong> AMA number and expiration (use <strong>Verify AMA membership</strong>), FAA if applicable.</li>
-      <li><strong>Step 3 — Membership:</strong> membership type and date joined.</li>
-      <li>Click <strong>Save &amp; record signup</strong> — the wizard saves the record and takes you straight to record the first payment.</li>
-      <li><strong>Step 4 — Record signup:</strong> choose <em>New Member (Prorated)</em>, record dues, then print the ID card and mailing packet.</li>
+      <li>Click <strong>New member</strong> (top right of the Members page).</li>
+      <li>Complete wizard steps 1–3 (contact, compliance, membership).</li>
+      <li>Click <strong>Save &amp; record signup</strong> to open step 4 and record the first payment.</li>
+      <li>Finish step 5 — print the badge and complete the mailing checklist.</li>
     </ol>
     <div class="callout callout-info">
       <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
       <div class="callout-body">
-        <strong>Classic edit form</strong>
-        Existing members still use the full tabbed edit screen. To resume an in-progress signup,
-        open the member and use <strong>Full edit form</strong> from the wizard, or go to
-        <strong>Process Signup / Renewal</strong> on their record.
+        <strong>Classic edit form for existing members</strong>
+        The tabbed <strong>Full edit form</strong> is for members who are already in the database.
+        New members always start in the wizard; <strong>New member</strong> no longer opens a blank
+        edit form. Use <strong>Full edit form</strong> on an existing record when you need every tab
+        at once (payment history, notes, status flags).
       </div>
     </div>
 
@@ -125,6 +161,7 @@
           <tr><td>Photo</td><td>Upload a headshot; appears on the badge front if your template includes it.</td></tr>
           <tr><td>Phones</td><td>Add multiple — Home, Work, Cell, Other. At least the type label is required.</td></tr>
           <tr><td>Addresses</td><td>Add multiple — Home, Work, Other. Used on badge back, envelopes, and printed letters.</td></tr>
+          <tr><td>Emergency contact</td><td>Name, relationship, and phone — collected in the new member wizard and available as badge merge fields.</td></tr>
         </tbody>
       </table>
     </div>

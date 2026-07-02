@@ -169,8 +169,8 @@ mysql -u root flightops &lt; schema_full.sql</code></pre>
       <li>Update club name, logo, and colors in <strong>Administration → Configuration → Design</strong>.</li>
       <li>Set dues rates in <strong>Administration → Configuration → Membership &amp; Dues</strong>.</li>
       <li>Add your board members as users in <strong>Administration → Users</strong>.</li>
-      <li>Import existing member records via <strong>Members → Import</strong>.</li>
-      <li>Design your ID badge template in <strong>Administration → Badge design</strong>.</li>
+      <li>Import existing member records via <strong>Members → Import</strong>, or add members one at a time with <strong>Members → New member</strong> (guided wizard).</li>
+      <li>Design your ID badge template in <strong>Badge Design</strong> (main navigation).</li>
       <li>Run the <strong>Membership Snapshot</strong> report to confirm your data looks right.</li>
     </ol>
 
@@ -186,11 +186,14 @@ mysql -u root flightops &lt; schema_full.sql</code></pre>
           <tr><td><code>config.php</code></td><td>Your DB credentials (never commit this)</td></tr>
           <tr><td><code>includes/db.php</code></td><td>PDO database connection</td></tr>
           <tr><td><code>includes/auth.php</code></td><td>Login helpers, roles, permission functions</td></tr>
+          <tr><td><code>includes/club_theme.php</code></td><td>Shared club color defaults and CSS token helpers (app, docs, email/PDF)</td></tr>
           <tr><td><code>includes/header.php</code></td><td>Shared layout, navbar, theme CSS</td></tr>
           <tr><td><code>includes/footer.php</code></td><td>Closing layout tags</td></tr>
+          <tr><td><code>js/flightops_ui.js</code></td><td>Shared UI behaviors (confirm dialogs, print buttons, color sync)</td></tr>
           <tr><td><code>index.php</code></td><td>Dashboard</td></tr>
           <tr><td><code>members.php</code></td><td>Member list</td></tr>
-          <tr><td><code>member_edit.php</code></td><td>Add/edit member</td></tr>
+          <tr><td><code>member_wizard.php</code></td><td>Guided new-member wizard (steps 1–3)</td></tr>
+          <tr><td><code>member_edit.php</code></td><td>Edit existing member (tabbed form)</td></tr>
           <tr><td><code>member_process.php</code></td><td>Renewal workflow</td></tr>
           <tr><td><code>badge_design.php</code></td><td>Badge template designer</td></tr>
           <tr><td><code>badge_print.php</code></td><td>Print member ID card</td></tr>

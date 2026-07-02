@@ -51,8 +51,7 @@ function flightops_logo(int $size = 28, bool $wordmark = false, string $class = 
              style="height:<?= (int) $size ?>px;width:auto;display:block;object-fit:contain;<?= $wordmark ? 'max-width:min(100%, ' . $wordmarkMaxW . 'px);' : '' ?>">
 
         <?php if ($wordmark): ?>
-            <span class="fo-wordmark-sub" style="font-family:'Segoe UI',system-ui,sans-serif;
-                         font-weight:400;
+            <span class="fo-wordmark-sub" style="font-weight:400;
                          font-size:<?= $subSize ?>px;
                          letter-spacing:0.2em;
                          color:var(--club-on-primary-muted, rgba(37,32,24,0.72));

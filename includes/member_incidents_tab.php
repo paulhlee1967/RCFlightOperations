@@ -35,7 +35,7 @@ try {
 } catch (Throwable $e) {
 }
 
-function memberIncidentTypeColour(string $type): string {
+function memberIncidentTypeColor(string $type): string {
     return match ($type) {
         'crash', 'injury'    => 'danger',
         'near_miss',
@@ -103,7 +103,7 @@ function memberIncidentTypeLabel(string $type): string {
                 <?= htmlspecialchars(date('M j, Y', strtotime($inc['incident_date']))) ?>
             </td>
             <td>
-                <span class="badge bg-<?= memberIncidentTypeColour($inc['incident_type']) ?>"
+                <span class="badge bg-<?= memberIncidentTypeColor($inc['incident_type']) ?>"
                       style="font-size:.7rem;">
                     <?= htmlspecialchars(memberIncidentTypeLabel($inc['incident_type'])) ?>
                 </span>
@@ -111,13 +111,13 @@ function memberIncidentTypeLabel(string $type): string {
             <td class="small text-muted"><?= htmlspecialchars(ucfirst($inc['severity'])) ?></td>
             <td>
                 <?php
-                $statusColour = match($inc['status']) {
+                $statusColor = match($inc['status']) {
                     'open'         => 'danger',
                     'under_review' => 'warning',
                     default        => 'success',
                 };
                 ?>
-                <span class="badge bg-<?= $statusColour ?>" style="font-size:.7rem;">
+                <span class="badge bg-<?= $statusColor ?>" style="font-size:.7rem;">
                     <?= htmlspecialchars(str_replace('_', ' ', ucfirst($inc['status']))) ?>
                 </span>
             </td>

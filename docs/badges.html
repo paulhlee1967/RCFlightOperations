@@ -37,6 +37,7 @@
     <a href="#overview">Overview</a>
     <a href="#designs">Multiple Designs</a>
     <a href="#designer">Badge Designer</a>
+    <a href="#tools">Designer Tools</a>
     <a href="#fields">Available Data Fields</a>
     <a href="#front">Designing the Front</a>
     <a href="#back">Designing the Back</a>
@@ -72,12 +73,14 @@
     <h2 id="designs">Multiple Designs</h2>
     <p>
       Use the <strong>Design</strong> dropdown at the top of the designer to switch between
-      saved templates, create a new design, or delete an existing one (you must keep at least one).
+      saved templates. Use <strong>＋ New</strong>, <strong>Rename</strong>, and <strong>Delete</strong>
+      to manage designs (you must keep at least one).
     </p>
     <ul>
       <li>
-        <strong>Default design</strong> — Check <em>Set as default</em> when saving. The default
-        is auto-selected when printing unless you pick a different design on the print page.
+        <strong>Default design</strong> — Check <strong>Default design</strong> before clicking
+        <strong>Save Design</strong>. The default is auto-selected when printing unless you pick
+        a different design on the print page.
       </li>
       <li>
         <strong>Per-design background</strong> — Each design stores its own front background
@@ -92,22 +95,37 @@
 
     <!-- ── Designer interface ── -->
     <h2 id="designer">Badge Designer Interface</h2>
-    <p>The designer has two columns:</p>
+    <p>The designer uses a two-column layout that matches other tool pages in the app (reports, configuration):</p>
     <ul>
       <li>
-        <strong>Left sidebar</strong> — field panel (click any field to add it to the canvas)
-        and a property panel that appears when an object is selected (font family, font size,
-        bold, italic, colour, alignment).
+        <strong>Left sidebar</strong> — tabbed tool panels: <strong>Card options</strong>,
+        <strong>Add fields</strong>, <strong>Selected field</strong> (when something is selected),
+        and <strong>Live preview</strong>.
       </li>
       <li>
-        <strong>Right column</strong> — the canvas area with <strong>Front</strong> and
-        <strong>Back</strong> tabs at the top, plus zoom controls (Fit, 1×, 1.5×, 2×).
+        <strong>Right column</strong> — the front canvas or back HTML editor, with view zoom
+        controls (Fit, 1×, 1.5×, 2×). Your zoom choice is remembered for the session.
       </li>
     </ul>
     <p>
-      Click any object on the canvas to select it, then drag to reposition or use the
-      property panel to style it. Right-click an object to delete it.
+      Click any object on the canvas to select it, then drag to reposition. The
+      <strong>Selected field</strong> tab opens automatically so you can style the selection.
     </p>
+
+    <h3 id="tools">Designer Tools</h3>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Tool</th><th>Where</th><th>What it does</th></tr></thead>
+        <tbody>
+          <tr><td>Add fields</td><td>Sidebar → Add fields</td><td>Choose a field from the dropdown to place it on the front canvas (text fields, member photo).</td></tr>
+          <tr><td>Delete selected</td><td>Sidebar → Add fields</td><td>Removes the currently selected canvas object.</td></tr>
+          <tr><td>Undo / Redo</td><td>Sidebar → Add fields</td><td>Step through layout changes. Keyboard: Ctrl+Z / Ctrl+Shift+Z (⌘ on Mac).</td></tr>
+          <tr><td>Fixed width</td><td>Sidebar → Selected field</td><td>Set a pixel width so center/right text alignment has room to work (0 = auto-size).</td></tr>
+          <tr><td>Back merge tags</td><td>Back tab</td><td>Click field buttons above the HTML editor to insert <code>{{field_name}}</code> tokens at the cursor.</td></tr>
+          <tr><td>Session backup</td><td>Automatic</td><td>Unsaved front/back edits are backed up in your browser. If you return after closing the tab, the designer offers to restore them.</td></tr>
+        </tbody>
+      </table>
+    </div>
 
     <!-- ── Fields ── -->
     <h2 id="fields">Available Data Fields</h2>
@@ -119,7 +137,8 @@
       <table class="docs-table">
         <thead><tr><th>Field</th><th>What it shows</th></tr></thead>
         <tbody>
-          <tr><td>Full name</td><td>Last, First (e.g., "Smith, Jane")</td></tr>
+          <tr><td>Full name (Last, First)</td><td>Last, First (e.g., "Smith, Jane")</td></tr>
+          <tr><td>Full name (First Last)</td><td>First Last (e.g., "Jane Smith")</td></tr>
           <tr><td>First name</td><td>First name only</td></tr>
           <tr><td>Last name</td><td>Last name only</td></tr>
           <tr><td>Member since</td><td>Date joined, formatted as MM/DD/YYYY</td></tr>
@@ -133,9 +152,9 @@
           <tr><td>Address (suite/apt)</td><td>Street line 2</td></tr>
           <tr><td>City / State / Postal code</td><td>Individual address components</td></tr>
           <tr><td>Address block</td><td>Full address, formatted for a label</td></tr>
+          <tr><td>Emergency contact / relation / phone</td><td>Emergency contact fields from the member record</td></tr>
           <tr><td>Photo</td><td>Member's headshot photo (front canvas only)</td></tr>
-          <tr><td>Static text</td><td>Fixed text (club name, "Member ID", labels)</td></tr>
-          <tr><td>Static image</td><td>Upload your club logo or any graphic</td></tr>
+          <tr><td>Freeform text</td><td>Fixed text you type (club name, "Member ID", labels)</td></tr>
         </tbody>
       </table>
     </div>
@@ -143,12 +162,11 @@
     <!-- ── Front ── -->
     <h2 id="front">Designing the Front</h2>
     <ol class="step-list">
-      <li>Click the <strong>Front</strong> tab in the canvas column.</li>
+      <li>In the sidebar, set <strong>Side</strong> to <strong>Front</strong> (under Card options).</li>
       <li>Optionally set a <strong>background image</strong> for this design — upload a PNG/JPEG to use as the card background.</li>
-      <li>Add a <strong>Static image</strong> for your club logo.</li>
       <li>Add a <strong>Photo</strong> field for the member headshot (position it where you want faces).</li>
       <li>Add text fields: member name, AMA number, renewal year — whatever your club puts on the front.</li>
-      <li>Style each field using the property panel: font family, font size, bold, color, alignment.</li>
+      <li>Style each field in <strong>Selected field</strong>: font family, font size, bold, italic, color, alignment, and optional fixed width.</li>
       <li>Choose the card <strong>orientation</strong>: Landscape (horizontal) or Portrait (vertical).</li>
     </ol>
     <div class="callout callout-tip">
@@ -162,9 +180,14 @@
     <!-- ── Back ── -->
     <h2 id="back">Designing the Back</h2>
     <p>
-      Click the <strong>Back</strong> tab. The badge back uses a simple HTML editor rather
-      than the canvas designer — this makes it easy to format address blocks, add club
-      rules text, emergency contact info, or a QR code placeholder.
+      In the sidebar, switch <strong>Side</strong> to <strong>Back</strong>. The badge back
+      uses an HTML editor rather than the canvas designer — this makes it easy to format
+      address blocks, add club rules text, emergency contact info, or a QR code placeholder.
+    </p>
+    <p>
+      Click the field buttons above the editor to insert merge tags, or type
+      <code>{{field_name}}</code> by hand. A live preview below the editor shows how the
+      back will look, with the same Fit / 1× / 1.5× / 2× zoom controls as the front.
     </p>
     <p>You can type plain text or HTML. Common uses for the back:</p>
     <ul>
@@ -178,9 +201,9 @@
     <!-- ── Preview ── -->
     <h2 id="preview">Live Member Preview</h2>
     <p>
-      In the designer, find the <strong>Preview member</strong> dropdown at the top of the
-      canvas area. Select any active member and the canvas updates to show their real data —
-      name, AMA number, photo, etc. — so you can see exactly how the card will look.
+      Open the sidebar <strong>Live preview</strong> tab and choose a member from the dropdown.
+      The front canvas updates to show their real data — name, AMA number, photo, etc. — so
+      you can see exactly how the card will look.
     </p>
     <p>
       Preview mode is display only. Clicking Save while previewing a member still
@@ -190,13 +213,14 @@
     <!-- ── Save ── -->
     <h2 id="save">Saving a Design</h2>
     <p>
-      Enter a <strong>design name</strong>, optionally check <strong>Set as default</strong>,
-      then click <strong>Save template</strong>. The design is stored in the database with
-      its own background image and canvas JSON.
+      Set the design name with <strong>Rename</strong> (or start from <strong>＋ New</strong>),
+      optionally check <strong>Default design</strong>, then click <strong>Save Design</strong>
+      in the page header. The design is stored in the database with its own background image,
+      front canvas JSON, and back HTML.
     </p>
     <p>
-      To start a fresh layout, choose <strong>New design</strong> from the Design dropdown,
-      build the card, and save with a new name.
+      To start a fresh layout, click <strong>＋ New</strong>, build the card, rename it, and
+      save. Switch between saved designs with the <strong>Design</strong> dropdown.
     </p>
     <div class="callout callout-warning">
       <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>

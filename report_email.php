@@ -82,7 +82,7 @@ function report_email_parse_addresses(string $raw): array
 
 /**
  * Inline-styled HTML table for an emailed report (no <style> dependency).
- * Colours come from the club theme so the table matches the branded wrapper.
+ * Colors come from the club theme so the table matches the branded wrapper.
  */
 function report_email_table_html(array $report, string $primary, string $primaryDark, string $onPrimary): string
 {

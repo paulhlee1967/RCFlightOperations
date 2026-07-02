@@ -3,9 +3,9 @@
  * badge_design.php — CR80 Badge Designer (overhauled)
  *
  * Improvements over the original:
- *   - Two-column layout: left sidebar (field panel + properties) / right canvas
+ *   - Two-column layout: left sidebar (sidebar-nav-link tool panel) / right canvas
  *   - Field panel: click any field to add it; no hunting through a dropdown
- *   - Selected-object property panel: font, font size, bold, italic, colour, alignment
+ *   - Selected-object property panel: font, font size, bold, italic, color, alignment
  *   - Live member preview: pick any real member from a dropdown and the canvas
  *     renders with their actual data so you can see exactly how the card looks
  *   - Front/back tabs integrated cleanly in the canvas column
@@ -111,13 +111,21 @@ $dataFields = [
 
 <div class="row g-3" id="designer-root">
 
-    <?php /* ── Left sidebar ─────────────────────────────────────────────── */ ?>
+    <?php /* ── Left sidebar (shared sidebar-nav-link pattern) ─────────── */ ?>
     <div class="col-lg-3 col-md-4 order-2 order-md-1" id="designer-sidebar">
 
-        <?php /* Card: orientation + front/back tabs */ ?>
-        <div class="card mb-3 shadow-sm">
-            <div class="card-header fw-semibold small py-2">Card options</div>
-            <div class="card-body py-2 px-3">
+        <nav class="card shadow-sm sidebar-panel mb-3" aria-label="Designer tools">
+            <div class="sidebar-panel-nav">
+                <a href="#" class="sidebar-nav-link active" data-section="options">Card options</a>
+                <a href="#" class="sidebar-nav-link" data-section="fields" id="sidebar-link-fields">Add fields</a>
+                <a href="#" class="sidebar-nav-link d-none" data-section="props" id="sidebar-link-props">
+                    Selected field <span id="props-field-name" class="text-muted fw-normal"></span>
+                </a>
+                <a href="#" class="sidebar-nav-link" data-section="preview">Live preview</a>
+            </div>
+
+            <div class="sidebar-panel-body">
+                <div class="sidebar-section" data-section="options" id="sidebar-section-options">
                 <div class="mb-2">
                     <label class="form-label small mb-1">Side</label>
                     <div class="btn-group w-100" role="group" id="sideToggle">
@@ -149,13 +157,9 @@ $dataFields = [
                     🗑 Remove background
                 </button>
                 <div id="bg-status" class="small text-muted mt-1"></div>
-            </div>
-        </div>
+                </div>
 
-        <?php /* Card: add fields (only shown when on front side) */ ?>
-        <div class="card mb-3 shadow-sm" id="fields-panel">
-            <div class="card-header fw-semibold small py-2">Add field to front</div>
-            <div class="card-body py-2 px-2">
+                <div class="sidebar-section d-none" data-section="fields" id="fields-panel">
                 <select class="form-select form-select-sm" id="add-field-select" aria-label="Add field to front">
                     <option value="" selected>➕ Add a field…</option>
                     <?php foreach ($dataFields as $field => $info): ?>
@@ -174,16 +178,9 @@ $dataFields = [
                     <button type="button" class="btn btn-outline-secondary" id="undo-canvas" title="Undo (Ctrl+Z)">↶ Undo</button>
                     <button type="button" class="btn btn-outline-secondary" id="redo-canvas" title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
                 </div>
-            </div>
-        </div>
+                </div>
 
-        <?php /* Card: selected object properties (hidden until something is selected) */ ?>
-        <div class="card mb-3 shadow-sm" id="props-panel" style="display:none">
-            <div class="card-header fw-semibold small py-2">
-                Selected field
-                <span id="props-field-name" class="text-muted fw-normal ms-1 small"></span>
-            </div>
-            <div class="card-body py-2 px-3">
+                <div class="sidebar-section d-none" data-section="props" id="props-panel">
                 <div class="mb-2">
                     <label class="form-label small mb-1" for="prop-fontfamily">Font</label>
                     <select id="prop-fontfamily" class="form-select form-select-sm">
@@ -213,7 +210,7 @@ $dataFields = [
                     </div>
                 </div>
                 <div class="mb-2">
-                    <label class="form-label small mb-1" for="prop-color">Text colour</label>
+                    <label class="form-label small mb-1" for="prop-color">Text color</label>
                     <input type="color" id="prop-color" class="form-control form-control-sm form-control-color"
                            value="#000000" style="width:4rem">
                 </div>
@@ -226,7 +223,7 @@ $dataFields = [
                     </div>
                     <div class="form-text">Text is anchored at its top-left corner. For center/right within a box, set a fixed width wider than the text.</div>
                 </div>
-                <div class="mb-2">
+                <div class="mb-0">
                     <label class="form-label small mb-1" for="prop-width">
                         Fixed width <span class="text-muted">(px, 0&nbsp;=&nbsp;auto)</span>
                     </label>
@@ -234,13 +231,9 @@ $dataFields = [
                            min="0" max="800" step="1" value="0"
                            title="Set a fixed width so text alignment has room to work">
                 </div>
-            </div>
-        </div>
+                </div>
 
-        <?php /* Card: live member preview */ ?>
-        <div class="card shadow-sm" id="preview-panel">
-            <div class="card-header fw-semibold small py-2">Live preview</div>
-            <div class="card-body py-2 px-3">
+                <div class="sidebar-section d-none" data-section="preview" id="preview-panel">
                 <p class="small text-muted mb-2">
                     Pick a member to see the card filled with their real data.
                     This does <strong>not</strong> affect the saved design.
@@ -249,8 +242,9 @@ $dataFields = [
                     <option value="">— Design mode (placeholders) —</option>
                 </select>
                 <div id="preview-status" class="small text-muted"></div>
+                </div>
             </div>
-        </div>
+        </nav>
 
     </div><!-- /.col (sidebar) -->
 
@@ -338,7 +332,6 @@ $dataFields = [
 
 <style<?= csp_nonce_attr() ?>>
 /* ── Designer layout ───────────────────────────────────────────────────────── */
-#designer-sidebar .card-header { background: rgba(0,0,0,.03); }
 /* Hug the card — avoid a full-column white strip beside the canvas */
 #canvas-wrap {
     display: inline-block;
@@ -395,7 +388,7 @@ $dataFields = [
 #props-panel .form-control-sm { font-size: .8rem; }
 
 /* Highlight selected align button */
-#prop-align .btn.active { background: var(--club-primary, #6f7c3d); color: var(--club-on-primary, #faf7f0); border-color: var(--club-primary, #6f7c3d); }
+#prop-align .btn.active { background: var(--club-primary); color: var(--club-on-primary); border-color: var(--club-primary); }
 </style>
 
 <?php

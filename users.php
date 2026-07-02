@@ -99,9 +99,9 @@ require_once __DIR__ . '/includes/header.php';
     letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
 }
 .role-badge-admin     { background: rgba(var(--club-primary-rgb), 0.12); color: var(--club-primary); }
-.role-badge-editor    { background: #e7f5eb; color: #198754; }
-.role-badge-treasurer { background: #fff3cd; color: #8a6200; }
-.role-badge-viewer    { background: #f0f0f0; color: #555; }
+.role-badge-editor    { background: color-mix(in srgb, var(--club-success) 18%, var(--club-bg)); color: var(--club-success); }
+.role-badge-treasurer { background: color-mix(in srgb, var(--club-warning) 18%, var(--club-bg)); color: var(--club-warning); }
+.role-badge-viewer    { background: var(--club-accent); color: var(--club-muted); }
 
 .user-avatar {
     width: 36px; height: 36px; border-radius: 50%;
@@ -110,9 +110,9 @@ require_once __DIR__ . '/includes/header.php';
     flex-shrink: 0; color: #fff; user-select: none;
 }
 .user-avatar-admin     { background: var(--club-primary); }
-.user-avatar-editor    { background: #198754; }
-.user-avatar-treasurer { background: #f6a800; }
-.user-avatar-viewer    { background: #6c757d; }
+.user-avatar-editor    { background: var(--club-success); }
+.user-avatar-treasurer { background: var(--club-warning); }
+.user-avatar-viewer    { background: var(--club-muted); }
 
 .user-row td    { vertical-align: middle; padding: 0.75rem 1rem; }
 .user-row.inactive { opacity: 0.5; }
@@ -120,11 +120,11 @@ require_once __DIR__ . '/includes/header.php';
 #addUserCard        { display: none; }
 #addUserCard.open   { display: block; }
 
-.empty-state { text-align: center; padding: 3rem 2rem; color: #999; }
+.empty-state { text-align: center; padding: 3rem 2rem; color: var(--club-muted); }
 .users-page-header {
     display: flex; align-items: center; justify-content: space-between;
     flex-wrap: wrap; gap: 1rem;
-    margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid #e9ecef;
+    margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--club-border);
 }
 </style>
 

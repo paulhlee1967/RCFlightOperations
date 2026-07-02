@@ -120,9 +120,9 @@ function incidentTypeLabel(string $type): string {
 }
 
 /**
- * Bootstrap colour class for an incident type.
+ * Bootstrap color class for an incident type.
  */
-function incidentTypeColour(string $type): string {
+function incidentTypeColor(string $type): string {
     return match ($type) {
         'near_miss'       => 'warning',
         'crash'           => 'danger',
@@ -134,9 +134,9 @@ function incidentTypeColour(string $type): string {
 }
 
 /**
- * Bootstrap colour class for severity.
+ * Bootstrap color class for severity.
  */
-function severityColour(string $severity): string {
+function severityColor(string $severity): string {
     return match ($severity) {
         'serious'  => 'danger',
         'moderate' => 'warning',
@@ -145,9 +145,9 @@ function severityColour(string $severity): string {
 }
 
 /**
- * Bootstrap colour class for status.
+ * Bootstrap color class for status.
  */
-function statusColour(string $status): string {
+function statusColor(string $status): string {
     return match ($status) {
         'open'         => 'danger',
         'under_review' => 'warning',
@@ -317,12 +317,12 @@ require_once __DIR__ . '/includes/header.php';
                     <span class="fw-semibold"><?= h(date('M j, Y', strtotime($inc['incident_date']))) ?></span>
                 </td>
                 <td>
-                    <span class="badge bg-<?= incidentTypeColour($inc['incident_type']) ?>">
+                    <span class="badge bg-<?= incidentTypeColor($inc['incident_type']) ?>">
                         <?= h(incidentTypeLabel($inc['incident_type'])) ?>
                     </span>
                 </td>
                 <td class="d-none d-md-table-cell">
-                    <span class="badge bg-<?= severityColour($inc['severity']) ?>-subtle text-<?= severityColour($inc['severity']) ?> border border-<?= severityColour($inc['severity']) ?>-subtle">
+                    <span class="badge bg-<?= severityColor($inc['severity']) ?>-subtle text-<?= severityColor($inc['severity']) ?> border border-<?= severityColor($inc['severity']) ?>-subtle">
                         <?= h(ucfirst($inc['severity'])) ?>
                     </span>
                 </td>
@@ -339,7 +339,7 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                 </td>
                 <td class="d-none d-md-table-cell">
-                    <span class="badge bg-<?= statusColour($inc['status']) ?>">
+                    <span class="badge bg-<?= statusColor($inc['status']) ?>">
                         <?= h(str_replace('_', ' ', ucfirst($inc['status']))) ?>
                     </span>
                 </td>

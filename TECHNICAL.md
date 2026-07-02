@@ -18,10 +18,10 @@ This document describes how the application is built and how its parts work toge
 |------|--------|
 | **/** (project root) | Entry-point scripts (`index.php`, `login.php`, `members.php`, etc.), `config.php`, `schema_full.sql` |
 | **includes/** | Shared PHP: DB, auth, helpers, layout, CSRF, validation, mail |
-| **docs/** | End-user documentation (HTML). Styled with `docs.css`; `docs-theme.php` injects club colours |
+| **docs/** | End-user documentation (HTML). Styled with `docs.css`; `docs-theme.php` injects club colors |
 | **scripts/** | CLI maintenance scripts (set password, verify DB, export, reminders) |
 | **assets/** | Club logo (`rc-flight-operations-logo.png`) and **vendored front-end** libraries under `assets/vendor/` (Bootstrap, Bootstrap Icons, Fabric.js). URLs via `includes/vendor_assets.php`. Refresh with `scripts/fetch_vendor_assets.sh`. |
-| **js/** | `flightops_ui.js` (global UI helpers, deferred from footer). `badge_fabric.js` — shared Fabric.js helpers. `badge_design.js`, `badge_print.js`, `members_list.js` — page-specific logic extracted from large PHP entry points. |
+| **js/** | `flightops_ui.js` (global UI helpers, deferred from footer). `badge_fabric.js` — shared Fabric.js helpers. `badge_design.js`, `badge_print.js`, `members_list.js`, `member_wizard.js` — page-specific logic extracted from large PHP entry points. |
 | **templates/** | Email and letter templates (PHP/HTML) |
 | **uploads/** | Member photos and club branding (written by the app; photos served via `badge_photo.php`, not direct URLs) |
 | **vendor/** | Composer dependencies (Dompdf, PHPMailer, etc.) |
@@ -59,7 +59,8 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **security_headers.php** | `flightops_send_security_headers()` — baseline headers and nonce-based CSP. |
 | **csp_nonce.php** | `flightops_csp_nonce()`, `csp_nonce_attr()` — one nonce per response for inline script/style. |
 | **cli_only_script.php** | `flightops_require_cli()` — exit if not PHP CLI (used by every file in `scripts/`). |
-| **header.php** | Shared layout: HTML head, navbar (with club theme, active nav, user menu), breadcrumbs, flash toasts. Set `$pageTitle`, optional `$noNav`, optional `$breadcrumbs` before including. Loads theme from `club` (`id = 1`) and defines `navActive()`. Nav items use `function_exists('canEditMembers')` (etc.) so including `header.php` without `auth.php` fails quietly — always include `auth.php` on app pages. |
+| **header.php** | Shared layout: HTML head, navbar (with club theme, active nav, user menu), breadcrumbs, flash toasts. Set `$pageTitle`, optional `$noNav`, optional `$breadcrumbs` before including. Loads theme from `club` (`id = 1`) via `club_theme.php` and defines `navActive()`. Nav items use `function_exists('canEditMembers')` (etc.) so including `header.php` without `auth.php` fails quietly — always include `auth.php` on app pages. |
+| **club_theme.php** | Shared club color defaults (`flightops_club_theme_defaults()`), hex→RGB, on-primary contrast (`flightops_on_primary_for()`), and harmonized status tokens. Used by `header.php`, `docs-theme.php`, and email/PDF layouts. |
 | **footer.php** | Closes container, RC Flight Operations attribution bar (uses theme CSS variables), Bootstrap JS, `flightops_ui.js`. |
 | **validation.php** | Server-side validation: `validate_member_input()`, `validate_payment_input()`, `validate_email()`, `validate_date()`, `validate_positive_number()`. Return structured errors for forms and APIs. |
 | **audit_log.php** | `audit_log($pdo, $userId, $action, $targetType, $targetId, $detail)`. Writes to `audit_log` table; safe if table is missing. **Admin UI:** `audit_log_viewer.php` (Administration → Audit log). |
@@ -80,7 +81,10 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **badge_member_data.php** | Shared member→badge field map (`badge_member_data_from_row()`), CR80 dimensions, member+address SQL. |
 | **badge_print_helpers.php** | Design selection, mark-printed POST, member load for `badge_print.php`. |
 | **members_list_query.php** | Filter/pagination query builder for `members.php`. |
-| **members_list_helpers.php** | URL builder and list display badges (type, year, initials colour). |
+| **members_list_helpers.php** | URL builder and list display badges (type, year, initials color). |
+| **member_save.php** | Shared member create/update from POST (`member_edit.php`, `member_wizard.php`). |
+| **member_wizard_nav.php** | Wizard step definitions, stepper render, and URL helpers for wizard ↔ process handoff. |
+| **member_wizard_styles.php** | Inline CSS for wizard stepper (included by `member_wizard.php` and `member_process.php?wizard=1`). |
 
 ---
 
@@ -93,20 +97,21 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **logout.php** | Destroys session, redirects to login. |
 | **forgot_password.php** / **reset_password.php** | Password reset flow (tokens in `password_reset_tokens`). |
 | **installation.php** | Host/app settings: SMTP, maintenance mode, health, broadcast to admins. **Admin only.** |
-| **members.php** | Member list: pagination, filters (status, type, search). Links to add, edit, renew, print badge, export. |
-| **member_edit.php** | Add/edit member form (contact, compliance, membership tabs). POST handled in page; validation via `validation.php`. |
+| **members.php** | Member list: pagination, filters (status, type, search). Links to new member wizard, edit, renew, print badge, export. |
+| **member_wizard.php** | Guided new-member workflow (steps 1–3: contact, compliance, membership). POST saves via `member_save.php`, then redirects to `member_process.php?wizard=1`. Editor or Admin. |
+| **member_edit.php** | Edit existing member (contact, compliance, membership tabs). New members are redirected to `member_wizard.php`. POST handled in page; validation via `validation.php`. |
 | **payment_add.php** | POST: add a payment row for a member (from Payment history tab). |
 | **payment_delete.php** | POST: permanently delete an erroneous payment row. Admin, editor, or treasurer. The deletion is recorded in `audit_log` and the member's frozen membership-year roster is re-synced. |
 | **member_detail.php** | Read-only member view (optional alternate to edit). |
-| **member_process.php** | Renewal workflow: record payment, update `membership_renewal_year`, clear badge-printed flag. Uses `defaultRenewalYear()`, dues from `dues_rules`. |
+| **member_process.php** | Renewal workflow: record payment, update `membership_renewal_year`, clear badge-printed flag. With `?wizard=1`, continues the new-member wizard (steps 4–5: record signup, print & mail). Uses `defaultRenewalYear()`, dues from `dues_rules`. |
 | **member_delete.php** | Deletes member and related data (phones, addresses, payments); removes photo file from `uploads/`. |
 | **users.php** | List app users (Admin only). |
 | **user_edit.php** | Add/edit app user, role, active flag, password (Admin only). |
-| **config_site.php** | Club configuration: General (name), Design (logo, favicon, colours), membership type labels, and **dues_rules** per slot. Admin only. |
+| **config_site.php** | Club configuration: General (name), Design (logo, favicon, colors), membership type labels, and **dues_rules** per slot. Admin only. |
 | **reports.php** | Reports module: report picker, year selector, table render, CSV/PDF export, and email panels. Read access via `canViewReports()`. Report data comes from `includes/run_report.php`. |
 | **report_email.php** | POST: email a report. `action=snapshot` sends the rendered table to one or more addresses; `action=members` emails a per-member message to a cohort report (e.g. not-yet-renewed) for members with `allow_email = 1`. The member blast requires editor/treasurer. |
 | **incidents.php** / **incident_edit.php** / **incident_delete.php** | Safety / field incident log; editors add/edit, treasurer/viewer can read per nav rules. |
-| **badge_design.php** | Badge template designer page (layout + Fabric config). JSON API in `includes/badge_design_api.php`; UI in `js/badge_design.js`. Editor or Admin. |
+| **badge_design.php** | Badge template designer page (layout + Fabric config). Tabbed sidebar, undo/redo, live member preview. JSON API in `includes/badge_design_api.php`; UI in `js/badge_design.js`. Editor or Admin. |
 | **badge_print.php** | Print view for one member’s badge (front/back). Marks badge as printed. |
 | **badge_photo.php** | Securely serves member photo from `uploads/` (no direct URL to uploads). |
 | **import.php** | CSV import: upload, column mapping, preview, insert/update members (and optional payment rows). |
@@ -172,7 +177,7 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 
 - **index.html** — Help center hub; links to overview, members, renewals, compliance, badges, reports, incidents, import/export, administration, installation.
 - **docs.css** — Styles for all doc pages.
-- **docs-theme.php** — Served as CSS: outputs `:root` custom properties with the **logged-in club’s** colours (from `club`), so the docs match the app theme. If no session or DB, falls back to default RC Flight Operations palette.
+- **docs-theme.php** — Served as CSS: outputs `:root` custom properties with the **logged-in club’s** colors (from `club` via `club_theme.php`), including derived card/border/accent and Bootstrap link overrides, so the docs match the app theme. If no session or DB, falls back to default RC Flight Operations palette.
 - Other **.html** files — One per topic. Footers use a consistent copyright line; version details live on **`about.php`** in the app (linked from Help → About). `docs/about.html` redirects readers there.
 
 ---
@@ -191,7 +196,8 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 | If you want to… | Look at… |
 |------------------|----------|
 | Change what appears after login | `index.php` (dashboard) |
-| Change nav or layout | `includes/header.php`, `includes/footer.php` |
+| Change nav or layout | `includes/header.php`, `includes/footer.php`, `includes/club_theme.php` |
+| Add a new member / wizard flow | `member_wizard.php`, `includes/member_wizard_nav.php`, `includes/member_wizard_styles.php`, `js/member_wizard.js`, `includes/member_save.php`, `member_process.php` |
 | Add a global helper | `includes/helpers.php` |
 | Add a flash message before redirect | `flash()` in `includes/flash.php` |
 | Add or change a report | `includes/run_report.php`, `reports.php`, `report_email.php`, `includes/report_pdf.php` |

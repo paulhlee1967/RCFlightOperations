@@ -50,6 +50,7 @@
     <a href="#payments">A Note on Payments</a>
     <a href="#dashboard">The Dashboard</a>
     <a href="#navigation">Navigation</a>
+    <a href="#look-and-feel">Look &amp; Feel</a>
     <a href="#roles">User Roles</a>
     <a href="#deployment">One club per installation</a>
     <hr class="sidebar-divider">
@@ -82,10 +83,11 @@
 </p>
 <p>Here's what it handles in one place:</p>
 <ul>
-  <li><strong>Member records</strong> — contact info, photos, phones, addresses, and optional email/postal preferences</li>
+  <li><strong>Member records</strong> — contact info, photos, phones, addresses, emergency contacts, and optional email/postal preferences</li>
+  <li><strong>New member wizard</strong> — guided five-step signup from first contact through payment, badge printing, and mailing</li>
   <li><strong>AMA &amp; FAA compliance</strong> — track numbers, expiration dates, and verify AMA membership with one click</li>
   <li><strong>Dues &amp; renewals</strong> — record on-time, late, prorated, and complimentary renewals; handle life members and special cases</li>
-  <li><strong>CR80 ID badge design &amp; printing</strong> — design your club's card once, print personalized badges for every member</li>
+  <li><strong>CR80 ID badge design &amp; printing</strong> — design multiple named card templates, preview with real member data, then print personalized badges</li>
   <li><strong>Reports</strong> — membership snapshots, revenue summaries, compliance lists, gate key audits, and birthday reminders</li>
   <li><strong>CSV import &amp; export</strong> — bring in your existing member list and export it in formats for AMA filings, newsletters, and backups</li>
   <li><strong>Safety incident log</strong> — keep a dated record of field incidents for your club's safety records</li>
@@ -160,10 +162,10 @@
     <thead><tr><th>Nav item</th><th>Who sees it</th><th>What's there</th></tr></thead>
     <tbody>
       <tr><td><strong>Home</strong></td><td>Everyone</td><td>Dashboard with stat cards and attention items</td></tr>
-      <tr><td><strong>Members</strong></td><td>Admin, Editor, Treasurer</td><td>Member list, search and filtering, add/edit members, import from spreadsheet</td></tr>
+      <tr><td><strong>Members</strong></td><td>Admin, Editor, Treasurer</td><td>Member list, search and filtering, <strong>New member</strong> wizard, import from spreadsheet</td></tr>
       <tr><td><strong>Reports</strong></td><td>All roles</td><td>Seven built-in reports with CSV and PDF export</td></tr>
       <tr><td><strong>Incidents</strong></td><td>Admin and Editor (add/edit); Treasurer and Viewer (read-only)</td><td>Safety and field incident log</td></tr>
-      <tr><td><strong>Badge Design</strong></td><td>Admin, Editor (when feature is enabled)</td><td>Design your club's CR80 ID card template</td></tr>
+      <tr><td><strong>Badge Design</strong></td><td>Admin, Editor (when feature is enabled)</td><td>CR80 badge designer — multiple templates, live member preview, undo/redo</td></tr>
       <tr><td><strong>Administration</strong></td><td>Admin only</td><td>Users, club configuration, and audit log</td></tr>
       <tr><td><strong>Your name (top right)</strong></td><td>Everyone</td><td>Change your password, access help docs, log out</td></tr>
     </tbody>
@@ -179,6 +181,20 @@
     review your role. See <a href="admin.html#users">Users &amp; Roles</a> for details.
   </div>
 </div>
+
+<!-- ── Look and feel ── -->
+<h2 id="look-and-feel">Look &amp; Feel</h2>
+<p>
+  RC Flight Operations uses a consistent layout across the app: club-themed navbar and buttons,
+  card-based pages, and a shared <strong>sidebar tool panel</strong> on complex screens (badge
+  designer, reports, club configuration). Your club's colors, logo, and favicon are set under
+  <a href="admin.html#design">Administration → Configuration → Design</a> and apply everywhere —
+  including the in-app <strong>Help &amp; Documentation</strong> pages when you are logged in.
+</p>
+<p>
+  Status badges (current, suspended, life member, etc.) use earth-tone colors that harmonize
+  with the default palette but remain readable when you customize your theme.
+</p>
 
 <!-- ── Roles ── -->
 <h2 id="roles">User Roles at a Glance</h2>

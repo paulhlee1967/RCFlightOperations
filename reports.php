@@ -140,15 +140,17 @@ $alignClass = static fn(string $a): string => $a === 'end' ? 'text-end' : 'text-
 <div class="row g-3">
     <!-- Report picker -->
     <div class="col-12 col-lg-3">
-        <div class="list-group mb-3">
-            <?php foreach ($registry as $rSlug => $meta): ?>
-            <a href="reports.php?report=<?= h($rSlug) ?>"
-               class="list-group-item list-group-item-action<?= $rSlug === $slug ? ' active' : '' ?>">
-                <div class="fw-semibold"><?= h($meta['label']) ?></div>
-                <div class="small <?= $rSlug === $slug ? '' : 'text-muted' ?>"><?= h($meta['description']) ?></div>
-            </a>
-            <?php endforeach; ?>
-        </div>
+        <nav class="card mb-3 shadow-sm" aria-label="Report types">
+            <div class="card-body p-0">
+                <?php foreach ($registry as $rSlug => $meta): ?>
+                <a href="reports.php?report=<?= h($rSlug) ?>"
+                   class="sidebar-nav-link<?= $rSlug === $slug ? ' active' : '' ?>">
+                    <div class="fw-semibold"><?= h($meta['label']) ?></div>
+                    <div class="small <?= $rSlug === $slug ? '' : 'text-muted' ?>"><?= h($meta['description']) ?></div>
+                </a>
+                <?php endforeach; ?>
+            </div>
+        </nav>
     </div>
 
     <!-- Report body -->

@@ -9,7 +9,7 @@
  *    free_membership, gate_key_number, badge_printed_at for display.
  *  - Filter-chip counts added via a single summary query.
  *  - Renders avatar (photo thumbnail or CSS initials), type pill,
- *    status/flag icons, and colour-coded renewal year.
+ *    status/flag icons, and color-coded renewal year.
  *  - Inline Delete button removed; destructive action lives in edit form.
  *  - "Print badge" shortcut added to action column.
  *  - Bootstrap offcanvas quick-view panel (read-only detail fetch).
@@ -479,7 +479,7 @@ if (!empty($_GET['deleted'])) {
                     <?= $m['membership_type_slot'] ? members_type_badge((int)$m['membership_type_slot'], $membershipTypeLabels) : '<span class="text-muted">—</span>' ?>
                 </td>
 
-                <!-- Renewal year (colour-coded) -->
+                <!-- Renewal year (color-coded) -->
                 <td class="align-middle">
                     <?= members_year_badge($m['membership_renewal_year'], $currentYear) ?>
                 </td>
@@ -650,8 +650,8 @@ if (!empty($_GET['deleted'])) {
     .members-card-list  { display: none !important; }
 }
 .member-card {
-    background: #fff;
-    border: 1px solid #e9ecef;
+    background: var(--club-card);
+    border: 1px solid var(--club-border);
     border-radius: 10px;
     padding: .875rem 1rem;
     margin-bottom: .625rem;
@@ -660,7 +660,7 @@ if (!empty($_GET['deleted'])) {
     gap: .75rem;
 }
 .member-card.member-inactive  { opacity: .6; }
-.member-card.member-suspended { border-left: 3px solid #ffc107; }
+.member-card.member-suspended { border-left: 3px solid var(--club-warning); }
 .member-card-avatar {
     width: 42px; height: 42px; border-radius: 50%;
     object-fit: cover; flex-shrink: 0;
@@ -673,7 +673,7 @@ if (!empty($_GET['deleted'])) {
 }
 .member-card-body  { flex: 1; min-width: 0; }
 .member-card-name  {
-    font-weight: 600; font-size: .95rem; color: var(--bs-body-color);
+    font-weight: 600; font-size: .95rem; color: var(--club-text);
     text-decoration: none; display: block; line-height: 1.3;
 }
 .member-card-name:hover { color: var(--club-primary); }

@@ -130,14 +130,14 @@ require_once __DIR__ . '/includes/header.php';
 .login-hero .fo-brand img {
     filter: drop-shadow(0 2px 10px rgba(0,0,0,.1));
 }
-/* Wordmark uses --club-on-primary-muted (for coloured navbars); override on this light panel */
+/* Wordmark uses --club-on-primary-muted (for colored navbars); override on this light panel */
 .login-hero .fo-wordmark-sub {
     color: var(--club-muted) !important;
 }
 
 /* Form panel (right) */
 .login-form-panel {
-    background: #fff;
+    background: var(--club-card);
     border-radius: 0 16px 16px 0;
     padding: 3rem 2.5rem;
     display: flex;
@@ -159,7 +159,7 @@ require_once __DIR__ . '/includes/header.php';
 .login-powered-by {
     margin-top: 2rem;
     padding-top: 1.25rem;
-    border-top: 1px solid #e9ecef;
+    border-top: 1px solid var(--club-border);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -170,7 +170,7 @@ require_once __DIR__ . '/includes/header.php';
     font-size: 0.7rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: #adb5bd;
+    color: var(--club-muted);
     white-space: nowrap;
 }
 
@@ -194,7 +194,7 @@ require_once __DIR__ . '/includes/header.php';
             <!-- ── Form panel ──────────────────────────────────────────── -->
             <div class="col-sm-7 login-form-panel">
 
-                <h1 class="h4 fw-bold mb-1" style="color:#1e2a36;">Welcome back</h1>
+                <h1 class="h4 fw-bold mb-1">Welcome back</h1>
                 <p class="text-muted small mb-4">Sign in to manage your club.</p>
 
                 <?php if ($error): ?>

@@ -56,7 +56,7 @@ function applyHistoryJSON(jsonStr) {
         historyPaused = false;
         canvas.requestRenderAll();
         scheduleDesignerViewSync();
-        propsPanel.style.display = 'none';
+        setPropsPanelVisible(false);
     });
 }
 
@@ -203,6 +203,43 @@ document.getElementById('orientation').addEventListener('change', function () {
     setCardSize(this.value);
 });
 
+/* ── Sidebar section navigation ─────────────────────────────────────────── */
+var sidebarLinkFields = document.getElementById('sidebar-link-fields');
+var sidebarLinkProps  = document.getElementById('sidebar-link-props');
+var sidebarNavLinks   = document.querySelectorAll('#designer-sidebar .sidebar-nav-link[data-section]');
+var currentSidebarSection = 'options';
+
+function showSidebarSection(name) {
+    currentSidebarSection = name;
+    sidebarNavLinks.forEach(function (link) {
+        link.classList.toggle('active', link.getAttribute('data-section') === name);
+    });
+    document.querySelectorAll('#designer-sidebar .sidebar-section').forEach(function (panel) {
+        panel.classList.toggle('d-none', panel.getAttribute('data-section') !== name);
+    });
+}
+
+function setPropsPanelVisible(visible) {
+    if (!sidebarLinkProps) return;
+    if (visible) {
+        sidebarLinkProps.classList.remove('d-none');
+        showSidebarSection('props');
+        return;
+    }
+    sidebarLinkProps.classList.add('d-none');
+    if (currentSidebarSection === 'props') {
+        var onFront = document.getElementById('sideRadioFront').checked;
+        showSidebarSection(onFront ? 'fields' : 'options');
+    }
+}
+
+sidebarNavLinks.forEach(function (link) {
+    link.addEventListener('click', function (e) {
+        e.preventDefault();
+        showSidebarSection(link.getAttribute('data-section'));
+    });
+});
+
 /* ── Front / Back side toggle ───────────────────────────────────────────── */
 var frontPanel     = document.getElementById('front-panel');
 var backPanel      = document.getElementById('back-panel');
@@ -216,15 +253,19 @@ document.querySelectorAll('input[name="sideRadio"]').forEach(function (radio) {
         var isFront = this.value === 'front';
         frontPanel.style.display     = isFront ? '' : 'none';
         backPanel.style.display      = isFront ? 'none' : '';
-        fieldsPanel.style.display    = isFront ? '' : 'none';
         orientWrap.style.display     = isFront ? '' : 'none';
         backOrientWrap.style.display = isFront ? 'none' : '';
+        if (sidebarLinkFields) {
+            sidebarLinkFields.classList.toggle('d-none', !isFront);
+        }
         if (isFront) {
-            // Re-render canvas when switching back to front
             canvas.requestRenderAll();
             scheduleDesignerViewSync();
         } else {
-            propsPanel.style.display = 'none';
+            setPropsPanelVisible(false);
+            if (currentSidebarSection === 'fields') {
+                showSidebarSection('options');
+            }
         }
     });
 });
@@ -375,7 +416,7 @@ document.getElementById('deleteObj').addEventListener('click', function () {
         active.forEach(function (obj) { canvas.remove(obj); });
         canvas.requestRenderAll();
     }
-    propsPanel.style.display = 'none';
+    setPropsPanelVisible(false);
 });
 
 canvas.on('object:modified', scheduleHistorySnapshot);
@@ -424,10 +465,10 @@ var alignBtns     = document.querySelectorAll('#prop-align button');
 /** Populate the properties panel from the currently selected object. */
 function syncPropsPanel(obj) {
     if (!obj || (FabricGroupClass && obj instanceof FabricGroupClass)) {
-        propsPanel.style.display = 'none';
+        setPropsPanelVisible(false);
         return;
     }
-    propsPanel.style.display = '';
+    setPropsPanelVisible(true);
     var field = obj[dataFieldProp] || '';
 
     var fi = BADGE_DATA_FIELDS[field];
@@ -450,7 +491,7 @@ function syncPropsPanel(obj) {
 
 canvas.on('selection:created',  function (e) { syncPropsPanel(e.selected && e.selected[0]); });
 canvas.on('selection:updated',  function (e) { syncPropsPanel(e.selected && e.selected[0]); });
-canvas.on('selection:cleared',  function ()  { propsPanel.style.display = 'none'; });
+canvas.on('selection:cleared',  function ()  { setPropsPanelVisible(false); });
 
 /* Apply property changes back to the selected object */
 function applyPropChange(fn) {

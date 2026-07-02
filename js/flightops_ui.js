@@ -42,7 +42,7 @@
         });
     }
 
-    /** Colour picker ↔ hex text sync (config_site theme tab). */
+    /** Color picker ↔ hex text sync (config_site theme tab). */
     function bindColorSyncGroups() {
         document.querySelectorAll('.js-color-sync').forEach(function (group) {
             var colorIn = group.querySelector('input[type="color"]');
