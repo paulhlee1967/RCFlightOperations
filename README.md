@@ -2,14 +2,33 @@
 
 **Version 1.5.1** — See [CHANGELOG.md](CHANGELOG.md).
 
-Open-source (**MIT**) LAMP membership app for RC clubs: members, contact info, AMA/FAA compliance, payments, badge design & printing, reports, and an optional incident log. **Single-club** deployment (one installation per club database); themeable (logo, favicon, colors). Home dashboard, system users with roles (admin, editor, treasurer, viewer), and club configuration.
+Open-source (**MIT**) membership management for AMA-affiliated RC flying clubs. One installation serves **one club** (single database, single `config.php`). Officers get a shared dashboard, role-based logins, and club branding (logo, favicon, colors) that carries through the app and help docs.
 
-- **New to the project?** → [START_HERE.md](START_HERE.md) for setup (database, config, first login).
-- **Local development on a Mac?** → [LOCAL_DEV.md](LOCAL_DEV.md).
-- **Deploying to a server?** → [DEPLOY.md](DEPLOY.md) (checklist, cPanel data move, Nginx notes). Apache: `uploads/.htaccess` blocks PHP in uploads; **Nginx** needs an equivalent rule in the server config.
-- **Architecture and plan** → [PLAN.md](PLAN.md).
-- **How the app is built** → [TECHNICAL.md](TECHNICAL.md) — file layout, includes (e.g. `flash.php`, `helpers.php`), entry points, and how things fit together.
+## Features
 
-**Tech:** PHP 8.x, MySQL/MariaDB, Bootstrap 5 (vendored under `assets/vendor/`). No framework. Composer: **dompdf** (PDF export), **PHPMailer** (email), **PHPUnit** (dev tests — `composer test`).
+- **Members** — Searchable roster, CSV import/export, photos, email/postal preferences, emergency contacts
+- **New member wizard** — Guided five-step signup: contact → compliance → membership → record first payment → print & mail
+- **Renewals & dues** — Record cash/check payments (the app is a ledger, not a payment processor); prorated, late, and complimentary renewals
+- **AMA & FAA compliance** — Track numbers and expirations; live AMA lookup before renewal
+- **Badge designer & printing** — Multiple CR80 templates, Fabric.js canvas editor, live member preview, undo/redo, personalized print at renewal
+- **Reports** — Membership, retention, revenue, compliance, and more — on screen, CSV, branded PDF, or email
+- **Incident log** — Optional dated safety/field incident records
+- **Administration** — Users & roles (admin, editor, treasurer, viewer), club configuration, audit log
 
-**License:** MIT. See [LICENSE](LICENSE). Third-party licenses in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+End-user help lives in **[docs/](docs/)** (also linked from the app as **Help & Documentation**).
+
+## Getting started
+
+- **New to the project?** → [START_HERE.md](START_HERE.md) — database, config, first login
+- **Local development on a Mac?** → [LOCAL_DEV.md](LOCAL_DEV.md)
+- **Deploying to a server?** → [DEPLOY.md](DEPLOY.md) — checklist, cPanel data move, Nginx notes. Apache: `uploads/.htaccess` blocks PHP in uploads; **Nginx** needs an equivalent rule in the server config.
+- **Architecture and plan** → [PLAN.md](PLAN.md)
+- **How the app is built** → [TECHNICAL.md](TECHNICAL.md) — file layout, `includes/`, entry points, scripts
+
+## Tech stack
+
+PHP 8.x, MySQL/MariaDB, Bootstrap 5 (vendored under `assets/vendor/`). No application framework. Composer: **dompdf** (PDF export), **PHPMailer** (email), **PHPUnit** (dev tests — `composer test`).
+
+## License
+
+MIT. See [LICENSE](LICENSE). Third-party licenses in [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
