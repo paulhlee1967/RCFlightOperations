@@ -28,6 +28,7 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit_log.php';
+require_once __DIR__ . '/includes/member_wizard_nav.php';
 
 requireLogin();
 if (!canEditMembers() && !canProcessMemberships()) {
@@ -127,6 +128,12 @@ if ($memberId <= 0) {
     exit;
 }
 
+$fromWizard = !empty($_GET['wizard']) || !empty($_POST['wizard']);
+$wizardRenewalType = $_GET['renewal_type'] ?? $_POST['renewal_type'] ?? '';
+if (!in_array($wizardRenewalType, ['new', 'on_time', 'late'], true)) {
+    $wizardRenewalType = '';
+}
+
 $stmt = $pdo->prepare('
     SELECT m.*,
            (SELECT street FROM member_addresses WHERE member_id = m.id ORDER BY FIELD(type,"Home","Work","Other") LIMIT 1) AS addr_street,
@@ -178,11 +185,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
 
     if (!$amaLifeMember) {
         if ($amaExpRecord === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $amaExpRecord)) {
-            header('Location: member_process.php?id=' . $memberId . '&year=' . $renewalYear . '&renewal_error=no_ama');
+            header('Location: member_process.php?id=' . $memberId . '&year=' . $renewalYear . '&renewal_error=no_ama' . ($fromWizard ? '&wizard=1' : ''));
             exit;
         }
         if ($amaExpRecord < $minAmaExp) {
-            header('Location: member_process.php?id=' . $memberId . '&year=' . $renewalYear . '&renewal_error=ama_before');
+            header('Location: member_process.php?id=' . $memberId . '&year=' . $renewalYear . '&renewal_error=ama_before' . ($fromWizard ? '&wizard=1' : ''));
             exit;
         }
     } elseif ($amaLifeMember && $amaExpRecord !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $amaExpRecord) && $amaExpRecord < $minAmaExp) {
@@ -267,11 +274,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
             $pdo->rollBack();
         }
         error_log('member_process record_renewal failed: ' . $e->getMessage());
-        header('Location: member_process.php?id=' . $memberId . '&year=' . $renewalYear . '&recorded=0&error=record_failed');
+        header('Location: member_process.php?id=' . $memberId . '&year=' . $renewalYear . '&recorded=0&error=record_failed' . ($fromWizard ? '&wizard=1' : ''));
         exit;
     }
 
-    header('Location: member_process.php?id=' . $memberId . '&year=' . $renewalYear . '&recorded=1');
+    $wizardQs = $fromWizard ? '&wizard=1' : '';
+    header('Location: member_process.php?id=' . $memberId . '&year=' . $renewalYear . '&recorded=1' . $wizardQs . '#fulfill');
     exit;
 }
 
@@ -327,31 +335,31 @@ $latestPayment = $payStmt->fetch(PDO::FETCH_ASSOC);
 // Validation flags for the Review panel
 $warnings = [];
 if (empty($member['ama_number']) && empty($member['ama_life_member'])) {
-    $warnings[] = ['type' => 'warning', 'msg' => 'No AMA number on file.', 'tab' => 'compliance'];
+    $warnings[] = ['type' => 'warning', 'msg' => 'No AMA number on file.', 'tab' => 'compliance', 'field' => 'ama_number'];
 }
 if (!empty($member['ama_life_member']) && !empty($member['ama_expiration'])) {
     $minExpUi = $workYear . '-12-31';
     if ($member['ama_expiration'] < $minExpUi) {
-        $warnings[] = ['type' => 'info', 'msg' => 'AMA expiration date is before year-end but member is marked AMA life member — renewal is still allowed; consider clearing or updating the date on the Compliance tab.', 'tab' => 'compliance'];
+        $warnings[] = ['type' => 'info', 'msg' => 'AMA expiration date is before year-end but member is marked AMA life member — renewal is still allowed; consider clearing or updating the date on the Compliance tab.', 'tab' => 'compliance', 'field' => 'ama_expiration'];
     }
 }
 if (empty($member['ama_life_member']) && !empty($member['ama_expiration'])) {
     $minExp = $workYear . '-12-31';
     if ($member['ama_expiration'] < $minExp) {
-        $warnings[] = ['type' => 'danger', 'msg' => 'AMA expiration (' . date('M j, Y', strtotime($member['ama_expiration'])) . ') is before Dec 31 of ' . $workYear . '. Update before recording.', 'tab' => 'compliance'];
+        $warnings[] = ['type' => 'danger', 'msg' => 'AMA expiration (' . date('M j, Y', strtotime($member['ama_expiration'])) . ') is before Dec 31 of ' . $workYear . '. Update before recording.', 'tab' => 'compliance', 'field' => 'ama_expiration'];
     }
 }
 if (empty($member['ama_expiration']) && empty($member['ama_life_member'])) {
-    $warnings[] = ['type' => 'warning', 'msg' => 'No AMA expiration date on file.', 'tab' => 'compliance'];
+    $warnings[] = ['type' => 'warning', 'msg' => 'No AMA expiration date on file.', 'tab' => 'compliance', 'field' => 'ama_expiration'];
 }
 if (empty($member['faa_number'])) {
-    $warnings[] = ['type' => 'warning', 'msg' => 'No FAA registration number on file.', 'tab' => 'compliance'];
+    $warnings[] = ['type' => 'warning', 'msg' => 'No FAA registration number on file.', 'tab' => 'compliance', 'field' => 'faa_number'];
 }
 if (empty($member['addr_street']) || empty($member['addr_city'])) {
-    $warnings[] = ['type' => 'warning', 'msg' => 'No mailing address on file — mailer packet will be incomplete.', 'tab' => 'contact'];
+    $warnings[] = ['type' => 'warning', 'msg' => 'No mailing address on file — mailer packet will be incomplete.', 'tab' => 'contact', 'field' => 'addresses'];
 }
 if (empty($member['membership_type_slot'])) {
-    $warnings[] = ['type' => 'danger', 'msg' => 'Membership type not set. Set it on the member record first.', 'tab' => 'membership'];
+    $warnings[] = ['type' => 'danger', 'msg' => 'Membership type not set. Set it on the member record first.', 'tab' => 'membership', 'field' => 'membership_type_slot'];
 }
 
 // ---------------------------------------------------------------------------
@@ -376,23 +384,40 @@ $duesPreview = [
 $memberName  = trim($member['first_name'] . ' ' . $member['last_name']);
 $renewalError = $_GET['renewal_error'] ?? '';
 $justRecorded = isset($_GET['recorded']);
+$memberEditUrl = $fromWizard
+    ? member_wizard_url($memberId)
+    : 'member_edit.php?id=' . $memberId;
+$wizardComplianceUrl = $fromWizard ? member_wizard_url($memberId, 'compliance', 'process') : 'member_edit.php?id=' . $memberId . '#pane-compliance';
+$wizardNavStep = ($fulfillment['processed_at'] || $justRecorded) ? 'fulfill' : 'record';
+$defaultRenewalType = $wizardRenewalType !== '' ? $wizardRenewalType : 'new';
 
-$pageTitle = 'Process: ' . $memberName;
+$pageTitle = $fromWizard ? 'New member: ' . $memberName : 'Process: ' . $memberName;
 require_once __DIR__ . '/includes/header.php';
+if ($fromWizard) {
+    require_once __DIR__ . '/includes/member_wizard_styles.php';
+}
 ?>
 
 <?php /* ── Breadcrumb ──────────────────────────────────────────────── */ ?>
 <nav aria-label="breadcrumb" class="mb-3">
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="members.php">Members</a></li>
+        <?php if ($fromWizard): ?>
+        <li class="breadcrumb-item"><a href="member_wizard.php?id=<?= $memberId ?>">New member wizard</a></li>
+        <?php else: ?>
         <li class="breadcrumb-item"><a href="member_edit.php?id=<?= $memberId ?>"><?= h($memberName) ?></a></li>
-        <li class="breadcrumb-item active">Process Signup / Renewal</li>
+        <?php endif; ?>
+        <li class="breadcrumb-item active"><?= $fromWizard ? 'Record signup' : 'Process Signup / Renewal' ?></li>
     </ol>
 </nav>
 
+<?php if ($fromWizard): ?>
+<?php render_member_wizard_nav($wizardNavStep); ?>
+<?php endif; ?>
+
 <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-4">
     <div>
-        <h1 class="h2 mb-0">Process Signup / Renewal</h1>
+        <h1 class="h2 mb-0"><?= $fromWizard ? 'Record signup &amp; fulfillment' : 'Process Signup / Renewal' ?></h1>
         <?php $typeLabel = $typeSlot > 0 ? ($membershipTypeLabels[$typeSlot] ?? ('Type ' . $typeSlot)) : 'Unknown type'; ?>
         <p class="text-muted mb-0"><?= h($memberName) ?> &mdash; <?= h($typeLabel) ?></p>
     </div>
@@ -400,7 +425,7 @@ require_once __DIR__ . '/includes/header.php';
         <label class="form-label small mb-0 text-muted">Year:</label>
         <div class="btn-group btn-group-sm" role="group">
             <?php for ($y = (int) date('Y') - 1; $y <= (int) date('Y') + 2; $y++): ?>
-            <a href="member_process.php?id=<?= $memberId ?>&year=<?= $y ?>"
+            <a href="member_process.php?id=<?= $memberId ?>&year=<?= $y ?><?= $fromWizard ? '&wizard=1' : '' ?>"
                class="btn <?= $y === $workYear ? 'btn-primary' : 'btn-outline-secondary' ?>">
                 <?= $y ?>
             </a>
@@ -413,13 +438,13 @@ require_once __DIR__ . '/includes/header.php';
 <?php if ($renewalError === 'no_ama'): ?>
 <div class="alert alert-warning alert-dismissible fade show">
     <strong>Cannot record:</strong> No AMA expiration on file. Update it on the
-    <a href="member_edit.php?id=<?= $memberId ?>#pane-compliance" class="alert-link">Compliance tab</a> and try again.
+    <a href="<?= h($wizardComplianceUrl) ?>" class="alert-link">Compliance tab</a> and try again.
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 <?php elseif ($renewalError === 'ama_before'): ?>
 <div class="alert alert-warning alert-dismissible fade show">
     <strong>Cannot record:</strong> AMA expiration must be on or after Dec 31 of <?= $workYear ?>. Update it on the
-    <a href="member_edit.php?id=<?= $memberId ?>#pane-compliance" class="alert-link">Compliance tab</a> first.
+    <a href="<?= h($wizardComplianceUrl) ?>" class="alert-link">Compliance tab</a> first.
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 <?php endif; ?>
@@ -440,7 +465,7 @@ require_once __DIR__ . '/includes/header.php';
     <div class="card-header d-flex align-items-center gap-2">
         <span class="badge bg-secondary rounded-pill">1</span>
         <strong>Review Member Info</strong>
-        <a href="member_edit.php?id=<?= $memberId ?>" class="btn btn-outline-secondary btn-sm ms-auto">Edit member</a>
+    <a href="<?= h($memberEditUrl) ?>" class="btn btn-outline-secondary btn-sm ms-auto">Edit member</a>
     </div>
     <div class="card-body">
 
@@ -449,7 +474,7 @@ require_once __DIR__ . '/includes/header.php';
             <?php foreach ($warnings as $w): ?>
             <div class="alert alert-<?= h($w['type']) ?> py-2 mb-2">
                 <?= h($w['msg']) ?>
-                <a href="member_edit.php?id=<?= $memberId ?>#pane-<?= h($w['tab']) ?>" class="alert-link ms-2 small">Fix now →</a>
+                <a href="<?= h(member_process_fix_url($fromWizard, $memberId, $w)) ?>" class="alert-link ms-2 small">Fix now →</a>
             </div>
             <?php endforeach; ?>
         </div>
@@ -596,9 +621,13 @@ require_once __DIR__ . '/includes/header.php';
         <?php if (!canEditMembers()): ?>
         <p class="text-muted">You have view access only and cannot record renewals.</p>
         <?php else: ?>
-        <form method="post" action="member_process.php?id=<?= $memberId ?>" id="record-renewal-form">
+        <form method="post" action="member_process.php?id=<?= $memberId ?><?= $fromWizard ? '&wizard=1' : '' ?>" id="record-renewal-form">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="record_renewal">
+            <?php if ($fromWizard): ?>
+            <input type="hidden" name="wizard" value="1">
+            <input type="hidden" name="renewal_type_pref" value="<?= h($defaultRenewalType) ?>">
+            <?php endif; ?>
 
             <div class="row g-3 align-items-end mb-0">
 
@@ -614,9 +643,9 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="col-auto">
                     <label class="form-label mb-1">Renewal type</label>
                     <select name="renewal_type" class="form-select" id="renewal-type-select">
-                        <option value="late">New / Late Renewal</option>
-                        <option value="on_time">On-Time Renewal</option>
-                        <option value="new">New Member (Prorated)</option>
+                        <option value="late"<?= $defaultRenewalType === 'late' ? ' selected' : '' ?>>New / Late Renewal</option>
+                        <option value="on_time"<?= $defaultRenewalType === 'on_time' ? ' selected' : '' ?>>On-Time Renewal</option>
+                        <option value="new"<?= $defaultRenewalType === 'new' ? ' selected' : '' ?>>New Member (Prorated)</option>
                     </select>
                 </div>
 
@@ -792,7 +821,10 @@ require_once __DIR__ . '/includes/header.php';
         <?php if ($allDone): ?>
         <div class="alert alert-success mt-3 mb-0">
             <strong>All done!</strong> <?= h($memberName) ?>'s <?= $workYear ?> membership packet is complete.
-            <a href="member_edit.php?id=<?= $memberId ?>" class="alert-link">Back to member record →</a>
+            <a href="member_edit.php?id=<?= $memberId ?>" class="alert-link">View member record →</a>
+            <?php if ($fromWizard): ?>
+            <a href="members.php" class="alert-link ms-2">Back to members list →</a>
+            <?php endif; ?>
         </div>
         <?php endif; ?>
 
@@ -802,7 +834,7 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <div class="mb-5">
-    <a href="member_edit.php?id=<?= $memberId ?>" class="btn btn-outline-secondary">← Back to member record</a>
+    <a href="<?= h($memberEditUrl) ?>" class="btn btn-outline-secondary">← <?= $fromWizard ? 'Back to wizard' : 'Back to member record' ?></a>
     <a href="members.php" class="btn btn-outline-secondary ms-2">← Members list</a>
 </div>
 

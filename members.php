@@ -90,7 +90,7 @@ if (!empty($_GET['deleted'])) {
     </div>
     <div class="d-flex gap-2 flex-wrap">
         <?php if (canEditMembers()): ?>
-        <a href="member_edit.php" class="btn btn-primary btn-sm">
+        <a href="member_wizard.php" class="btn btn-primary btn-sm">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="me-1" viewBox="0 0 16 16">
                 <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
             </svg>New member
@@ -282,7 +282,7 @@ if (!empty($_GET['deleted'])) {
         <p class="fw-semibold mb-1">No members yet</p>
         <p class="text-muted small mb-3">Add your first member to get started.</p>
         <?php if (canEditMembers()): ?>
-        <a href="member_edit.php" class="btn btn-primary btn-sm">Add first member</a>
+        <a href="member_wizard.php" class="btn btn-primary btn-sm">Add first member</a>
         <?php endif; ?>
         <?php endif; ?>
     </div>

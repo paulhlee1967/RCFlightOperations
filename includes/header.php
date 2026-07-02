@@ -403,7 +403,7 @@ $_headerBaseHref = '';
                 <!-- Members (viewers + above) -->
                 <?php if (function_exists('canViewMembers') && canViewMembers()): ?>
                 <li class="nav-item">
-                    <a class="nav-link<?= navActive(['members.php', 'member_edit.php', 'member_view.php', 'member_delete.php', 'member_process.php']) ?>"
+                    <a class="nav-link<?= navActive(['members.php', 'member_edit.php', 'member_wizard.php', 'member_view.php', 'member_delete.php', 'member_process.php']) ?>"
                        href="<?= $_headerBaseHref ?>members.php">Members</a>
                 </li>
                 <?php endif; ?>

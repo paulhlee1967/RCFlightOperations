@@ -9,6 +9,7 @@ require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit_log.php';
 require_once __DIR__ . '/includes/flash.php';
 require_once __DIR__ . '/includes/validation.php';
+require_once __DIR__ . '/includes/member_save.php';
 
 requireLogin();
 if (!canEditMembers()) {
@@ -16,6 +17,11 @@ if (!canEditMembers()) {
     exit;
 }
 $memberId = isset($_GET['id']) ? (int) $_GET['id'] : null;
+
+if (!$memberId && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: member_wizard.php');
+    exit;
+}
 
 // Membership type slots for this club (1–4, enabled + labeled)
 $membershipTypeLabels = enabledMembershipTypeLabels($pdo);
@@ -29,101 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // POST: Save member (and phones, addresses)
 // ---------------------------------------------------------------------------
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_member') {
-    [$valErrors, $c] = validate_member_input($_POST);
-    if ($valErrors !== []) {
-        flash(implode(' ', array_values($valErrors)), 'warning');
+    $result = save_member_from_post($pdo, $memberId, $_POST, $_FILES);
+    if (!$result['ok']) {
+        flash(implode(' ', array_values($result['errors'])), 'warning');
         header('Location: member_edit.php' . ($memberId ? '?id=' . (int) $memberId : ''));
         exit;
     }
-
-    $amaConflict = member_find_by_ama_number($pdo, $c['ama_number'], $memberId ?: null);
-    if ($amaConflict !== null) {
-        flash(member_ama_number_conflict_message($amaConflict), 'warning');
-        header('Location: member_edit.php' . ($memberId ? '?id=' . (int) $memberId : ''));
-        exit;
-    }
-
-    $title          = $c['title'];
-    $firstName      = $c['first_name'];
-    $lastName       = $c['last_name'];
-    $email          = $c['email'];
-    $birthday       = $c['birthday'];
-    $notes          = $c['notes'];
-    $dateJoined     = $c['date_joined'];
-    $memSlot        = $c['membership_type_slot'];
-    $renewalYear    = $c['membership_renewal_year'];
-    $inactive       = $c['inactive'];
-    $suspended      = $c['suspended'];
-    $lifeMember     = $c['life_member'];
-    $freeMembership = $c['free_membership'];
-    $gateKey        = $c['gate_key_number'];
-    $amaNumber      = $c['ama_number'];
-    $amaExp         = $c['ama_expiration'];
-    $amaLife        = $c['ama_life_member'];
-    $faaNumber      = $c['faa_number'];
-    $faaExp         = $c['faa_expiration'];
-    $emergencyName  = $c['emergency_contact_name'];
-    $emergencyRel   = $c['emergency_contact_relationship'];
-    $emergencyPhone = $c['emergency_contact_phone'];
-    $allowEmail     = $c['allow_email'];
-    $allowPostal    = $c['allow_postal'];
-
-    if ($memberId) {
-        $stmt = $pdo->prepare('UPDATE members SET title=?, first_name=?, last_name=?, email=?, birthday=?, notes=?, date_joined=?, membership_type_slot=?, membership_renewal_year=?, inactive=?, suspended=?, life_member=?, free_membership=?, gate_key_number=?, ama_number=?, ama_expiration=?, ama_life_member=?, faa_number=?, faa_expiration=?, emergency_contact_name=?, emergency_contact_relationship=?, emergency_contact_phone=?, allow_email=?, allow_postal=? WHERE id=?');
-        $stmt->execute([$title, $firstName, $lastName, $email, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $gateKey, $amaNumber, $amaExp, $amaLife, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $allowEmail, $allowPostal, $memberId]);
-    } else {
-        $stmt = $pdo->prepare('INSERT INTO members (title, first_name, last_name, email, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, allow_email, allow_postal) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-        $stmt->execute([$title, $firstName, $lastName, $email, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $gateKey, $amaNumber, $amaExp, $amaLife, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $allowEmail, $allowPostal]);
-        $memberId = (int) $pdo->lastInsertId();
-    }
-
-    if ($memberId) {
-        syncMemberMembershipYearForMember($pdo, $memberId);
-    }
-
-    if ($memberId) {
-        $pdo->prepare('DELETE FROM member_phones WHERE member_id = ?')->execute([$memberId]);
-        $pdo->prepare('DELETE FROM member_addresses WHERE member_id = ?')->execute([$memberId]);
-        $phoneIns = $pdo->prepare('INSERT INTO member_phones (member_id, type, number) VALUES (?,?,?)');
-        $addrIns  = $pdo->prepare('INSERT INTO member_addresses (member_id, type, street, street2, city, state, postal_code) VALUES (?,?,?,?,?,?,?)');
-        if (!empty($_POST['phones']) && is_array($_POST['phones'])) {
-            foreach ($_POST['phones'] as $p) {
-                $type = in_array($p['type'] ?? '', ['Home','Work','Cell','Other']) ? $p['type'] : 'Home';
-                $num  = trim($p['number'] ?? '');
-                if ($num !== '') $phoneIns->execute([$memberId, $type, $num]);
-            }
-        }
-        if (!empty($_POST['addresses']) && is_array($_POST['addresses'])) {
-            foreach ($_POST['addresses'] as $a) {
-                $type = in_array($a['type'] ?? '', ['Home','Work','Other']) ? $a['type'] : 'Home';
-                $street  = trim($a['street'] ?? '');
-                $street2 = trim($a['street2'] ?? '');
-                $city    = trim($a['city'] ?? '');
-                $state   = trim($a['state'] ?? '');
-                $postal  = trim($a['postal_code'] ?? '');
-                if ($street !== '' || $street2 !== '' || $city !== '' || $postal !== '') {
-                    $addrIns->execute([$memberId, $type, $street ?: null, $street2 ?: null, $city ?: null, $state ?: null, $postal ?: null]);
-                }
-            }
-        }
-
-        if (!empty($_FILES['photo']['tmp_name']) && is_uploaded_file($_FILES['photo']['tmp_name'])) {
-            $finfo = new finfo(FILEINFO_MIME_TYPE);
-            $mime = $finfo->file($_FILES['photo']['tmp_name']);
-            $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif'];
-            if (isset($allowed[$mime]) && $_FILES['photo']['size'] <= 5 * 1024 * 1024) {
-                $dir = __DIR__ . '/uploads/member_photos';
-                if (!is_dir($dir)) mkdir($dir, 0755, true);
-                $ext = $allowed[$mime];
-                $filename = $memberId . '.' . $ext;
-                $path = $dir . '/' . $filename;
-                if (move_uploaded_file($_FILES['photo']['tmp_name'], $path)) {
-                    $photoPath = 'uploads/member_photos/' . $filename;
-                    $pdo->prepare('UPDATE members SET photo_path = ? WHERE id = ?')->execute([$photoPath, $memberId]);
-                }
-            }
-        }
-    }
+    $memberId = (int) $result['member_id'];
 
     header('Location: member_edit.php?id=' . $memberId);
     exit;
