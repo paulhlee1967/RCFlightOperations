@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **PHP 8.2 minimum** — `composer.json` and CI (PHPUnit 11 requires PHP ≥ 8.2). GitHub Actions matrix updated from 8.1/8.4 to 8.2/8.4.
 - **Unified UI/UX** — Consistent sidebar tool panels, card layout, and club-themed CSS variables across dashboard, members, reports, badge designer, configuration, incidents, and help docs (`docs/docs.css`, `docs/docs-theme.php`).
 - **Documentation** — `docs/badges.html`, `docs/members.html`, `docs/overview.html`, `docs/renewals.html`, `docs/index.html`, `docs/admin.html`, and `docs/install.html` updated for the wizard, badge designer, and theming.
 

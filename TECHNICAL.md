@@ -140,7 +140,7 @@ Run from project root: `php scripts/script_name.php`.
 | **mark_expired_inactive.php** | Optional maintenance: mark members as inactive based on rules. |
 | **import_member_photos.php** | Bulk import member photos (e.g. from a directory keyed by member ID or name). |
 
-**Tests:** After `composer install` (includes dev deps), run `composer test` for PHPUnit unit tests (`tests/`, `phpunit.xml`). CI runs the same suite on push/PR to `main` (PHP 8.1 and 8.4 via [`.github/workflows/test.yml`](.github/workflows/test.yml)). Production deploys can skip dev dependencies; tests cover pure PHP helpers without a live database.
+**Tests:** After `composer install` (includes dev deps), run `composer test` for PHPUnit unit tests (`tests/`, `phpunit.xml`). CI runs the same suite on push/PR to `main` (PHP 8.2 and 8.4 via [`.github/workflows/test.yml`](.github/workflows/test.yml)). Production deploys can skip dev dependencies; tests cover pure PHP helpers without a live database.
 
 ---
 

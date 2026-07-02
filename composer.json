@@ -3,7 +3,7 @@
     "description": "RC Flight Operations – membership management",
     "license": "MIT",
     "require": {
-        "php": ">=8.1",
+        "php": ">=8.2",
         "dompdf/dompdf": "^3.0",
         "phpmailer/phpmailer": "^7.0"
     },
