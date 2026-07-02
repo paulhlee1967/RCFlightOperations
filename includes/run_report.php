@@ -23,6 +23,7 @@
  */
 
 require_once __DIR__ . '/membership_status.php';
+require_once __DIR__ . '/member_completeness.php';
 
 /**
  * Registry of available reports, in display order.
@@ -62,6 +63,12 @@ function reportRegistry(): array
             'label'       => 'AMA/FAA compliance',
             'description' => 'Current members with credentials expired or expiring within 60 days.',
             'year'        => false,
+        ],
+        'data_completeness' => [
+            'label'       => 'Missing member data',
+            'description' => 'Current members with incomplete contact, emergency, compliance, or membership fields.',
+            'year'        => false,
+            'cohort'      => true,
         ],
     ];
 }
@@ -107,6 +114,35 @@ function reportCohortRecipients(PDO $pdo, string $slug, int $year): array
 
         $out = [];
         while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $out[] = [
+                'id'         => (int) $r['id'],
+                'first_name' => (string) $r['first_name'],
+                'last_name'  => (string) $r['last_name'],
+                'email'      => (string) $r['email'],
+            ];
+        }
+
+        return $out;
+    }
+
+    if ($slug === 'data_completeness') {
+        $current = membershipStatusYear();
+        $where   = currentMemberWhereSql('m', $current);
+        $sql     = 'SELECT ' . memberCompletenessSelectSql('m') . "
+                  FROM members m
+                  WHERE {$where}
+                  ORDER BY m.last_name, m.first_name";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute(currentMemberWhereParams($current));
+
+        $out = [];
+        while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if (memberCompletenessMissingFields($r) === []) {
+                continue;
+            }
+            if (trim((string) ($r['email'] ?? '')) === '' || !(int) ($r['allow_email'] ?? 0)) {
+                continue;
+            }
             $out[] = [
                 'id'         => (int) $r['id'],
                 'first_name' => (string) $r['first_name'],
@@ -268,6 +304,7 @@ function runReport(PDO $pdo, string $slug, array $params = []): array
         'not_yet_renewed'     => reportNotYetRenewed($pdo, $year),
         'revenue_by_year'     => reportRevenueByYear($pdo),
         'compliance'          => reportCompliance($pdo),
+        'data_completeness'   => reportDataCompleteness($pdo),
         default               => throw new InvalidArgumentException('Unknown report: ' . $slug),
     };
 
@@ -683,5 +720,55 @@ function reportCompliance(PDO $pdo): array
         'rows'   => $rows,
         'totals' => null,
         'note'   => 'Current members only. Includes credentials already expired or expiring on or before ' . formatDate($in60) . '.',
+    ];
+}
+
+/**
+ * Current members with incomplete contact, emergency, compliance, or membership data.
+ *
+ * @return array<string, mixed>
+ */
+function reportDataCompleteness(PDO $pdo): array
+{
+    $meta    = reportRegistry()['data_completeness'];
+    $current = membershipStatusYear();
+    $where   = currentMemberWhereSql('m', $current);
+
+    $sql = 'SELECT ' . memberCompletenessSelectSql('m') . "
+            FROM members m
+            WHERE {$where}
+            ORDER BY m.last_name, m.first_name";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(currentMemberWhereParams($current));
+
+    $rows = [];
+    while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $missing = memberCompletenessMissingFields($r);
+        if ($missing === []) {
+            continue;
+        }
+        $rows[] = [
+            'last_name'  => $r['last_name'],
+            'first_name' => $r['first_name'],
+            'email'      => $r['email'],
+            'missing'    => implode(', ', $missing),
+            'issue_count'=> count($missing),
+        ];
+    }
+
+    return [
+        'slug'        => 'data_completeness',
+        'title'       => $meta['label'],
+        'description' => $meta['description'],
+        'columns'     => [
+            ['key' => 'last_name',   'label' => 'Last name',    'format' => 'text', 'align' => 'start'],
+            ['key' => 'first_name',  'label' => 'First name',   'format' => 'text', 'align' => 'start'],
+            ['key' => 'email',       'label' => 'Email',        'format' => 'text', 'align' => 'start'],
+            ['key' => 'missing',     'label' => 'Missing fields', 'format' => 'text', 'align' => 'start'],
+            ['key' => 'issue_count', 'label' => 'Issues',       'format' => 'int',  'align' => 'end'],
+        ],
+        'rows'   => $rows,
+        'totals' => null,
+        'note'   => 'Current members only. Checks email, phone, mailing address, emergency contact, AMA/FAA numbers, and membership type. AMA life members are exempt from AMA number/expiration requirements.',
     ];
 }

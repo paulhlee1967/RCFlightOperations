@@ -74,7 +74,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **vendor_assets.php** | URL helpers for pinned assets in `assets/vendor/` (Bootstrap CSS/JS, Bootstrap Icons, Fabric.js). |
 | **dues_helpers.php** | Membership type labels, `dues_rules` fetch, and renewal amount calculation (`calculateDues()`). |
 | **membership_status.php** | Current-member SQL (`currentMemberWhereSql`), per-year roster helpers, status counts for lists and reports. |
-| **ama_verify.php** | AMA number lookup scraper (cookie session, Drupal AJAX parsing, retries). Used by `api_verify_ama.php` and `scripts/memberapp_precheck.php`. |
+| **ama_verify.php** | AMA number lookup scraper (cookie session, Drupal AJAX parsing, retries). Used by `api_verify_ama.php`. |
 | **badge_design_helpers.php** | Badge designer paths, background file handling, design list helpers. |
 | **badge_design_api.php** | JSON/AJAX handlers for `badge_design.php` (save, load, upload, member preview). |
 | **badge_member_data.php** | Shared member→badge field map (`badge_member_data_from_row()`), CR80 dimensions, member+address SQL. |

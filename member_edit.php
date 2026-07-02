@@ -36,6 +36,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
         exit;
     }
 
+    $amaConflict = member_find_by_ama_number($pdo, $c['ama_number'], $memberId ?: null);
+    if ($amaConflict !== null) {
+        flash(member_ama_number_conflict_message($amaConflict), 'warning');
+        header('Location: member_edit.php' . ($memberId ? '?id=' . (int) $memberId : ''));
+        exit;
+    }
+
     $title          = $c['title'];
     $firstName      = $c['first_name'];
     $lastName       = $c['last_name'];

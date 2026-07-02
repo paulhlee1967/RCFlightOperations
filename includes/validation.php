@@ -113,8 +113,15 @@ function validate_member_input(array $post): array {
         $clean['membership_renewal_year'] = null;
     }
 
-    // ── Optional: AMA number ──────────────────────────────────────────────
-    $clean['ama_number'] = trim($post['ama_number'] ?? '') ?: null;
+    // ── Optional: AMA number (digits only; one membership per number) ─────
+    $rawAma = trim($post['ama_number'] ?? '');
+    if ($rawAma !== '') {
+        require_once __DIR__ . '/ama_verify.php';
+        $normalizedAma = ama_verify_normalize_number($rawAma);
+        $clean['ama_number'] = $normalizedAma !== '' ? $normalizedAma : null;
+    } else {
+        $clean['ama_number'] = null;
+    }
 
     // ── Optional: AMA expiration ──────────────────────────────────────────
     $rawAmaExp = trim($post['ama_expiration'] ?? '');
@@ -269,4 +276,56 @@ function validate_positive_number(mixed $value): array {
         return [false, 'Must be zero or greater.'];
     }
     return [true, ''];
+}
+
+/**
+ * Whether another member already uses this AMA number (digits-only comparison).
+ *
+ * @return array{id:int,first_name:string,last_name:string,ama_number:string}|null
+ */
+function member_find_by_ama_number(PDO $pdo, ?string $amaNumber, ?int $excludeMemberId = null): ?array
+{
+    require_once __DIR__ . '/ama_verify.php';
+
+    $normalized = ama_verify_normalize_number((string) $amaNumber);
+    if ($normalized === '') {
+        return null;
+    }
+
+    $stmt = $pdo->query(
+        "SELECT id, first_name, last_name, ama_number
+         FROM members
+         WHERE ama_number IS NOT NULL AND TRIM(ama_number) != ''"
+    );
+
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        if (ama_verify_normalize_number((string) $row['ama_number']) !== $normalized) {
+            continue;
+        }
+        if ($excludeMemberId !== null && (int) $row['id'] === $excludeMemberId) {
+            continue;
+        }
+
+        return [
+            'id'         => (int) $row['id'],
+            'first_name' => (string) $row['first_name'],
+            'last_name'  => (string) $row['last_name'],
+            'ama_number' => (string) $row['ama_number'],
+        ];
+    }
+
+    return null;
+}
+
+/**
+ * Human-readable error when an AMA number is already assigned to another member.
+ */
+function member_ama_number_conflict_message(?array $conflict): ?string
+{
+    if ($conflict === null) {
+        return null;
+    }
+
+    return 'AMA number ' . $conflict['ama_number'] . ' is already assigned to '
+        . $conflict['first_name'] . ' ' . $conflict['last_name'] . '.';
 }

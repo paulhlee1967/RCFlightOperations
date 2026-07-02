@@ -11,6 +11,7 @@ ob_start();
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
+require_once __DIR__ . '/includes/validation.php';
 
 requireLogin();
 
@@ -345,6 +346,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $gateVal = isset($mapping['gate_key_number']) ? trim((string) ($row[$mapping['gate_key_number']] ?? '')) : '';
                     $amaNumVal = isset($mapping['ama_number']) ? trim((string) ($row[$mapping['ama_number']] ?? '')) : '';
                     $faaNumVal = isset($mapping['faa_number']) ? trim((string) ($row[$mapping['faa_number']] ?? '')) : '';
+                    if ($amaNumVal !== '') {
+                        require_once __DIR__ . '/includes/ama_verify.php';
+                        $amaNumVal = ama_verify_normalize_number($amaNumVal);
+                    }
                     $suspendedVal = isset($mapping['suspended']) ? (normalizeBool($row[$mapping['suspended']] ?? '') ? 1 : 0) : 0;
                     $amaLifeVal = isset($mapping['ama_life_member']) ? (normalizeBool($row[$mapping['ama_life_member']] ?? '') ? 1 : 0) : 0;
 
@@ -379,6 +384,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                         if (!$abortTiers && count($matches) === 1) {
                             $memberId = (int) $matches[0];
+                            if ($amaNumVal !== '') {
+                                $amaConflict = member_find_by_ama_number($pdo, $amaNumVal, $memberId);
+                                if ($amaConflict !== null) {
+                                    $failures[] = [
+                                        'row' => $i + 2,
+                                        'reason' => member_ama_number_conflict_message($amaConflict),
+                                        'data' => $row,
+                                    ];
+                                    continue;
+                                }
+                            }
                             // Update only mapped fields (preserve existing data for unmapped columns)
                             $sets = [];
                             $vals = [];
@@ -419,6 +435,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $emergencyPhoneVal = isset($mapping['emergency_contact_phone']) ? trim((string) ($row[$mapping['emergency_contact_phone']] ?? '')) : '';
 
                     if ($memberId === null) {
+                        if ($amaNumVal !== '') {
+                            $amaConflict = member_find_by_ama_number($pdo, $amaNumVal, null);
+                            if ($amaConflict !== null) {
+                                $failures[] = [
+                                    'row' => $i + 2,
+                                    'reason' => member_ama_number_conflict_message($amaConflict),
+                                    'data' => $row,
+                                ];
+                                continue;
+                            }
+                        }
                         $allowEmailIns  = isset($mapping['allow_email']) ? (normalizeBool($row[$mapping['allow_email']] ?? '') ? 1 : 0) : 1;
                         $allowPostalIns = isset($mapping['allow_postal']) ? (normalizeBool($row[$mapping['allow_postal']] ?? '') ? 1 : 0) : 1;
                         $insertMember->execute([

@@ -10,7 +10,7 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` and the cod
 - **Members:** CRUD with Contact (phones, addresses, photo; `allow_email` / `allow_postal` for communication preferences), Compliance (AMA/FAA, verify AMA), Membership (type slot, renewal year, gate key, life/free/inactive/suspended), Payment history.
 - **Record signup/renewal:** On-time, late, or new prorated; configurable dues; complementary option; optional free membership / life member flag.
 - **Badge design & print:** CR80 card designer (Fabric.js): front (background, text fields, photo) and back (HTML). Multiple named designs per club; per-design backgrounds. Print front and/or back as separate jobs; front/back orientation independent. Shared Fabric helpers in `js/badge_fabric.js`.
-- **Reports:** Six built-in reports — membership by year, retention & churn, type mix, not yet renewed, revenue, and AMA/FAA compliance — built on per-year membership history (`member_membership_years`, `payments`, `member_fulfillments`). Export CSV/PDF; email members (opt-in) or a snapshot to a board address.
+- **Reports:** Seven built-in reports — membership by year, retention & churn, type mix, not yet renewed, revenue, AMA/FAA compliance, and missing member data — built on per-year membership history (`member_membership_years`, `payments`, `member_fulfillments`). Export CSV/PDF; email members (opt-in) or a snapshot to a board address.
 - **Incidents:** Safety / field incident log (optional workflow for AMA or club records).
 - **Import/export:** CSV import for members; CSV/PDF export.
 - **Admin:** Users (roles: admin, editor, treasurer, viewer), club config (General, Design: logo, favicon, colors), audit log viewer, **Installation** (SMTP, maintenance, health).

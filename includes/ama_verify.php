@@ -3,7 +3,7 @@
  * includes/ama_verify.php
  *
  * Shared AMA membership verification (scrapes the public Drupal verify form).
- * Used by api_verify_ama.php and scripts/memberapp_precheck.php.
+ * Used by api_verify_ama.php.
  */
 
 declare(strict_types=1);
@@ -65,7 +65,7 @@ function ama_verify_validate_inputs(string $amaNumber, string $lastName): ?strin
 }
 
 /**
- * Unified verify result shape for app + precheck adapters.
+ * Unified verify result shape for the member edit AMA lookup.
  *
  * @return array{
  *   ok: bool,
@@ -159,7 +159,7 @@ function ama_verify_to_api_json(array $result): array
 }
 
 /**
- * Whether membership expiration meets a required m/d/Y date (precheck).
+ * Whether membership expiration meets a required m/d/Y date.
  */
 function ama_verify_meets_required_date(?string $expirationMdy, string $requiredMdy): bool
 {

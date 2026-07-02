@@ -53,7 +53,7 @@ require_once __DIR__ . '/includes/header.php';
                     <li>Renewal and payment recording (dues collected outside the app)</li>
                     <li>AMA/FAA compliance tracking and verification</li>
                     <li>CR80 badge design and printing</li>
-                    <li>Six built-in reports with CSV and PDF export</li>
+                    <li>Seven built-in reports with CSV and PDF export</li>
                     <li>CSV import/export and optional incident log</li>
                 </ul>
             </div>
