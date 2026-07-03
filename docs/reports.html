@@ -341,6 +341,15 @@
   where unsubscribe is managed.
 </p>
 
+<h3>AMA/FAA reminder emails and unsubscribe</h3>
+<p>
+  Scheduled expiry reminders (<code>scripts/send_reminders.php</code>) can check Sender.net
+  before sending: configure the API token and unsubscribe URL under
+  <strong>Administration → Installation → Sender.net (reminder opt-out)</strong>.
+  Members who unsubscribed from club emails in Sender are skipped automatically.
+  Reminder messages include a footer link to your Sender unsubscribe page when the URL is set.
+</p>
+
 <h3>Do reports move money or charge anyone?</h3>
 <p>
   No. Like the rest of the app, reports only summarize records you've already entered —

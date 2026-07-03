@@ -172,6 +172,7 @@ mysql -u root flightops &lt; schema_full.sql</code></pre>
       <li>Import existing member records via <strong>Members → Import</strong>, or add members one at a time with <strong>Members → New member</strong> (guided wizard).</li>
       <li>Design your ID badge template in <strong>Badge Design</strong> (main navigation).</li>
       <li>Run the <strong>Membership Snapshot</strong> report to confirm your data looks right.</li>
+      <li>If you send AMA/FAA expiry reminders, set up cron for <code>scripts/send_reminders.php</code> and configure <strong>Sender.net (reminder opt-out)</strong> under <strong>Administration → Installation</strong> (see <a href="admin.html#sender-opt-out">Administration — Sender.net opt-out</a>).</li>
     </ol>
 
     <!-- ── File layout ── -->

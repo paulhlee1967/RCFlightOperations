@@ -97,6 +97,33 @@ function emailTheme(array $vars, ?PDO $pdo = null): array
     ];
 }
 
+/**
+ * Pass layout-related keys from a reminder/report template into emailWrap().
+ *
+ * @param array<string, mixed> $vars
+ * @return array<string, mixed>
+ */
+function emailWrapVarsFromTemplate(array $vars): array
+{
+    $out = [
+        'club_name' => $vars['club_name'] ?? 'RC Flight Operations',
+    ];
+    if (!empty($vars['unsubscribe_url'])) {
+        $out['unsubscribe_url'] = $vars['unsubscribe_url'];
+    }
+    if (!empty($vars['show_unsubscribe_notice'])) {
+        $out['show_unsubscribe_notice'] = true;
+    }
+    if (isset($vars['footer_note']) && $vars['footer_note'] !== '') {
+        $out['footer_note'] = $vars['footer_note'];
+    }
+    if (isset($vars['eyebrow']) && $vars['eyebrow'] !== '') {
+        $out['eyebrow'] = $vars['eyebrow'];
+    }
+
+    return $out;
+}
+
 function emailWrap(string $content, array $vars, ?PDO $pdo = null): string
 {
     $theme = emailTheme($vars, $pdo);
@@ -115,6 +142,22 @@ function emailWrap(string $content, array $vars, ?PDO $pdo = null): string
         . 'Please do not reply to this address. If you need to contact the club, email '
         . '<a href="mailto:info@pvmac.com" style="color:' . $colorPrimary . ';text-decoration:none;">info@pvmac.com</a>.'
     );
+
+    $unsubscribeUrl = trim((string) ($vars['unsubscribe_url'] ?? ''));
+    $unsubscribeHtml = '';
+    if ($unsubscribeUrl !== '') {
+        $unsubscribeEsc = htmlspecialchars($unsubscribeUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $unsubscribeHtml = '<p style="margin:14px 0 0;font-size:12px;color:#7a6f62;line-height:1.6;">'
+            . 'You are receiving this message because you are a club member with an email address on file.<br>'
+            . 'If you would like to unsubscribe from club emails, '
+            . '<a href="' . $unsubscribeEsc . '" style="color:' . $colorPrimary . ';text-decoration:underline;font-weight:600;">click here to unsubscribe</a>.'
+            . '</p>';
+    } elseif (!empty($vars['show_unsubscribe_notice'])) {
+        $unsubscribeHtml = '<p style="margin:14px 0 0;font-size:12px;color:#7a6f62;line-height:1.6;">'
+            . 'You are receiving this message because you are a club member with an email address on file.<br>'
+            . 'To stop receiving club emails, use the unsubscribe link in any newsletter from us, '
+            . 'or contact the club treasurer.</p>';
+    }
 
     $year = date('Y');
 
@@ -220,6 +263,7 @@ HTML
             <p style="margin:0;font-size:11px;color:#9e9080;line-height:1.6;">
               {$footerNote}
             </p>
+            {$unsubscribeHtml}
             <p style="margin:12px 0 0;font-size:10px;color:#bbb;">
               &copy; {$year} $clubName &nbsp;·&nbsp; Powered by RC Flight Operations
             </p>

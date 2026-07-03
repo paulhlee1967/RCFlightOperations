@@ -42,6 +42,7 @@
     <a href="#design">Design Settings</a>
     <a href="#dues">Membership &amp; Dues</a>
     <a href="#email">Email Configuration</a>
+    <a href="#sender-opt-out">Sender.net Opt-Out</a>
     <hr class="sidebar-divider">
     <div class="sidebar-title">Other Docs</div>
     <a href="index.html">← Docs home</a>
@@ -129,13 +130,14 @@
       three tabs: General, Design, and Membership &amp; Dues.
     </p>
     <p>
-      Separately, <strong>Administration → Installation</strong> covers app-wide email and maintenance, plus
-      <strong>Renewal year default — pre-book starts</strong>: the first month when “next calendar year” becomes the
-      default renewal year in <strong>Process Signup / Renewal</strong> (default October). Adjust if your club’s
-      renewal cycle starts in a different month. The same pre-book logic drives the default
-      <strong>Renewal year</strong> filter on <a href="applications.html">Website Applications</a>.
-      If you use WPForms on your club website, set the <strong>WPForms integration</strong> webhook secret
-      on this page too — see <a href="../WPFORMS_INTEGRATION.md">WPFORMS_INTEGRATION.md</a> for Automator setup.
+      Separately, <strong>Administration → Installation</strong> covers app-wide SMTP, maintenance mode,
+      Sender.net reminder opt-out (see <a href="#sender-opt-out">below</a>), and related host settings:
+      <strong>Renewal year default — pre-book starts</strong> (first month when “next calendar year” becomes the
+      default renewal year in <strong>Process Signup / Renewal</strong>; default October),
+      <strong>Reports — complete data starting year</strong>, and
+      <strong>WPForms integration</strong> webhook secret — see <a href="../WPFORMS_INTEGRATION.md">WPFORMS_INTEGRATION.md</a>
+      for Automator setup. The pre-book month also drives the default <strong>Renewal year</strong> filter on
+      <a href="applications.html">Website Applications</a>.
     </p>
 
     <!-- ── General ── -->
@@ -220,6 +222,29 @@
       If you don't have access to the server config, ask whoever installed RC Flight Operations for
       your club to set up SMTP. Technical documentation in the project repository includes
       an example configuration for developers.
+    </p>
+
+    <!-- ── Sender.net ── -->
+    <h2 id="sender-opt-out">Sender.net Opt-Out (Scheduled Reminders)</h2>
+    <p>
+      If your club uses <strong>Sender.net</strong> for newsletters and member list management, configure
+      <strong>Administration → Installation → Sender.net (reminder opt-out)</strong>:
+    </p>
+    <ul>
+      <li><strong>API access token</strong> — from Sender → Settings → API access tokens. Used by the daily
+        <code>send_reminders.php</code> cron job to check each recipient’s promotional email status.</li>
+      <li><strong>Unsubscribe URL template</strong> — copy the unsubscribe link from a Sender test email
+        (often <code>https://stats.sender.net/unsubscribe/…</code>). Shown in AMA/FAA reminder footers and
+        the <code>List-Unsubscribe</code> email header.</li>
+    </ul>
+    <p>
+      Members who unsubscribed in Sender are <strong>skipped</strong> for AMA/FAA expiry reminders.
+      New applicants are typically added to Sender via your website form (Uncanny Automator);
+      SMTP delivery may use Sender’s relay separately from this promotional status check.
+    </p>
+    <p>
+      Test without sending: <code>php scripts/send_reminders.php --dry-run</code>
+      (from SSH on your host). Use <code>--test-email=you@example.com</code> to receive sample reminders.
     </p>
 
   </main>

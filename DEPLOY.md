@@ -174,12 +174,14 @@ After uploading files and importing the database:
    ```bash
    php /path/to/RCFlightOperations/scripts/send_reminders.php
    ```
-   Use `--dry-run` to preview.
+   Use `--dry-run` to preview sends and opt-out skips.
+
+   **Sender.net opt-out (recommended):** In **Administration → Installation**, set the Sender API token and unsubscribe URL so AMA/FAA reminders respect newsletter opt-outs and include a compliant footer. Members are usually added to Sender when they submit your website application (Uncanny Automator); SMTP may use Sender’s relay separately from the promotional status check.
 
 ---
 
 ## Quick reference
 
 - **Login URL:** `https://yourdomain.com/yourfolder/login.php` (or document root).
-- **Installation (admin):** after logging in as admin, **Administration → Installation** — SMTP, maintenance mode, health, etc.
+- **Installation (admin):** after logging in as admin, **Administration → Installation** — SMTP, Sender.net reminder opt-out, maintenance mode, health, etc.
 - **Do not commit:** `config.php`, `export_for_cpanel.sql`, `.env`, or uploaded files under `uploads/` (see [.gitignore](.gitignore)). Note: `uploads/.htaccess` is included for hardening.

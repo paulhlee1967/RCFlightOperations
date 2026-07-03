@@ -104,7 +104,5 @@ $content = <<<HTML
 </p>
 HTML;
 
-$bodyHtml = emailWrap($content, [
-    'club_name' => $vars['club_name'] ?? 'RC Flight Operations',
-], $pdo ?? null);
+$bodyHtml = emailWrap($content, emailWrapVarsFromTemplate($vars), $pdo ?? null);
 

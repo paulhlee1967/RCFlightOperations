@@ -14,6 +14,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Sender.net reminder opt-out** — `scripts/send_reminders.php` checks each recipient’s promotional email status via the Sender.net API (`includes/sender_net.php`) before sending AMA/FAA expiry reminders. Skips unsubscribed, bounced, or spam-reported contacts; fails closed on API errors. **Administration → Installation** stores the API token and unsubscribe URL; reminder templates include a compliant footer and `List-Unsubscribe` header when configured.
 - **New member wizard** — Guided five-step signup: `member_wizard.php` (contact, compliance, membership), then `member_process.php?wizard=1` (record signup, print & mail). Stepper in `includes/member_wizard_nav.php`; step JS in `js/member_wizard.js`. Shared save logic in `includes/member_save.php`. New members no longer open a blank `member_edit.php` form.
 - **Shared club theme** — `includes/club_theme.php` centralizes default palette, WCAG on-primary text, and status color tokens. Used by `includes/header.php`, `docs/docs-theme.php`, and branded email/PDF layouts.
 - **Badge designer overhaul** — Tabbed sidebar (card options, add fields, selected field, live preview), undo/redo, fixed-width text boxes for alignment, emergency-contact merge fields, back-side merge-tag buttons with live HTML preview, design rename, and browser session backup for unsaved edits.

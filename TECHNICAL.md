@@ -64,8 +64,9 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **footer.php** | Closes container, RC Flight Operations attribution bar (uses theme CSS variables), Bootstrap JS, `flightops_ui.js`. |
 | **validation.php** | Server-side validation: `validate_member_input()`, `validate_payment_input()`, `validate_email()`, `validate_date()`, `validate_positive_number()`. Return structured errors for forms and APIs. |
 | **audit_log.php** | `audit_log($pdo, $userId, $action, $targetType, $targetId, $detail)`. Writes to `audit_log` table; safe if table is missing. **Admin UI:** `audit_log_viewer.php` (Administration → Audit log). |
-| **mail.php** | Email sending via config: `send_mail($to, $subject, $bodyHtml, $bodyText, $emailConfig)`. Uses PHPMailer; SMTP or PHP `mail()` depending on config. |
-| **installation_config.php** | Loads/saves `system_config` keys; merges with `config.php` email for Installation screen. |
+| **mail.php** | Email sending via config: `send_mail($to, $subject, $bodyHtml, $bodyText, $emailConfig, $options)`. Uses PHPMailer; SMTP or PHP `mail()`. Optional `list_unsubscribe_url` in `$options`. |
+| **sender_net.php** | Sender.net API: promotional opt-out check (`sender_net_may_email_recipient()`), unsubscribe URL builder. Used by `send_reminders.php`. |
+| **installation_config.php** | Loads/saves `system_config` keys; merges with `config.php` email and Sender settings for Installation screen. |
 | **password_policy.php** | Password strength rules and validation. |
 | **password_strength_ui.php** | Client-side UI for password strength (used on user edit, reset password). |
 | **email_templates.php** | Helpers to load and render email templates from `templates/email/`. |
@@ -100,7 +101,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **login.php** | Club user login. Session: `user_id`, `user_email`, `user_name`, `user_role`. Uses CSRF and safe redirect. |
 | **logout.php** | Destroys session, redirects to login. |
 | **forgot_password.php** / **reset_password.php** | Password reset flow (tokens in `password_reset_tokens`). |
-| **installation.php** | Host/app settings: SMTP, maintenance mode, health, broadcast to admins. **Admin only.** |
+| **installation.php** | Host/app settings: SMTP, Sender.net (reminder opt-out), maintenance mode, health, broadcast to admins. **Admin only.** |
 | **members.php** | Member list: pagination, filters (status, type, search). Links to new member wizard, edit, renew, print badge, export. |
 | **member_wizard.php** | Guided new-member workflow (steps 1–3: contact, compliance, membership). POST saves via `member_save.php`, then redirects to `member_process.php?wizard=1`. Editor or Admin. |
 | **member_edit.php** | Edit existing member (contact, compliance, membership tabs). New members are redirected to `member_wizard.php`. POST handled in page; validation via `validation.php`. |
@@ -142,7 +143,7 @@ Run from project root: `php scripts/script_name.php`.
 | **verify_ama_health.php** | Probes AMA verify page for `form_build_id` (exit 0/1). Cron-friendly health check. |
 | **fetch_vendor_assets.sh** | Downloads pinned Bootstrap, Bootstrap Icons, and Fabric.js into `assets/vendor/`. |
 | **export_db_for_cpanel.php** | Exports SQL dump suitable for cPanel/phpMyAdmin import. |
-| **send_reminders.php** | Sends reminder emails (AMA/FAA expiry). Cron-friendly. `--dry-run`, `--test-email=`. |
+| **send_reminders.php** | Sends reminder emails (AMA/FAA expiry). Cron-friendly. Checks Sender.net promotional opt-out when API token is set. `--dry-run`, `--test-email=`. |
 | **mark_expired_inactive.php** | Optional maintenance: mark members as inactive based on rules. |
 | **import_member_photos.php** | Bulk import member photos (e.g. from a directory keyed by member ID or name). |
 
@@ -172,7 +173,7 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 ## Email and PDF
 
 - **Email:** Defaults in `config.php` under `email`; **Administration → Installation** can store SMTP and other keys in `system_config` (see `includes/installation_config.php` and `includes/mail.php`).
-  - **Scheduled reminders:** `scripts/send_reminders.php` (cron) sends AMA/FAA expiry templates to members with a non-empty email.
+  - **Scheduled reminders:** `scripts/send_reminders.php` (cron) sends AMA/FAA expiry templates to members with a non-empty email. When a **Sender.net API token** is configured in Installation, each recipient is checked via `GET /v2/subscribers/{email}`; sends are skipped unless `status.email` is `active`. Reminder footers include an unsubscribe link when **Sender unsubscribe URL** is set (e.g. `https://stats.sender.net/unsubscribe/…`). Members are typically added to Sender.net via your website form (Uncanny Automator); SMTP delivery may use Sender’s transactional relay.
   - **CSV:** `export.php` format `email` includes members with a non-empty email (opt-out/unsubscribe is expected to be managed in your external mailing tool, e.g. Sender.net).
   - **Report email:** `report_email.php` — snapshot to arbitrary addresses; member cohort blasts require a non-empty email on file.
 - **PDF:** Dompdf (Composer) powers report PDF export via `includes/report_pdf.php`. Run `composer install` on the server; `reportPdfAvailable()` guards when `vendor/` is missing.
@@ -212,5 +213,5 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 | Change website application review / webhook | `applications.php`, `api_webhook_application.php`, `includes/wpforms_application.php`, [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md), [docs/applications.html](docs/applications.html) |
 | Change dues or proration logic | `dues_rules` table, `member_process.php`, `config_site.php`, `includes/dues_helpers.php` |
 | Change email content | `templates/email/`, `includes/email_templates.php` |
-| Change SMTP / installation behaviour | `installation.php`, `system_config`, `config.php` → `email`, `includes/mail.php` |
+| Change SMTP / installation behaviour | `installation.php`, `system_config`, `config.php` → `email` / `sender`, `includes/mail.php`, `includes/sender_net.php` |
 | Run one-off or scheduled tasks | `scripts/` |

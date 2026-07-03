@@ -43,6 +43,12 @@ return [
     // Optional: shared secret for WPForms / Uncanny Automator webhook (overridden by Administration → Installation).
     // 'application_webhook_secret' => 'generate-a-long-random-string',
 
+    // Optional: Sender.net API for reminder opt-out checks (overridden by Administration → Installation).
+    // 'sender' => [
+    //     'api_token'        => 'your-sender-api-token',
+    //     'unsubscribe_url'  => 'https://example-unsubscribe-url?email={email}',
+    // ],
+
     // ── Database ──────────────────────────────────────────────────────────
     'db' => [
         'host'     => 'localhost',

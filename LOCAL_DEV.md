@@ -166,9 +166,19 @@ Your Mac setup is only for development; production uses the cPanel database and 
 The app can send email (e.g. AMA/FAA expiry reminders) via config. In `config.php` you can add an `email` block (see `config.php.example`):
 
 - **`driver` => `'mail'`** – Use PHP `mail()` (no SMTP). Works on many hosts with no extra setup.
-- **`driver` => `'smtp'`** – Use SMTP (e.g. Brevo, cPanel “Email Deliverability”). Set `email.smtp` with host, port, username, password.
+- **`driver` => `'smtp'`** – Use SMTP (e.g. Sender.net, Brevo, cPanel “Email Deliverability”). Set `email.smtp` with host, port, username, password. Club admins can also set SMTP in **Administration → Installation**.
 
 Templates live in **`templates/email/`** (e.g. `ama_expiry_60.php`, `ama_expiry_30.php`, `faa_expiry_60.php`). You can add or edit these.
+
+### Sender.net opt-out (recommended for reminders)
+
+If your club uses [Sender.net](https://www.sender.net) for newsletters and member list management:
+
+1. **Administration → Installation → Sender.net (reminder opt-out)** — set the API access token (Sender → Settings → API access tokens).
+2. Paste your **unsubscribe URL** (from a Sender test email; often `https://stats.sender.net/unsubscribe/…`).
+3. Reminder cron will skip anyone whose Sender **promotional email** status is not `active`, and include an unsubscribe footer in sent reminders.
+
+Optional fallback in `config.php`: see the `sender` block in `config.php.example`.
 
 To send reminder emails on a schedule, run from cron (e.g. daily):
 
@@ -176,4 +186,6 @@ To send reminder emails on a schedule, run from cron (e.g. daily):
 php /path/to/RCFlightOperations/scripts/send_reminders.php
 ```
 
-Use `--dry-run` to see who would get an email without sending.
+Use `--dry-run` to see who would get an email (and who would be skipped for opt-out) without sending.
+
+Use `--test-email=you@example.com` to deliver all matching reminders to one inbox (relaxes the date filter to 90 days).

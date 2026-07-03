@@ -33,9 +33,10 @@ $mailFromName    = $emailConfig['from_name'] ?? 'RC Flight Operations';
  * @param string      $bodyHtml     HTML body.
  * @param string|null $bodyText     Optional plain-text body (if null, strip_tags of HTML used for mail()).
  * @param array|null  $emailConfig Optional config (from getSystemMailConfig etc.). When null, uses $config['email'].
+ * @param array|null  $options     Optional send options, e.g. list_unsubscribe_url for RFC 2369 header.
  * @return bool True if sent successfully, false otherwise.
  */
-function send_mail(string $to, string $subject, string $bodyHtml, ?string $bodyText = null, ?array $emailConfig = null): bool
+function send_mail(string $to, string $subject, string $bodyHtml, ?string $bodyText = null, ?array $emailConfig = null, ?array $options = null): bool
 {
     global $config, $mailFromAddress, $mailFromName;
 
@@ -55,10 +56,10 @@ function send_mail(string $to, string $subject, string $bodyHtml, ?string $bodyT
     $fromName = $email['from_name'] ?? $mailFromName;
 
     if ($driver === 'smtp' && !empty($smtp['host']) && !empty($smtp['username'])) {
-        return send_mail_via_smtp($to, $subject, $bodyHtml, $bodyText, $email);
+        return send_mail_via_smtp($to, $subject, $bodyHtml, $bodyText, $email, $options);
     }
 
-    return send_mail_via_php($to, $subject, $bodyHtml, $bodyText, $fromAddress, $fromName);
+    return send_mail_via_php($to, $subject, $bodyHtml, $bodyText, $fromAddress, $fromName, $options);
 }
 
 /**
@@ -69,9 +70,10 @@ function send_mail(string $to, string $subject, string $bodyHtml, ?string $bodyT
  * @param string      $bodyHtml    HTML body.
  * @param string|null $bodyText    Plain-text alternative (or null to derive from HTML).
  * @param array       $emailConfig Config array with from_address, from_name, smtp (host, port, username, password, encryption).
+ * @param array|null  $options     Optional send options (list_unsubscribe_url).
  * @return bool True on success, false on PHPMailer exception.
  */
-function send_mail_via_smtp(string $to, string $subject, string $bodyHtml, ?string $bodyText, array $emailConfig): bool
+function send_mail_via_smtp(string $to, string $subject, string $bodyHtml, ?string $bodyText, array $emailConfig, ?array $options = null): bool
 {
     $fromAddress = $emailConfig['from_address'] ?? 'noreply@localhost';
     $fromName    = $emailConfig['from_name'] ?? 'RC Flight Operations';
@@ -87,6 +89,11 @@ function send_mail_via_smtp(string $to, string $subject, string $bodyHtml, ?stri
         $mail->Password   = $smtp['password'];
         $mail->SMTPSecure = ($smtp['encryption'] ?? 'tls') === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
         $mail->CharSet    = PHPMailer::CHARSET_UTF8;
+
+        $listUnsub = trim((string) ($options['list_unsubscribe_url'] ?? ''));
+        if ($listUnsub !== '') {
+            $mail->addCustomHeader('List-Unsubscribe', '<' . $listUnsub . '>');
+        }
 
         $mail->setFrom($fromAddress, $fromName);
         $mail->addAddress($to);
@@ -133,9 +140,10 @@ function mail_last_error(string $msg): void {
  * @param string|null $bodyText    Plain text (or null to strip HTML).
  * @param string      $fromAddress From address.
  * @param string      $fromName    From display name.
+ * @param array|null  $options     Optional send options (list_unsubscribe_url).
  * @return bool True if mail() returned true.
  */
-function send_mail_via_php(string $to, string $subject, string $bodyHtml, ?string $bodyText, string $fromAddress, string $fromName): bool
+function send_mail_via_php(string $to, string $subject, string $bodyHtml, ?string $bodyText, string $fromAddress, string $fromName, ?array $options = null): bool
 {
     $encodeHeader = static function (string $value): string {
         $value = trim($value);
@@ -159,6 +167,11 @@ function send_mail_via_php(string $to, string $subject, string $bodyHtml, ?strin
         'MIME-Version: 1.0',
         'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
     ];
+
+    $listUnsub = trim((string) ($options['list_unsubscribe_url'] ?? ''));
+    if ($listUnsub !== '') {
+        $headers[] = 'List-Unsubscribe: <' . $listUnsub . '>';
+    }
 
     $textPart = $bodyText !== null && $bodyText !== '' ? $bodyText : strip_tags($bodyHtml);
     $body = "--{$boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n{$textPart}\r\n"

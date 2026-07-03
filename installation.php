@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo->beginTransaction();
-            $keys = ['app_name','support_email','renewal_prebook_start_month','renewal_prebook_start_day','reports_accurate_from_year','application_webhook_secret','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','maintenance_mode'];
+            $keys = ['app_name','support_email','renewal_prebook_start_month','renewal_prebook_start_day','reports_accurate_from_year','application_webhook_secret','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','sender_api_token','sender_unsubscribe_url','maintenance_mode'];
             foreach ($keys as $key) {
                 $val = match ($key) {
                     'smtp_port'        => (string) $smtpPort,
@@ -251,6 +251,33 @@ require_once __DIR__ . '/includes/header.php';
                         Endpoint:<br>
                         <code><?= h((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'your-domain') . '/api_webhook_application.php') ?></code>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Sender.net (reminder opt-out)</div>
+        <div class="card-body">
+            <p class="text-muted small">
+                AMA/FAA expiry reminders check each recipient’s <strong>promotional email</strong> status in Sender.net
+                before sending. Create an API token under Sender → Settings → API access tokens.
+                The unsubscribe footer URL is optional — copy the unsubscribe link from a Sender test campaign
+                (right-click → Copy link). Placeholders: <code>{email}</code>, <code>{id}</code> (subscriber ID from the API).
+            </p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="sender_api_token">API access token</label>
+                    <input type="password" class="form-control" id="sender_api_token" name="sender_api_token" autocomplete="new-password"
+                           value="<?= h($configRows['sender_api_token'] ?? '') ?>">
+                    <div class="form-text">Used by <code>scripts/send_reminders.php</code> only. Leave blank to skip opt-out checks.</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="sender_unsubscribe_url">Unsubscribe URL template</label>
+                    <input type="text" class="form-control" id="sender_unsubscribe_url" name="sender_unsubscribe_url"
+                           placeholder="https://… or URL with {email} / {id}"
+                           value="<?= h($configRows['sender_unsubscribe_url'] ?? '') ?>">
+                    <div class="form-text">Shown in reminder email footers and the <code>List-Unsubscribe</code> header when set.</div>
                 </div>
             </div>
         </div>

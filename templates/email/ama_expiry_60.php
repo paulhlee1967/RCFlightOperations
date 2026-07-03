@@ -106,6 +106,4 @@ HTML;
 
 // emailWrap() loads club logo/colors when $pdo is set.
 
-$bodyHtml = emailWrap($content, [
-    'club_name' => $vars['club_name'] ?? 'RC Flight Operations',
-], $pdo ?? null);
+$bodyHtml = emailWrap($content, emailWrapVarsFromTemplate($vars), $pdo ?? null);
