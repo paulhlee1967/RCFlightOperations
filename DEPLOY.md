@@ -46,6 +46,76 @@ Use this when you already have a working local database and want the same data o
 
 ---
 
+## Upgrading an existing production install
+
+Use this when the app is **already live** and you are pulling a code update (e.g. `git pull` on `main`) that changes the database schema.
+
+### 1. Back up first
+
+- **Database:** cPanel → phpMyAdmin → Export, or SSH:
+  ```bash
+  php scripts/export_db_for_cpanel.php
+  ```
+- **Files:** keep a copy of `config.php` and `uploads/` (photos, logos).
+
+### 2. Optional maintenance window
+
+**Administration → Installation** → enable **Maintenance mode** so members do not hit half-upgraded pages while you run SQL.
+
+### 3. Deploy the new PHP files
+
+Upload or `git pull` the latest `main`. Do **not** overwrite your server `config.php`.
+
+If `vendor/` is not on the server:
+
+```bash
+composer install --no-dev
+```
+
+### 4. Run database migrations (in order)
+
+Each script is **idempotent** (safe to re-run). Use phpMyAdmin → SQL tab, or SSH:
+
+```bash
+cd /path/to/RCFlightOperations
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_single_phone.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_single_address.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_drop_comm_prefs.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_applications.sql
+```
+
+| Script | What it does |
+|--------|----------------|
+| `migrate_single_phone.sql` | Adds `members.phone`, copies one number per member from `member_phones` (Cell → Home → Work → Other), drops `member_phones` |
+| `migrate_single_address.sql` | Adds `address_*` columns on `members`, copies Home address from `member_addresses`, drops `member_addresses` |
+| `migrate_drop_comm_prefs.sql` | Drops `allow_email` and `allow_postal` (opt-out lives in Sender.net or similar) |
+| `migrate_member_applications.sql` | Creates `member_applications` queue table + empty `application_webhook_secret` config row |
+
+**Note:** If a member had multiple phones or addresses, only the preferred one is kept (same rules as local dev). Extra rows in the old tables are discarded when those tables are dropped — back up before migrating if you need to audit them.
+
+### 5. Verify
+
+```bash
+php scripts/verify_db.php
+```
+
+Expected output: `Database OK: all expected tables and columns present.`
+
+### 6. WPForms webhook (if using website applications)
+
+1. **Administration → Installation → WPForms integration** — set a long random **Webhook secret** and save.
+2. In Uncanny Automator, point the webhook at `https://your-domain/api_webhook_application.php` with header `X-Webhook-Secret` or `Authorization: Bearer …`.
+3. Field map: [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md).
+
+### 7. Smoke test
+
+- Open **Members** — edit a member; confirm single phone and mailing address fields.
+- Open **Applications** (if WPForms is wired).
+- Spot-check a badge print / envelope (address still renders).
+- Turn off maintenance mode.
+
+---
+
 ## Post-deploy checklist
 
 After uploading files and importing the database:
