@@ -9,9 +9,9 @@
  * Missing field labels for a member row that includes joined address/phone counts.
  *
  * Expected keys on $member (from members + subqueries):
- *   email, ama_number, ama_expiration, ama_life_member, faa_number,
+ *   email, phone, ama_number, ama_expiration, ama_life_member, faa_number,
  *   membership_type_slot, emergency_contact_name, emergency_contact_phone,
- *   phone_count, addr_street, addr_city
+ *   address_street, address_city
  *
  * @return list<string>
  */
@@ -23,11 +23,11 @@ function memberCompletenessMissingFields(array $member): array
         $missing[] = 'Email';
     }
 
-    if ((int) ($member['phone_count'] ?? 0) < 1) {
+    if (trim((string) ($member['phone'] ?? '')) === '') {
         $missing[] = 'Phone';
     }
 
-    if (trim((string) ($member['addr_street'] ?? '')) === '' || trim((string) ($member['addr_city'] ?? '')) === '') {
+    if (trim((string) ($member['address_street'] ?? '')) === '' || trim((string) ($member['address_city'] ?? '')) === '') {
         $missing[] = 'Mailing address';
     }
 
@@ -61,11 +61,9 @@ function memberCompletenessMissingFields(array $member): array
  */
 function memberCompletenessSelectSql(string $alias = 'm'): string
 {
-    return "{$alias}.id, {$alias}.last_name, {$alias}.first_name, {$alias}.email, {$alias}.allow_email,
+    return "{$alias}.id, {$alias}.last_name, {$alias}.first_name, {$alias}.email, {$alias}.phone,
             {$alias}.ama_number, {$alias}.ama_expiration, {$alias}.ama_life_member,
             {$alias}.faa_number, {$alias}.membership_type_slot,
             {$alias}.emergency_contact_name, {$alias}.emergency_contact_phone,
-            (SELECT COUNT(*) FROM member_phones mp WHERE mp.member_id = {$alias}.id) AS phone_count,
-            (SELECT street FROM member_addresses WHERE member_id = {$alias}.id ORDER BY FIELD(type,\"Home\",\"Work\",\"Other\") LIMIT 1) AS addr_street,
-            (SELECT city FROM member_addresses WHERE member_id = {$alias}.id ORDER BY FIELD(type,\"Home\",\"Work\",\"Other\") LIMIT 1) AS addr_city";
+            {$alias}.address_street, {$alias}.address_city";
 }

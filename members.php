@@ -96,6 +96,7 @@ if (!empty($_GET['deleted'])) {
             </svg>New member
         </a>
         <a href="import.php" class="btn btn-outline-secondary btn-sm">Import</a>
+        <a href="applications.php" class="btn btn-outline-secondary btn-sm">Applications</a>
         <?php endif; ?>
         <?php if (canEditMembers() || canProcessMemberships()): ?>
         <div class="dropdown">

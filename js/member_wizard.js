@@ -60,8 +60,8 @@
         if (!el) {
             el = document.querySelector('[name="' + fieldName + '"]');
         }
-        if (!el && fieldName === 'addresses') {
-            el = document.querySelector('[name="addresses[0][street]"]');
+        if (!el && fieldName === 'address_street') {
+            el = document.querySelector('[name="address_street"]');
         }
         if (!el) return;
 

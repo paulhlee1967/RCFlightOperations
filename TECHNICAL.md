@@ -85,6 +85,10 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **member_save.php** | Shared member create/update from POST (`member_edit.php`, `member_wizard.php`). |
 | **member_wizard_nav.php** | Wizard step definitions, stepper render, and URL helpers for wizard ↔ process handoff. |
 | **member_wizard_styles.php** | Inline CSS for wizard stepper (included by `member_wizard.php` and `member_process.php?wizard=1`). |
+| **member_match.php** | Duplicate member detection (AMA + tiered name/email/birthday). Used by CSV import and WPForms applications. |
+| **member_import_helpers.php** | Shared `parseDateForDb()`, `normalizeMembershipTypeSlot()`, `normalizeBool()` for import and WPForms. |
+| **wpforms_application.php** | WPForms payload parsing, payment breakdown, list filters (renewal year, search, pagination), pending queue, approve/reject, email notification. |
+| **application_webhook_config.php** | Loads `application_webhook_secret` from `system_config` or `config.php`. |
 
 ---
 
@@ -104,19 +108,21 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **payment_delete.php** | POST: permanently delete an erroneous payment row. Admin, editor, or treasurer. The deletion is recorded in `audit_log` and the member's frozen membership-year roster is re-synced. |
 | **member_detail.php** | Read-only member view (optional alternate to edit). |
 | **member_process.php** | Renewal workflow: record payment, update `membership_renewal_year`, clear badge-printed flag. With `?wizard=1`, continues the new-member wizard (steps 4–5: record signup, print & mail). Uses `defaultRenewalYear()`, dues from `dues_rules`. |
-| **member_delete.php** | Deletes member and related data (phones, addresses, payments); removes photo file from `uploads/`. |
+| **member_delete.php** | Deletes member and related data (payments, fulfillments, etc.); removes photo file from `uploads/`. |
 | **users.php** | List app users (Admin only). |
 | **user_edit.php** | Add/edit app user, role, active flag, password (Admin only). |
 | **config_site.php** | Club configuration: General (name), Design (logo, favicon, colors), membership type labels, and **dues_rules** per slot. Admin only. |
 | **reports.php** | Reports module: report picker, year selector, table render, CSV/PDF export, and email panels. Read access via `canViewReports()`. Report data comes from `includes/run_report.php`. |
-| **report_email.php** | POST: email a report. `action=snapshot` sends the rendered table to one or more addresses; `action=members` emails a per-member message to a cohort report (e.g. not-yet-renewed) for members with `allow_email = 1`. The member blast requires editor/treasurer. |
+| **report_email.php** | POST: email a report. `action=snapshot` sends the rendered table to one or more addresses; `action=members` emails a per-member message to a cohort report (e.g. not-yet-renewed) for members with a non-empty email. The member blast requires editor/treasurer. |
 | **incidents.php** / **incident_edit.php** / **incident_delete.php** | Safety / field incident log; editors add/edit, treasurer/viewer can read per nav rules. |
 | **badge_design.php** | Badge template designer page (layout + Fabric config). Tabbed sidebar, undo/redo, live member preview. JSON API in `includes/badge_design_api.php`; UI in `js/badge_design.js`. Editor or Admin. |
 | **badge_print.php** | Print view for one member’s badge (front/back). Marks badge as printed. |
 | **badge_photo.php** | Securely serves member photo from `uploads/` (no direct URL to uploads). |
 | **import.php** | CSV import: upload, column mapping, preview, insert/update members (and optional payment rows). |
+| **applications.php** | WPForms membership application review queue: status tabs, renewal-year filter (defaults to `defaultRenewalYear()`), search, pagination (50/page), detail/diff, payment breakdown, approve (upsert member → `member_process.php`), reject. |
 | **export.php** / **export_options.php** | CSV export (full, short, email-only); filters by year/renewal status. **`export.php` is POST + CSRF only** (forms in the UI and `export_options.php`). |
 | **api_verify_ama.php** | AJAX endpoint: verifies AMA number against AMA lookup via `includes/ama_verify.php`; returns JSON. |
+| **api_webhook_application.php** | Machine-to-machine webhook: receives WPForms submissions (JSON + `X-Webhook-Secret`); stores pending applications. |
 | **member_mailer.php** | Sends member-facing emails (e.g. renewal letter). |
 | **member_envelope.php** | Envelope/letter view for mailing. |
 | **profile.php** | Current user profile (name, password change). |
@@ -153,11 +159,11 @@ Run from project root: `php scripts/script_name.php`.
 
 ## Database (high level)
 
-- **schema_full.sql** — Full, ready-to-import schema. Main tables: `club`, `users`, `members`, `member_phones`, `member_addresses`, `payments`, `dues_rules`, `member_membership_years`, `badge_templates`, `incidents`, `member_fulfillments`, `login_attempts`, `audit_log`, `password_reset_tokens`, `password_reset_ip_events`, `system_config`, `operator_messages`, etc.
+- **schema_full.sql** — Full, ready-to-import schema. Main tables: `club`, `users`, `members`, `payments`, `dues_rules`, `member_membership_years`, `member_applications`, `badge_templates`, `incidents`, `member_fulfillments`, `login_attempts`, `audit_log`, `password_reset_tokens`, `password_reset_ip_events`, `system_config`, `operator_messages`, etc.
 
 - **`dues_rules`:** One row per membership type slot (1–4). Each enabled type (Adult, Youth, Spouse, etc.) has its own annual, prorated, and initiation amounts — slots are independent even when rates match.
 
-- **`members` communication preferences:** `allow_email` (default 1) gates club email: CSV email export, `scripts/send_reminders.php` AMA/FAA notices, and report email flows. `allow_postal` (default 1) is stored for postal opt-out; `member_mailer.php` and `member_envelope.php` show a warning when it is 0.
+- **`members` contact fields:** Single `phone`, single mailing address (`address_street`, `address_street2`, `address_city`, `address_state`, `address_postal_code`), and emergency contact columns on the member row. Legacy `member_phones` / `member_addresses` tables are migrated away by idempotent blocks in `schema_full.sql`.
 
 There is a single logical club: queries use `club.id = 1` where a club row is needed.
 
@@ -166,16 +172,16 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 ## Email and PDF
 
 - **Email:** Defaults in `config.php` under `email`; **Administration → Installation** can store SMTP and other keys in `system_config` (see `includes/installation_config.php` and `includes/mail.php`).
-  - **Scheduled reminders:** `scripts/send_reminders.php` (cron) sends AMA/FAA expiry templates to members with `allow_email = 1`.
-  - **CSV:** `export.php` format `email` skips members with `allow_email = 0`.
-  - **Report email:** `report_email.php` — snapshot to arbitrary addresses; member cohort blasts require `allow_email = 1` and a non-empty email.
+  - **Scheduled reminders:** `scripts/send_reminders.php` (cron) sends AMA/FAA expiry templates to members with a non-empty email.
+  - **CSV:** `export.php` format `email` includes members with a non-empty email (opt-out/unsubscribe is expected to be managed in your external mailing tool, e.g. Sender.net).
+  - **Report email:** `report_email.php` — snapshot to arbitrary addresses; member cohort blasts require a non-empty email on file.
 - **PDF:** Dompdf (Composer) powers report PDF export via `includes/report_pdf.php`. Run `composer install` on the server; `reportPdfAvailable()` guards when `vendor/` is missing.
 
 ---
 
 ## Docs (`docs/`)
 
-- **index.html** — Help center hub; links to overview, members, renewals, compliance, badges, reports, incidents, import/export, administration, installation.
+- **index.html** — Help center hub; links to overview, members, renewals, applications, compliance, badges, reports, incidents, import/export, administration, installation.
 - **docs.css** — Styles for all doc pages.
 - **docs-theme.php** — Served as CSS: outputs `:root` custom properties with the **logged-in club’s** colors (from `club` via `club_theme.php`), including derived card/border/accent and Bootstrap link overrides, so the docs match the app theme. If no session or DB, falls back to default RC Flight Operations palette.
 - Other **.html** files — One per topic. Footers use a consistent copyright line; version details live on **`about.php`** in the app (linked from Help → About). `docs/about.html` redirects readers there.
@@ -203,6 +209,7 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 | Add or change a report | `includes/run_report.php`, `reports.php`, `report_email.php`, `includes/report_pdf.php` |
 | Change badge layout / data | `badge_design.php`, `includes/badge_design_api.php`, `includes/badge_design_helpers.php`, `includes/badge_member_data.php`, `badge_print.php`, `includes/badge_print_helpers.php`, `js/badge_fabric.js`, `js/badge_design.js`, `js/badge_print.js`, `badge_templates` table |
 | Change member list filters / UI | `members.php`, `includes/members_list_query.php`, `includes/members_list_helpers.php`, `js/members_list.js` |
+| Change website application review / webhook | `applications.php`, `api_webhook_application.php`, `includes/wpforms_application.php`, [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md), [docs/applications.html](docs/applications.html) |
 | Change dues or proration logic | `dues_rules` table, `member_process.php`, `config_site.php`, `includes/dues_helpers.php` |
 | Change email content | `templates/email/`, `includes/email_templates.php` |
 | Change SMTP / installation behaviour | `installation.php`, `system_config`, `config.php` → `email`, `includes/mail.php` |

@@ -7,7 +7,7 @@
  *                     (e.g. a board or treasurer address). Any report.
  *   action=members  : email a per-member message to everyone in a cohort report
  *                     (e.g. "not yet renewed"). Only recipients with
- *                     allow_email = 1 and a non-empty address are contacted.
+ *                     a non-empty email are contacted.
  *
  * Message tokens for action=members: {first_name}, {last_name}, {club_name}.
  */

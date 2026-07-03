@@ -30,14 +30,6 @@ if (!$member) {
     exit;
 }
 
-$stmt = $pdo->prepare('SELECT * FROM member_phones WHERE member_id = ? ORDER BY id');
-$stmt->execute([$memberId]);
-$phones = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$stmt = $pdo->prepare('SELECT * FROM member_addresses WHERE member_id = ? ORDER BY id');
-$stmt->execute([$memberId]);
-$addresses = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
 $stmt = $pdo->prepare('SELECT * FROM payments WHERE member_id = ? ORDER BY paid_at DESC, id DESC');
 $stmt->execute([$memberId]);
 $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -133,6 +125,10 @@ require_once __DIR__ . '/includes/header.php';
                                 <label class="form-label">Birthday</label>
                                 <div class="form-control bg-light"><?= htmlspecialchars($member['birthday'] ?? '') ?></div>
                             </div>
+                            <div class="col-12 col-md-4">
+                                <label class="form-label">Phone</label>
+                                <div class="form-control bg-light"><?= htmlspecialchars($member['phone'] ?? '') ?></div>
+                            </div>
                             <div class="col-12">
                                 <label class="form-label">Notes</label>
                                 <div class="form-control bg-light" style="min-height:80px;white-space:pre-wrap;"><?= htmlspecialchars($member['notes'] ?? '') ?></div>
@@ -155,50 +151,18 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
 
                     <div class="col-12">
-                        <label class="form-label">Phones</label>
-                        <?php if (count($phones) === 0): ?>
-                            <p class="text-muted small mb-0">No phone numbers on file.</p>
+                        <label class="form-label">Mailing address</label>
+                        <?php
+                        $addrLines = array_filter([
+                            $member['address_street'] ?? '',
+                            $member['address_street2'] ?? '',
+                            trim(($member['address_city'] ?? '') . ', ' . ($member['address_state'] ?? '') . ' ' . ($member['address_postal_code'] ?? '')),
+                        ]);
+                        ?>
+                        <?php if ($addrLines === []): ?>
+                            <p class="text-muted small mb-0">No mailing address on file.</p>
                         <?php else: ?>
-                            <div class="table-responsive">
-                                <table class="table table-sm mb-0">
-                                    <thead class="table-light"><tr><th>Type</th><th>Number</th></tr></thead>
-                                    <tbody>
-                                    <?php foreach ($phones as $p): ?>
-                                        <tr>
-                                            <td class="text-muted small"><?= htmlspecialchars($p['type'] ?? '') ?></td>
-                                            <td><?= htmlspecialchars($p['number'] ?? '') ?></td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="col-12">
-                        <label class="form-label">Addresses</label>
-                        <?php if (count($addresses) === 0): ?>
-                            <p class="text-muted small mb-0">No addresses on file.</p>
-                        <?php else: ?>
-                            <div class="table-responsive">
-                                <table class="table table-sm mb-0">
-                                    <thead class="table-light"><tr><th>Type</th><th>Address</th></tr></thead>
-                                    <tbody>
-                                    <?php foreach ($addresses as $a): ?>
-                                        <tr>
-                                            <td class="text-muted small"><?= htmlspecialchars($a['type'] ?? '') ?></td>
-                                            <td style="white-space:pre-wrap;">
-                                                <?= htmlspecialchars(trim(implode("\n", array_filter([
-                                                    $a['street'] ?? '',
-                                                    $a['street2'] ?? '',
-                                                    trim(($a['city'] ?? '') . ', ' . ($a['state'] ?? '') . ' ' . ($a['postal_code'] ?? '')),
-                                                ])))) ?>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <div class="form-control bg-light" style="white-space:pre-wrap;"><?= htmlspecialchars(implode("\n", $addrLines)) ?></div>
                         <?php endif; ?>
                     </div>
                 </div>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<!--
+  RC Flight Operations Documentation — Applications
+  docs/applications.html
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Applications — RC Flight Operations Docs</title>
+<link rel="stylesheet" href="../assets/vendor/bootstrap/css/bootstrap.min.css">
+  <link rel="stylesheet" href="../assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="docs.css">
+  <link rel="stylesheet" href="docs-theme.php">
+</head>
+<body>
+
+<nav class="docs-navbar">
+  <a href="../index.php" class="brand">✈ RC Flight Operations</a>
+  <span class="badge-docs">Docs</span>
+  <button class="btn btn-sm sidebar-toggle ms-2"
+          style="display:none;background:rgba(255,255,255,.18);color:#fff;border:none;"
+          onclick="document.querySelector('.docs-sidebar').classList.toggle('open')">
+    <i class="bi bi-list"></i>
+  </button>
+  <a href="../index.php" class="back-link"><i class="bi bi-arrow-left"></i> Back to app</a>
+</nav>
+
+<div class="docs-breadcrumb">
+  <a href="index.html">Docs</a><span class="sep">›</span>Applications
+</div>
+
+<div class="docs-layout">
+
+  <nav class="docs-sidebar">
+    <div class="sidebar-title">On this page</div>
+    <a href="#overview">Overview</a>
+    <a href="#who">Who can use it</a>
+    <a href="#workflow">Review workflow</a>
+    <a href="#filters">Filters &amp; pagination</a>
+    <a href="#payment">Payment display</a>
+    <a href="#approve">Approve &amp; reject</a>
+    <a href="#setup">Website setup</a>
+    <hr class="sidebar-divider">
+    <div class="sidebar-title">Other Docs</div>
+    <a href="index.html">← Docs home</a>
+    <a href="renewals.html">Renewals &amp; Dues</a>
+    <a href="members.html">Members</a>
+    <a href="admin.html">Administration</a>
+  </nav>
+
+  <main class="docs-content">
+
+    <h1>Membership applications</h1>
+    <p class="page-lead">
+      When your club collects membership applications on its website (via WPForms), submissions
+      land in <strong>Applications</strong> for staff review before anyone is added or updated
+      in the member roster.
+    </p>
+
+    <div class="callout callout-info">
+      <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
+      <div class="callout-body">
+        <strong>Payments stay on the website</strong>
+        RC Flight Operations shows what the applicant paid on the form for review. It does
+        <em>not</em> charge cards or auto-post website payments to the ledger. After approval,
+        use <a href="renewals.html#record">Process Signup / Renewal</a> to record dues the
+        same way you would for any other member.
+      </div>
+    </div>
+
+    <h2 id="overview">Overview</h2>
+    <p>
+      Each website submission creates a <strong>pending</strong> application row. Staff compare
+      the form data to existing members (AMA number, name, email, birthday), review uploaded
+      file links, and decide whether to approve or reject. Approved applications create a new
+      member or update a matched member, then hand off to renewal recording.
+    </p>
+    <p>
+      The navbar badge and dashboard “Needs attention” card show how many applications are
+      still <strong>pending</strong> — counted across <em>all</em> renewal years, not just
+      the year currently shown in the list.
+    </p>
+
+    <h2 id="who">Who can use it</h2>
+    <ul>
+      <li><strong>Admin and Editor</strong> — full review, approve, and reject.</li>
+      <li><strong>Treasurer</strong> — can review and approve (same as renewal processing access).</li>
+      <li><strong>Viewer</strong> — no access to Applications.</li>
+    </ul>
+
+    <h2 id="workflow">Review workflow</h2>
+    <ol>
+      <li>Open <strong>Applications</strong> from the top nav (or follow the dashboard link).</li>
+      <li>Select an applicant from the list to open the detail panel.</li>
+      <li>Check the suggested member match and any <strong>Changes vs matched member</strong> table.</li>
+      <li>Review payment info and uploaded AMA/FAA/badge links.</li>
+      <li>Adjust <strong>Renewal type</strong> and <strong>Renewal year</strong> if needed.</li>
+      <li>Click <strong>Approve &amp; continue to recording</strong> or <strong>Reject</strong>.</li>
+    </ol>
+    <p>
+      Approval redirects to <strong>Process Signup / Renewal</strong> for the member so you
+      can record payment and print a badge. See <a href="renewals.html#record">Renewals &amp; Dues</a>.
+    </p>
+
+    <h2 id="filters">Filters &amp; pagination</h2>
+    <p>
+      The list is designed for ongoing season work, not an endless archive of every submission.
+    </p>
+
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Control</th><th>Behavior</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Status tabs</strong></td>
+            <td>Pending (default), Approved, Rejected, or All</td>
+          </tr>
+          <tr>
+            <td><strong>Renewal year</strong></td>
+            <td>Defaults to the club’s <strong>current renewal year</strong> (same logic as Process Signup / Renewal). Choose <strong>All years</strong> to browse history.</td>
+          </tr>
+          <tr>
+            <td><strong>Search</strong></td>
+            <td>Name, email, or WPForms entry number</td>
+          </tr>
+          <tr>
+            <td><strong>Reset</strong></td>
+            <td>Clears search and returns to the current renewal year</td>
+          </tr>
+          <tr>
+            <td><strong>Pagination</strong></td>
+            <td>50 applications per page; Prev/Next when there are more</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      If you are filtered to one renewal year but pending applications exist in other years,
+      a yellow banner appears with a link to <strong>Show all years</strong> so older pending
+      items are not overlooked.
+    </p>
+
+    <h2 id="payment">Payment display</h2>
+    <p>
+      The <strong>Payment (from website)</strong> section summarizes what WPForms collected:
+    </p>
+    <ul>
+      <li><strong>Membership dues</strong> — from the membership type label (e.g. <code>Adult - $80.00</code>)</li>
+      <li><strong>Initiation</strong> and <strong>Processing fee</strong></li>
+      <li><strong>Subtotal</strong> — when dues, initiation, and processing are all present</li>
+      <li><strong>Special code</strong> — coupon or promo code; shows “(coupon applied)” when total paid is below subtotal</li>
+      <li><strong>Total paid</strong> — from <code>Total (Membership + Fees)</code> on the form</li>
+    </ul>
+    <p>
+      Gateway and transaction fields appear when your automation sends them; many clubs only
+      send fee line items and total.
+    </p>
+
+    <h2 id="approve">Approve &amp; reject</h2>
+    <h3>Approve</h3>
+    <ul>
+      <li><strong>Matched member</strong> — updates only non-empty fields from the form (does not wipe existing data).</li>
+      <li><strong>No match</strong> — creates a new member record.</li>
+      <li><strong>Ambiguous match</strong> — pick the correct member from the dropdown before approving.</li>
+    </ul>
+
+    <h3>Reject</h3>
+    <p>
+      Rejecting moves the application off the Pending tab and keeps it under <strong>Rejected</strong>
+      with an optional reason. Rejected rows remain in the database for reference.
+    </p>
+
+    <div class="callout callout-tip">
+      <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
+      <div class="callout-body">
+        <strong>Test submissions</strong>
+        There is no delete button in the app yet. To fully remove a test application (for example
+        so the same WPForms entry can be sent again), an admin must delete the row from the
+        <code>member_applications</code> table in the database. Rejecting alone does not remove it.
+      </div>
+    </div>
+
+    <h2 id="setup">Website setup</h2>
+    <p>
+      Connecting WPForms to RC Flight Operations requires a webhook secret in
+      <strong>Administration → Installation</strong> and an Uncanny Automator recipe on your
+      WordPress site. Full field mapping and curl test examples are in the repo guide
+      <a href="../WPFORMS_INTEGRATION.md">WPFORMS_INTEGRATION.md</a> (for club webmasters).
+    </p>
+
+  </main>
+</div>
+
+<footer class="docs-footer">
+  <span>Copyright 2025–2026 Paul H Lee · MIT</span>
+  <span>
+    <a href="../about.php">About</a>
+    &nbsp;·&nbsp;
+    <a href="index.html">← Docs home</a>
+  </span>
+</footer>
+
+<script src="../assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+<script>
+  const headings = document.querySelectorAll('.docs-content h2[id]');
+  const sidebarLinks = document.querySelectorAll('.docs-sidebar a[href^="#"]');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    headings.forEach(h => { if (window.scrollY >= h.offsetTop - 80) current = h.id; });
+    sidebarLinks.forEach(a => {
+      a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+    });
+  }, { passive: true });
+</script>
+</body>
+</html>

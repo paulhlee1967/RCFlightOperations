@@ -132,7 +132,10 @@
       Separately, <strong>Administration → Installation</strong> covers app-wide email and maintenance, plus
       <strong>Renewal year default — pre-book starts</strong>: the first month when “next calendar year” becomes the
       default renewal year in <strong>Process Signup / Renewal</strong> (default October). Adjust if your club’s
-      renewal cycle starts in a different month.
+      renewal cycle starts in a different month. The same pre-book logic drives the default
+      <strong>Renewal year</strong> filter on <a href="applications.html">Website Applications</a>.
+      If you use WPForms on your club website, set the <strong>WPForms integration</strong> webhook secret
+      on this page too — see <a href="../WPFORMS_INTEGRATION.md">WPFORMS_INTEGRATION.md</a> for Automator setup.
     </p>
 
     <!-- ── General ── -->
@@ -200,12 +203,6 @@
       (SMTP or PHP <code>mail()</code>) on most installs. The app uses it for
       <strong>Email report</strong> (one formatted message to an address you choose), <strong>Email members</strong>
       (individual messages per member from selected reports), and other features that send mail.
-    </p>
-    <p>
-      <strong>Member preferences:</strong> Each member has <strong>Allow email from the club</strong> on the
-      <a href="members.html#communication">Contact tab</a>. When unchecked, they are excluded from report-based email sends,
-      the “Email only” CSV export, and scheduled reminders run by your host (AMA/FAA expiry notices). Officers should still
-      follow your club’s policies for any communication outside the app.
     </p>
     <p>
       By default the app uses the server's built-in mail, which works on many hosts but sometimes lands in spam.

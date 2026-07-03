@@ -136,11 +136,11 @@ if (!in_array($wizardRenewalType, ['new', 'on_time', 'late'], true)) {
 
 $stmt = $pdo->prepare('
     SELECT m.*,
-           (SELECT street FROM member_addresses WHERE member_id = m.id ORDER BY FIELD(type,"Home","Work","Other") LIMIT 1) AS addr_street,
-           (SELECT street2 FROM member_addresses WHERE member_id = m.id ORDER BY FIELD(type,"Home","Work","Other") LIMIT 1) AS addr_street2,
-           (SELECT city FROM member_addresses WHERE member_id = m.id ORDER BY FIELD(type,"Home","Work","Other") LIMIT 1) AS addr_city,
-           (SELECT state FROM member_addresses WHERE member_id = m.id ORDER BY FIELD(type,"Home","Work","Other") LIMIT 1) AS addr_state,
-           (SELECT postal_code FROM member_addresses WHERE member_id = m.id ORDER BY FIELD(type,"Home","Work","Other") LIMIT 1) AS addr_postal
+           m.address_street AS addr_street,
+           m.address_street2 AS addr_street2,
+           m.address_city AS addr_city,
+           m.address_state AS addr_state,
+           m.address_postal_code AS addr_postal
     FROM members m
     WHERE m.id = ?
 ');

@@ -7,6 +7,7 @@
 
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/wpforms_application.php';
 
 if (empty($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -125,6 +126,11 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute(currentMemberWhereParams($currentYear));
 $missingAma = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+
+$pendingApplications = 0;
+if (canEditMembers() || canProcessMemberships()) {
+    $pendingApplications = application_pending_count($pdo);
+}
 
 // ── Nav card counts ──────────────────────────────────────────────────────────
 $totalMembersAll = 0;
@@ -277,6 +283,16 @@ if ($missingAma > 0) {
         'color' => 'secondary',
         'count' => $missingAma,
         'label' => $currentYear . ' member' . ($missingAma !== 1 ? 's' : '') . ' with no AMA number on file',
+    ];
+}
+if ($pendingApplications > 0) {
+    $attentionItems[] = [
+        'icon'  => 'bi-inbox',
+        'color' => 'warning',
+        'count' => $pendingApplications,
+        'label' => 'membership application' . ($pendingApplications !== 1 ? 's' : '') . ' awaiting review',
+        'link'  => 'applications.php',
+        'cta'   => 'Review applications →',
     ];
 }
 ?>

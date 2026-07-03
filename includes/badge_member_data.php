@@ -100,16 +100,9 @@ function badge_member_with_address_sql(): string
         SELECT m.id, m.first_name, m.last_name, m.email, m.date_joined, m.membership_type_slot,
                m.membership_renewal_year, m.ama_number, m.faa_number, m.gate_key_number, m.photo_path,
                m.emergency_contact_name, m.emergency_contact_relationship, m.emergency_contact_phone,
-               a.street, a.street2, a.city, a.state, a.postal_code
+               m.address_street AS street, m.address_street2 AS street2, m.address_city AS city,
+               m.address_state AS state, m.address_postal_code AS postal_code
         FROM members m
-        LEFT JOIN member_addresses a
-               ON a.member_id = m.id
-              AND a.id = (
-                  SELECT id FROM member_addresses
-                   WHERE member_id = m.id
-                   ORDER BY FIELD(type, "Home", "Work", "Other")
-                   LIMIT 1
-              )
         WHERE m.id = ?
     ';
 }

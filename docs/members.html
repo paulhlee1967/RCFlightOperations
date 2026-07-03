@@ -39,7 +39,6 @@
     <a href="#wizard">New Member Wizard</a>
     <a href="#add">Adding a Member</a>
     <a href="#contact">Contact Tab</a>
-    <a href="#communication">Email &amp; postal preferences</a>
     <a href="#compliance">Compliance Tab</a>
     <a href="#membership">Membership Tab</a>
     <a href="#payments">Payment History Tab</a>
@@ -50,6 +49,7 @@
     <div class="sidebar-title">Other Docs</div>
     <a href="index.html">← Docs home</a>
     <a href="renewals.html">Renewals &amp; Dues</a>
+    <a href="applications.html">Website applications</a>
     <a href="compliance.html">AMA &amp; FAA</a>
     <a href="reports.html">Reports</a>
     <a href="badges.html">Badge Designer</a>    <a href="import-export.html">Import &amp; Export</a>
@@ -102,7 +102,7 @@
       <table class="docs-table">
         <thead><tr><th>Step</th><th>Screen</th><th>What you do</th></tr></thead>
         <tbody>
-          <tr><td>1 — Contact</td><td>New member wizard</td><td>Name, email, phones, mailing address, emergency contact, photo, email/postal preferences.</td></tr>
+          <tr><td>1 — Contact</td><td>New member wizard</td><td>Name, email, phone, mailing address, emergency contact, and photo.</td></tr>
           <tr><td>2 — Compliance</td><td>New member wizard</td><td>AMA number and expiration (use <strong>Verify AMA membership</strong>), FAA if applicable.</td></tr>
           <tr><td>3 — Membership</td><td>New member wizard</td><td>Membership type and date joined.</td></tr>
           <tr><td>4 — Record signup</td><td>Process Signup / Renewal</td><td>Choose <em>New Member (Prorated)</em> or <em>New / Late Renewal</em>, confirm dues, and record the first payment.</td></tr>
@@ -155,52 +155,15 @@
         <tbody>
           <tr><td>First / Last name</td><td>Required. Used on badges and reports.</td></tr>
           <tr><td>Title</td><td>Mr., Ms., Dr., etc. — optional, shown on some reports.</td></tr>
-          <tr><td>Email</td><td>Member’s address; required for club emails when the member has opted in (see below).</td></tr>
+          <tr><td>Email</td><td>Member’s address; used for in-app report emails, CSV “email only” export, and optional AMA/FAA expiry reminders when your host runs <code>scripts/send_reminders.php</code>. Routine newsletters are typically managed in your external mailing tool (e.g. Sender.net).</td></tr>
           <tr><td>Birthday</td><td>Used by the Birthdays This Month report.</td></tr>
           <tr><td>Notes</td><td>Free-text internal notes — not shown on badges.</td></tr>
           <tr><td>Photo</td><td>Upload a headshot; appears on the badge front if your template includes it.</td></tr>
-          <tr><td>Phones</td><td>Add multiple — Home, Work, Cell, Other. At least the type label is required.</td></tr>
-          <tr><td>Addresses</td><td>Add multiple — Home, Work, Other. Used on badge back, envelopes, and printed letters.</td></tr>
+          <tr><td>Phone</td><td>One primary phone number for the member.</td></tr>
+          <tr><td>Mailing address</td><td>Street, suite/apt, city, state, and postal code — used on badge back, envelopes, and printed letters.</td></tr>
           <tr><td>Emergency contact</td><td>Name, relationship, and phone — collected in the new member wizard and available as badge merge fields.</td></tr>
         </tbody>
       </table>
-    </div>
-
-    <h3 id="communication">Email &amp; postal preferences</h3>
-    <p>
-      On the Contact tab, two checkboxes control how your club may use this member’s contact information
-      for routine outreach. Both default to <strong>on</strong> for new members.
-    </p>
-    <div class="docs-table-wrap">
-      <table class="docs-table">
-        <thead><tr><th>Setting</th><th>What it controls</th></tr></thead>
-        <tbody>
-          <tr>
-            <td><strong>Allow email from the club</strong></td>
-            <td>
-              When checked, the member may receive club emails, including report-based “email members” messages
-              and similar automated messages. When unchecked, the app excludes them from those sends, from the
-              “Email only” CSV export, and from AMA/FAA expiry reminder emails sent by the optional
-              <code>scripts/send_reminders.php</code> cron job (if your host runs it).
-            </td>
-          </tr>
-          <tr>
-            <td><strong>Allow postal mail</strong></td>
-            <td>
-              When unchecked, the member has opted out of postal mailings (newsletters, renewal packets, etc.).
-              Envelope and mailing letter views still show the address so you can send something required by law
-              or policy, but they display a clear <strong>postal opt-out</strong> notice so you can confirm before mailing.
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-    <div class="callout callout-info">
-      <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
-      <div class="callout-body">
-        These are preferences stored on the member record. They do not replace your club’s own policies or
-        consent processes — they help officers use the app in line with what each member agreed to.
-      </div>
     </div>
 
     <!-- ── Compliance tab ── -->

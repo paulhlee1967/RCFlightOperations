@@ -90,7 +90,6 @@ if ($isTest) {
         SELECT id, first_name, last_name, email, ama_number, ama_expiration
         FROM members
         WHERE (email IS NOT NULL AND email != '')
-          AND allow_email = 1
           AND (ama_life_member = 0 OR ama_life_member IS NULL)
           AND ama_expiration BETWEEN CURDATE() AND CURDATE() + INTERVAL 90 DAY
     ";
@@ -99,7 +98,6 @@ if ($isTest) {
         SELECT id, first_name, last_name, email, ama_number, ama_expiration
         FROM members
         WHERE (email IS NOT NULL AND email != '')
-          AND allow_email = 1
           AND (ama_life_member = 0 OR ama_life_member IS NULL)
           AND ama_expiration = CURDATE() + INTERVAL 60 DAY
     ";
@@ -157,7 +155,6 @@ if (!$isTest) {
         SELECT id, first_name, last_name, email, ama_number, ama_expiration
         FROM members
         WHERE (email IS NOT NULL AND email != '')
-          AND allow_email = 1
           AND (ama_life_member = 0 OR ama_life_member IS NULL)
           AND ama_expiration = CURDATE() + INTERVAL 30 DAY
     ");
@@ -212,7 +209,6 @@ if ($isTest) {
         SELECT id, first_name, last_name, email, faa_number, faa_expiration
         FROM members
         WHERE (email IS NOT NULL AND email != '')
-          AND allow_email = 1
           AND faa_expiration BETWEEN CURDATE() AND CURDATE() + INTERVAL 90 DAY
     ";
 } else {
@@ -220,7 +216,6 @@ if ($isTest) {
         SELECT id, first_name, last_name, email, faa_number, faa_expiration
         FROM members
         WHERE (email IS NOT NULL AND email != '')
-          AND allow_email = 1
           AND faa_expiration = CURDATE() + INTERVAL 60 DAY
     ";
 }
@@ -277,7 +272,6 @@ if (!$isTest) {
         SELECT id, first_name, last_name, email, faa_number, faa_expiration
         FROM members
         WHERE (email IS NOT NULL AND email != '')
-          AND allow_email = 1
           AND faa_expiration = CURDATE() + INTERVAL 30 DAY
     ");
     $stmt->execute();

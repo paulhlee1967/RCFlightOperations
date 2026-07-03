@@ -40,6 +40,9 @@ return [
     // Set explicitly to force a specific host, e.g.:
     // 'canonical_host' => 'rcflightops.pvmac.com',
 
+    // Optional: shared secret for WPForms / Uncanny Automator webhook (overridden by Administration → Installation).
+    // 'application_webhook_secret' => 'generate-a-long-random-string',
+
     // ── Database ──────────────────────────────────────────────────────────
     'db' => [
         'host'     => 'localhost',

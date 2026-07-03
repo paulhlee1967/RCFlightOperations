@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- **Simplified member contact model** — Single `phone` and single mailing address on `members`; dropped `member_phones`, `member_addresses`, `allow_email`, and `allow_postal`. Idempotent migrations in `schema_full.sql` and `scripts/migrate_single_*.sql` / `migrate_drop_comm_prefs.sql`. Email cohorts and reminders use a non-empty email only; postal/email opt-out is expected in external tools (e.g. Sender.net).
+- **WPForms field map** — Application webhook maps form 6569 labels to flat member columns (`phone`, `address_street`, etc.); documented Automator JSON in [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md).
+- **Documentation** — Help center, [TECHNICAL.md](TECHNICAL.md), and [PLAN.md](PLAN.md) updated for simplified contact fields and email behavior.
+
 ### Added
 
 - **New member wizard** — Guided five-step signup: `member_wizard.php` (contact, compliance, membership), then `member_process.php?wizard=1` (record signup, print & mail). Stepper in `includes/member_wizard_nav.php`; step JS in `js/member_wizard.js`. Shared save logic in `includes/member_save.php`. New members no longer open a blank `member_edit.php` form.

@@ -73,17 +73,10 @@ $stmt = $pdo->prepare('
     SELECT m.id, m.first_name, m.last_name, m.email,
            m.membership_type_slot, m.membership_renewal_year,
            m.date_joined, m.ama_number, m.faa_number,
-           m.life_member, m.free_membership, m.allow_postal,
-           a.street, a.street2, a.city, a.state, a.postal_code, a.type AS addr_type
+           m.life_member, m.free_membership,
+           m.address_street AS street, m.address_street2 AS street2,
+           m.address_city AS city, m.address_state AS state, m.address_postal_code AS postal_code
     FROM members m
-    LEFT JOIN member_addresses a
-           ON a.member_id = m.id
-          AND a.id = (
-              SELECT id FROM member_addresses
-              WHERE member_id = m.id
-              ORDER BY FIELD(type,"Home","Work","Other")
-              LIMIT 1
-          )
     WHERE m.id = ?
 ');
 $stmt->execute([$memberId]);
@@ -214,13 +207,6 @@ require_once __DIR__ . '/includes/header.php';
 <div class="no-print alert alert-warning mb-3">
     <strong>No mailing address on file.</strong> The envelope will be blank.
     <a href="member_edit.php?id=<?= $memberId ?>#pane-contact" class="alert-link">Add address →</a>
-</div>
-<?php endif; ?>
-
-<?php if (isset($member['allow_postal']) && !(int) $member['allow_postal']): ?>
-<div class="no-print alert alert-secondary mb-3">
-    <strong>Postal opt-out on file.</strong> This member has opted out of postal mailings. Only send if you have confirmed they want this mailing.
-    <a href="member_edit.php?id=<?= $memberId ?>#pane-contact" class="alert-link">Edit preferences →</a>
 </div>
 <?php endif; ?>
 

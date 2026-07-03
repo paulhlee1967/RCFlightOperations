@@ -43,12 +43,13 @@ if ($memberId <= 0) {
 
 // ── Fetch member core row ─────────────────────────────────────────────────────
 $stmt = $pdo->prepare('
-    SELECT id, first_name, last_name, email, membership_type_slot, membership_renewal_year,
+    SELECT id, first_name, last_name, email, phone, membership_type_slot, membership_renewal_year,
            ama_number, ama_expiration, ama_life_member,
            faa_number, faa_expiration,
            gate_key_number, badge_printed_at, date_joined,
            inactive, suspended, life_member, free_membership, photo_path,
-           emergency_contact_name, emergency_contact_relationship, emergency_contact_phone
+           emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
+           address_street, address_street2, address_city, address_state, address_postal_code
     FROM members
     WHERE id = ?
 ');
@@ -61,32 +62,6 @@ if (!$member) {
     echo json_encode(['error' => 'Not found']);
     exit;
 }
-
-// ── Fetch phone numbers ───────────────────────────────────────────────────────
-$stmt = $pdo->prepare('
-    SELECT type, number
-    FROM member_phones
-    WHERE member_id = ?
-    ORDER BY FIELD(type, "Cell", "Home", "Work", "Other")
-');
-$stmt->execute([$memberId]);
-$phones = $stmt->fetchAll(PDO::FETCH_ASSOC);
-foreach ($phones as &$p) {
-    // Keep API responses consistent: callers expect a string, not NULL.
-    $p['number'] = $p['number'] ?? '';
-}
-unset($p);
-
-// ── Fetch primary address ─────────────────────────────────────────────────────
-$stmt = $pdo->prepare('
-    SELECT type, street, street2, city, state, postal_code
-    FROM member_addresses
-    WHERE member_id = ?
-    ORDER BY FIELD(type, "Home", "Work", "Other")
-    LIMIT 1
-');
-$stmt->execute([$memberId]);
-$address = $stmt->fetch(PDO::FETCH_ASSOC);
 
 // ── Payment summary ───────────────────────────────────────────────────────────
 $stmt = $pdo->prepare('
@@ -129,13 +104,13 @@ if (!empty($member['photo_path'])) {
 
 // ── Build address string ──────────────────────────────────────────────────────
 $addressStr = '';
-if ($address) {
-    $parts = array_filter([
-        $address['street'] ?? '',
-        $address['street2'] ?? '',
-        trim(($address['city'] ?? '') . ', ' . ($address['state'] ?? '') . ' ' . ($address['postal_code'] ?? '')),
-    ]);
-    $addressStr = implode("\n", $parts);
+$addressParts = array_filter([
+    $member['address_street'] ?? '',
+    $member['address_street2'] ?? '',
+    trim(($member['address_city'] ?? '') . ', ' . ($member['address_state'] ?? '') . ' ' . ($member['address_postal_code'] ?? '')),
+]);
+if ($addressParts !== []) {
+    $addressStr = implode("\n", $addressParts);
 }
 
 // ── Assemble response ─────────────────────────────────────────────────────────
@@ -156,7 +131,7 @@ $response = [
     'photo_url'    => $photoUrl,
 
     // Contact
-    'phones'       => array_values($phones),
+    'phone'        => $member['phone'] ?? '',
     'address'      => $addressStr,
     'emergency_contact_name'         => $member['emergency_contact_name'] ?? '',
     'emergency_contact_relationship' => $member['emergency_contact_relationship'] ?? '',

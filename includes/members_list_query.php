@@ -163,8 +163,8 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
         OR m.notes LIKE ? OR CAST(m.membership_type_slot AS CHAR) LIKE ? OR m.gate_key_number LIKE ?
         OR m.ama_number LIKE ? OR m.faa_number LIKE ?
         OR CAST(m.membership_renewal_year AS CHAR) LIKE ?
-        OR mp.number LIKE ? OR ma.street LIKE ? OR ma.street2 LIKE ?
-        OR ma.city LIKE ? OR ma.state LIKE ? OR ma.postal_code LIKE ?
+        OR m.phone LIKE ? OR m.address_street LIKE ? OR m.address_street2 LIKE ?
+        OR m.address_city LIKE ? OR m.address_state LIKE ? OR m.address_postal_code LIKE ?
     )';
 
         $tokenConditions = implode(' AND ', array_fill(0, count($tokens), $likeClause));
@@ -174,14 +174,10 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
             explode(',', $selectCols)
         )) . "
         FROM members m
-        LEFT JOIN member_phones mp  ON mp.member_id  = m.id
-        LEFT JOIN member_addresses ma ON ma.member_id = m.id
         WHERE $tokenConditions";
 
         $countSql = "SELECT COUNT(DISTINCT m.id)
         FROM members m
-        LEFT JOIN member_phones mp  ON mp.member_id  = m.id
-        LEFT JOIN member_addresses ma ON ma.member_id = m.id
         WHERE $tokenConditions";
 
         if ($memberTypeSlotFilter !== null) {

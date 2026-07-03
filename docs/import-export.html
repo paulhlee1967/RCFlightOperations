@@ -118,14 +118,10 @@
           <tr><td>AMA Expiry</td><td>No</td><td>YYYY-MM-DD preferred</td></tr>
           <tr><td>FAA Number</td><td>No</td><td></td></tr>
           <tr><td>FAA Expiry</td><td>No</td><td></td></tr>
-          <tr><td>Phone (Home/Mobile/Work)</td><td>No</td><td>Three separate columns for phone types</td></tr>
-          <tr><td>Address fields</td><td>No</td><td>street, street2, city, state, postal_code; plus Address 2 variants</td></tr>
+          <tr><td>Phone</td><td>No</td><td>Primary phone; legacy <code>phone_mobile</code> / <code>phone_work</code> columns are still accepted on import</td></tr>
+          <tr><td>Address fields</td><td>No</td><td><code>street</code>, <code>street2</code>, <code>city</code>, <code>state</code>, <code>postal_code</code>; legacy Address 2 column names are coalesced if the primary is empty</td></tr>
           <tr><td>payment_year, payment_date, amount_dues, amount_initiation</td><td>No</td><td>Adds one payment record per row if present</td></tr>
           <tr><td>Member Inactive / Suspended / Life Member / Free Membership</td><td>No</td><td>0 or 1</td></tr>
-          <tr><td>Allow email / Allow postal mail</td><td>No</td><td>
-            Map from columns such as <code>allow_email</code> and <code>allow_postal</code> (or the sample CSV headers
-            “Allow email” / “Allow postal mail”). Accepts typical true/false values. If omitted on import, new members default to allowed.
-          </td></tr>
         </tbody>
       </table>
     </div>
@@ -179,7 +175,7 @@
         <tbody>
           <tr>
             <td><strong>Full</strong></td>
-            <td>All member fields — same structure as the import file (including <strong>Allow email</strong> and <strong>Allow postal mail</strong>)</td>
+            <td>All member fields — same structure as the import file</td>
             <td>Backups, round-trip import to another RC Flight Operations instance, data analysis</td>
           </tr>
           <tr>
@@ -191,8 +187,8 @@
             <td><strong>Email only</strong></td>
             <td>Last name, First name, Email</td>
             <td>
-              Newsletter or campaign tools. <strong>Only includes members with “Allow email from the club” enabled</strong>
-              (same rule as report-based email lists). See <a href="members.html#communication">Members → Email &amp; postal preferences</a>.
+              Newsletter or campaign tools (e.g. Sender.net). <strong>Includes members with a non-empty email</strong>
+              — manage unsubscribes in your mailing platform, not in RC Flight Operations.
             </td>
           </tr>
         </tbody>

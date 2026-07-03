@@ -48,11 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
 }
 
 // ---------------------------------------------------------------------------
-// Load member, phones, addresses, payments
+// Load member, payments
 // ---------------------------------------------------------------------------
 $member = null;
-$phones = [];
-$addresses = [];
 $payments = [];
 
 if ($memberId) {
@@ -63,12 +61,6 @@ if ($memberId) {
         header('Location: members.php');
         exit;
     }
-    $stmt = $pdo->prepare('SELECT * FROM member_phones WHERE member_id = ? ORDER BY id');
-    $stmt->execute([$memberId]);
-    $phones = $stmt->fetchAll();
-    $stmt = $pdo->prepare('SELECT * FROM member_addresses WHERE member_id = ? ORDER BY id');
-    $stmt->execute([$memberId]);
-    $addresses = $stmt->fetchAll();
     $stmt = $pdo->prepare('SELECT * FROM payments WHERE member_id = ? ORDER BY paid_at DESC, id DESC');
     $stmt->execute([$memberId]);
     $payments = $stmt->fetchAll();
@@ -232,15 +224,8 @@ require_once __DIR__ . '/includes/header.php';
                                 <div class="col-8 col-md-5"><label class="form-label">First name</label><input type="text" class="form-control" name="first_name" value="<?= h($member['first_name'] ?? '') ?>" required></div>
                                 <div class="col-12 col-md-5"><label class="form-label">Last name</label><input type="text" class="form-control" name="last_name" id="last_name" value="<?= h($member['last_name'] ?? '') ?>" required></div>
                                 <div class="col-12 col-md-8"><label class="form-label">Email</label><input type="email" class="form-control" name="email" value="<?= h($member['email'] ?? '') ?>"></div>
+                                <div class="col-12 col-md-4"><label class="form-label">Phone</label><input type="text" class="form-control" name="phone" value="<?= h($member['phone'] ?? '') ?>" placeholder="Phone number"></div>
                                 <div class="col-12 col-md-4"><label class="form-label">Birthday</label><input type="date" class="form-control" name="birthday" value="<?= h($member['birthday'] ?? '') ?>"></div>
-                                <div class="col-12">
-                                    <label class="form-label text-muted small text-uppercase fw-semibold">Communication preferences</label>
-                                    <div class="d-flex flex-wrap gap-3">
-                                        <div class="form-check"><input class="form-check-input" type="checkbox" name="allow_email" id="allow_email" value="1"<?= checked((int) ($member['allow_email'] ?? 1)) ?>><label class="form-check-label" for="allow_email">Allow email from the club</label></div>
-                                        <div class="form-check"><input class="form-check-input" type="checkbox" name="allow_postal" id="allow_postal" value="1"<?= checked((int) ($member['allow_postal'] ?? 1)) ?>><label class="form-check-label" for="allow_postal">Allow postal mail</label></div>
-                                    </div>
-                                    <p class="small text-muted mb-0">Includes renewal reminders, report emails, and printed mailings. Members can ask the club to update these anytime.</p>
-                                </div>
                                 <div class="col-12"><label class="form-label">Notes</label><textarea class="form-control" name="notes" rows="2"><?= h($member['notes'] ?? '') ?></textarea></div>
                                 <div class="col-12 mt-2 pt-2 border-top">
                                     <label class="form-label text-muted small text-uppercase fw-semibold">Emergency contact</label>
@@ -252,64 +237,16 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
                             </div>
                         </div>
-                        <div class="col-12 order-3">
-                            <label class="form-label">Phones</label>
-                            <button type="button" class="btn btn-outline-secondary btn-sm mb-2" id="add-phone">Add phone</button>
-                            <div id="phones-wrap" class="d-flex flex-column gap-2">
-                                <?php
-                                if (count($phones) > 0) {
-                                    foreach ($phones as $i => $p) {
-                                        echo '<div class="row g-2 phone-row align-items-end"><div class="col-auto"><select name="phones['.$i.'][type]" class="form-select form-select-sm" style="width:auto"><option value="Home"'.($p['type']==='Home'?' selected':'').'>Home</option><option value="Work"'.($p['type']==='Work'?' selected':'').'>Work</option><option value="Cell"'.($p['type']==='Cell'?' selected':'').'>Cell</option><option value="Other"'.($p['type']==='Other'?' selected':'').'>Other</option></select></div><div class="col"><input type="text" class="form-control form-control-sm" name="phones['.$i.'][number]" placeholder="Number" value="'.h($p['number']).'"></div></div>';
-                                    }
-                                } else {
-                                    echo '<div class="row g-2 phone-row align-items-end"><div class="col-auto"><select name="phones[0][type]" class="form-select form-select-sm" style="width:auto"><option value="Home">Home</option><option value="Work">Work</option><option value="Cell">Cell</option><option value="Other">Other</option></select></div><div class="col"><input type="text" class="form-control form-control-sm" name="phones[0][number]" placeholder="Number"></div></div>';
-                                }
-                                ?>
-                            </div>
-                        </div>
                         <div class="col-12 order-4">
-                            <label class="form-label">Addresses</label>
-                            <button type="button" class="btn btn-outline-secondary btn-sm mb-2" id="add-address">Add address</button>
-                            <div id="addresses-wrap" class="d-flex flex-column gap-3">
-                                <?php
-                                $addrCount = count($addresses);
-                                $useAddressTabs = $addrCount >= 1;
-                                if ($useAddressTabs):
-                                    $addrNavId = 'addressTabs';
-                                    $addrContentId = 'addressTabContent';
-                                ?>
-                                <ul class="nav nav-tabs nav-tabs-sm mt-1 mb-0" id="<?= $addrNavId ?>" role="tablist">
-                                    <?php foreach ($addresses as $i => $a):
-                                        $type = $a['type'] ?? 'Home';
-                                        $paneId = 'addr-pane-' . $i;
-                                    ?>
-                                    <li class="nav-item" role="presentation">
-                                        <button class="nav-link<?= $i === 0 ? ' active' : '' ?>" id="addr-tab-<?= $i ?>" data-bs-toggle="tab" data-bs-target="#<?= $paneId ?>" type="button" role="tab"><?= h($type) ?></button>
-                                    </li>
-                                    <?php endforeach; ?>
-                                </ul>
-                                <div class="tab-content border border-top-0 rounded-bottom p-2 mb-2" id="<?= $addrContentId ?>">
-                                    <?php foreach ($addresses as $i => $a):
-                                        $s2 = $a['street2'] ?? '';
-                                        $paneId = 'addr-pane-' . $i;
-                                    ?>
-                                    <div class="tab-pane fade<?= $i === 0 ? ' show active' : '' ?>" id="<?= $paneId ?>" role="tabpanel" data-addr-index="<?= $i ?>">
-                                        <div class="address-block d-flex justify-content-between align-items-start gap-2">
-                                            <div class="flex-grow-1">
-                                                <div class="row g-2 mb-2"><div class="col-auto"><select name="addresses[<?= $i ?>][type]" class="form-select form-select-sm addr-type" style="width:auto"><option value="Home"<?= ($a['type']??'')==='Home'?' selected':'' ?>>Home</option><option value="Work"<?= ($a['type']??'')==='Work'?' selected':'' ?>>Work</option><option value="Other"<?= ($a['type']??'')==='Other'?' selected':'' ?>>Other</option></select></div></div>
-                                                <div class="row g-2"><div class="col-12 col-md-6"><input type="text" class="form-control form-control-sm" name="addresses[<?= $i ?>][street]" placeholder="Street" value="<?= h($a['street']??'') ?>"></div><div class="col-12 col-md-6"><input type="text" class="form-control form-control-sm" name="addresses[<?= $i ?>][street2]" placeholder="Suite / Apt" value="<?= h($s2) ?>"></div></div>
-                                                <div class="row g-2 mt-1"><div class="col-12 col-md-4"><input type="text" class="form-control form-control-sm" name="addresses[<?= $i ?>][city]" placeholder="City" value="<?= h($a['city']??'') ?>"></div><div class="col-6 col-md-2"><input type="text" class="form-control form-control-sm" name="addresses[<?= $i ?>][state]" placeholder="State" value="<?= h($a['state']??'') ?>"></div><div class="col-6 col-md-3"><input type="text" class="form-control form-control-sm" name="addresses[<?= $i ?>][postal_code]" placeholder="Postal code" value="<?= h($a['postal_code']??'') ?>"></div></div>
-                                            </div>
-                                            <button type="button" class="btn btn-outline-danger btn-sm remove-address" title="Remove this address"<?= $addrCount <= 1 ? ' style="visibility:hidden"' : '' ?>>Remove</button>
-                                        </div>
-                                    </div>
-                                    <?php endforeach; ?>
-                                </div>
-                                <?php
-                                else:
-                                    echo '<div class="address-block border rounded p-2" data-addr-index="0"><div class="row g-2 mb-2"><div class="col-auto"><select name="addresses[0][type]" class="form-select form-select-sm" style="width:auto"><option value="Home">Home</option><option value="Work">Work</option><option value="Other">Other</option></select></div></div><div class="row g-2"><div class="col-12 col-md-6"><input type="text" class="form-control form-control-sm" name="addresses[0][street]" placeholder="Street"></div><div class="col-12 col-md-6"><input type="text" class="form-control form-control-sm" name="addresses[0][street2]" placeholder="Suite / Apt"></div></div><div class="row g-2 mt-1"><div class="col-12 col-md-4"><input type="text" class="form-control form-control-sm" name="addresses[0][city]" placeholder="City"></div><div class="col-6 col-md-2"><input type="text" class="form-control form-control-sm" name="addresses[0][state]" placeholder="State"></div><div class="col-6 col-md-3"><input type="text" class="form-control form-control-sm" name="addresses[0][postal_code]" placeholder="Postal code"></div></div></div>';
-                                endif;
-                                ?>
+                            <label class="form-label">Mailing address</label>
+                            <div class="row g-2">
+                                <div class="col-12 col-md-6"><input type="text" class="form-control form-control-sm" name="address_street" placeholder="Street" value="<?= h($member['address_street'] ?? '') ?>"></div>
+                                <div class="col-12 col-md-6"><input type="text" class="form-control form-control-sm" name="address_street2" placeholder="Suite / Apt" value="<?= h($member['address_street2'] ?? '') ?>"></div>
+                            </div>
+                            <div class="row g-2 mt-1">
+                                <div class="col-12 col-md-4"><input type="text" class="form-control form-control-sm" name="address_city" placeholder="City" value="<?= h($member['address_city'] ?? '') ?>"></div>
+                                <div class="col-6 col-md-2"><input type="text" class="form-control form-control-sm" name="address_state" placeholder="State" value="<?= h($member['address_state'] ?? '') ?>"></div>
+                                <div class="col-6 col-md-3"><input type="text" class="form-control form-control-sm" name="address_postal_code" placeholder="Postal code" value="<?= h($member['address_postal_code'] ?? '') ?>"></div>
                             </div>
                         </div>
                     </div>

@@ -12,6 +12,8 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/validation.php';
+require_once __DIR__ . '/includes/member_import_helpers.php';
+require_once __DIR__ . '/includes/member_match.php';
 
 requireLogin();
 
@@ -45,23 +47,19 @@ $importFields = [
     'emergency_contact_name' => ['label' => 'Emergency contact name', 'required' => false],
     'emergency_contact_relationship' => ['label' => 'Emergency contact relationship', 'required' => false],
     'emergency_contact_phone' => ['label' => 'Emergency contact phone', 'required' => false],
-    'allow_email' => ['label' => 'Allow email', 'required' => false],
-    'allow_postal' => ['label' => 'Allow postal mail', 'required' => false],
-    'phone'      => ['label' => 'Phone (Home)', 'required' => false],
-    'phone_mobile' => ['label' => 'Mobile', 'required' => false],
-    'phone_work' => ['label' => 'Work', 'required' => false],
-    'address_type' => ['label' => 'Address Type (Home/Work/Other)', 'required' => false],
+    'phone'      => ['label' => 'Phone', 'required' => false],
+    'phone_mobile' => ['label' => 'Mobile (legacy)', 'required' => false],
+    'phone_work' => ['label' => 'Work (legacy)', 'required' => false],
     'street'     => ['label' => 'Street', 'required' => false],
     'street2'    => ['label' => 'Street 2', 'required' => false],
     'city'       => ['label' => 'City', 'required' => false],
     'state'      => ['label' => 'State', 'required' => false],
     'postal_code'=> ['label' => 'Postal / ZIP', 'required' => false],
-    'address2_type' => ['label' => 'Address 2 Type', 'required' => false],
-    'address2_street' => ['label' => 'Address 2 Street', 'required' => false],
-    'address2_street2' => ['label' => 'Address 2 Street 2', 'required' => false],
-    'address2_city' => ['label' => 'Address 2 City', 'required' => false],
-    'address2_state' => ['label' => 'Address 2 State', 'required' => false],
-    'address2_postal_code' => ['label' => 'Address 2 Postal Code', 'required' => false],
+    'address2_street' => ['label' => 'Address 2 Street (legacy)', 'required' => false],
+    'address2_street2' => ['label' => 'Address 2 Street 2 (legacy)', 'required' => false],
+    'address2_city' => ['label' => 'Address 2 City (legacy)', 'required' => false],
+    'address2_state' => ['label' => 'Address 2 State (legacy)', 'required' => false],
+    'address2_postal_code' => ['label' => 'Address 2 Postal Code (legacy)', 'required' => false],
     'payment_year' => ['label' => 'Payment year', 'required' => false],
     'payment_date' => ['label' => 'Payment date', 'required' => false],
     'amount_dues'=> ['label' => 'Amount dues', 'required' => false],
@@ -93,76 +91,6 @@ function parseCsvUpload(string $tmpPath): array {
     }
     fclose($fh);
     return ['headers' => $headers, 'rows' => $rows, 'error' => null];
-}
-
-function normalizeBool($v): bool {
-    if (is_numeric($v)) return (int) $v !== 0;
-    $v = strtolower(trim((string) $v));
-    return in_array($v, ['1', 'yes', 'true', 'y'], true);
-}
-
-/** Parse US-style dates (M/D/YY, M/D/YYYY, MM-DD-YYYY, etc.) to Y-m-d for MySQL. Returns null if invalid. */
-function parseDateForDb(?string $v): ?string {
-    if ($v === null || trim($v) === '') return null;
-    $v = trim($v);
-    // Already Y-m-d
-    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) return $v;
-    // M/D/YY or M/D/YYYY or MM/DD/YY or MM/DD/YYYY
-    if (preg_match('/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/', $v, $m)) {
-        $y = (int) $m[3];
-        if ($y < 100) $y += $y < 50 ? 2000 : 1900;
-        $mo = (int) $m[1];
-        $day = (int) $m[2];
-        if ($mo >= 1 && $mo <= 12 && $day >= 1 && $day <= 31) {
-            $t = mktime(0, 0, 0, $mo, $day, $y);
-            if ($t !== false) return date('Y-m-d', $t);
-        }
-    }
-    // MM-DD-YYYY or M-D-YY
-    if (preg_match('/^(\d{1,2})-(\d{1,2})-(\d{2,4})$/', $v, $m)) {
-        $y = (int) $m[3];
-        if ($y < 100) $y += $y < 50 ? 2000 : 1900;
-        $mo = (int) $m[1];
-        $day = (int) $m[2];
-        if ($mo >= 1 && $mo <= 12 && $day >= 1 && $day <= 31) {
-            $t = mktime(0, 0, 0, $mo, $day, $y);
-            if ($t !== false) return date('Y-m-d', $t);
-        }
-    }
-    return null;
-}
-
-/**
- * Map CSV membership type to a slot (1–4).
- * Accepts: slot numbers (1-4), legacy names (Adult/Youth/Senior/Spouse),
- * or current club labels (case-insensitive exact match).
- */
-function normalizeMembershipTypeSlot(?string $v, array $enabledLabels): ?int {
-    if ($v === null || trim($v) === '') return null;
-    $v = trim($v);
-    $lower = strtolower($v);
-    // Numeric slot
-    if (ctype_digit($lower)) {
-        $n = (int) $lower;
-        return ($n >= 1 && $n <= 4) ? $n : null;
-    }
-
-    // Legacy built-ins (slot mapping)
-    $legacy = ['adult' => 1, 'youth' => 2, 'senior' => 3, 'spouse' => 4];
-    if (isset($legacy[$lower])) return $legacy[$lower];
-
-    // "Adult Member", etc. -> first token against legacy
-    $first = strtok($lower, " \t,-/");
-    if ($first !== false && isset($legacy[$first])) return $legacy[$first];
-
-    // Club membership type label exact matches (case-insensitive)
-    foreach ($enabledLabels as $slot => $label) {
-        if (strtolower(trim((string) $label)) === $lower) {
-            return (int) $slot;
-        }
-    }
-
-    return null;
 }
 
 /** Above this count, parsed rows are stored in a temp file instead of $_SESSION (avoids session size limits). */
@@ -269,43 +197,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $step = 'upload';
         } else {
             $insertMember = $pdo->prepare('
-                INSERT INTO members (title, first_name, last_name, email, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, allow_email, allow_postal)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                INSERT INTO members (title, first_name, last_name, email, phone, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, address_street, address_street2, address_city, address_state, address_postal_code)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ');
-            $insertPhone = $pdo->prepare('INSERT INTO member_phones (member_id, type, number) VALUES (?,?,?)');
-            $insertAddr = $pdo->prepare('INSERT INTO member_addresses (member_id, type, street, street2, city, state, postal_code) VALUES (?,?,?,?,?,?,?)');
             $insertPayment = $pdo->prepare('INSERT INTO payments (member_id, paid_at, year, amount_dues, amount_initiation, amount_late_fee, comp) VALUES (?,?,?,?,?,?,?)');
-            // Match tiers (try strictest first; ambiguous multi-match stops fallbacks):
-            // 1) first + last + email + birthday
-            // 2) first + last + email
-            // 3) first + last only — only when the query returns exactly one id.
-            //    Two people with the same name would return two rows; we treat that
-            //    as ambiguous and do not auto-match (avoids updating the wrong member).
-            $findExisting4 = $pdo->prepare('
-                SELECT id FROM members
-                WHERE first_name = ? AND last_name = ? AND email <=> ? AND birthday <=> ?
-                ORDER BY id ASC
-                LIMIT 2
-            ');
-            $findExisting3 = $pdo->prepare('
-                SELECT id FROM members
-                WHERE first_name = ? AND last_name = ? AND email <=> ?
-                ORDER BY id ASC
-                LIMIT 2
-            ');
-            $findExisting2 = $pdo->prepare('
-                SELECT id FROM members
-                WHERE first_name = ? AND last_name = ?
-                ORDER BY id ASC
-                LIMIT 2
-            ');
-            $phoneExists = $pdo->prepare('SELECT 1 FROM member_phones WHERE member_id = ? AND type = ? AND number = ? LIMIT 1');
-            $addrExists = $pdo->prepare('
-                SELECT 1 FROM member_addresses
-                WHERE member_id = ? AND type = ?
-                  AND COALESCE(street,"") = ? AND COALESCE(street2,"") = ? AND COALESCE(city,"") = ? AND COALESCE(state,"") = ? AND COALESCE(postal_code,"") = ?
-                LIMIT 1
-            ');
+            // Match tiers delegated to includes/member_match.php
             $paymentExists = $pdo->prepare('
                 SELECT 1 FROM payments
                 WHERE member_id = ? AND paid_at = ? AND year = ? AND amount_dues = ? AND amount_initiation = ?
@@ -355,35 +251,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     $memberId = null;
                     if ($updateExistingOrAdd) {
-                        $matches = [];
-                        $abortTiers = false;
-
-                        if (isset($mapping['email'], $mapping['birthday']) && $email !== '' && $birthday !== null) {
-                            $findExisting4->execute([$first, $last, $email, $birthday]);
-                            $matches = $findExisting4->fetchAll(PDO::FETCH_COLUMN);
-                            if (count($matches) >= 2) {
-                                $ambiguous++;
-                                $abortTiers = true;
-                            }
-                        }
-                        if (!$abortTiers && count($matches) === 0 && isset($mapping['email']) && $email !== '') {
-                            $findExisting3->execute([$first, $last, $email]);
-                            $matches = $findExisting3->fetchAll(PDO::FETCH_COLUMN);
-                            if (count($matches) >= 2) {
-                                $ambiguous++;
-                                $abortTiers = true;
-                            }
-                        }
-                        if (!$abortTiers && count($matches) === 0) {
-                            $findExisting2->execute([$first, $last]);
-                            $matches = $findExisting2->fetchAll(PDO::FETCH_COLUMN);
-                            if (count($matches) >= 2) {
-                                $ambiguous++;
-                            }
-                        }
-
-                        if (!$abortTiers && count($matches) === 1) {
-                            $memberId = (int) $matches[0];
+                        $match = member_match_find(
+                            $pdo,
+                            $amaNumVal !== '' ? $amaNumVal : null,
+                            $first,
+                            $last,
+                            $email !== '' ? $email : null,
+                            $birthday
+                        );
+                        if ($match['confidence'] === 'ambiguous') {
+                            $ambiguous++;
+                        } elseif ($match['member_id'] !== null) {
+                            $memberId = (int) $match['member_id'];
                             if ($amaNumVal !== '') {
                                 $amaConflict = member_find_by_ama_number($pdo, $amaNumVal, $memberId);
                                 if ($amaConflict !== null) {
@@ -420,8 +299,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (isset($mapping['emergency_contact_name'])) { $sets[] = 'emergency_contact_name = ?'; $vals[] = trim((string) ($row[$mapping['emergency_contact_name']] ?? '')) ?: null; }
                             if (isset($mapping['emergency_contact_relationship'])) { $sets[] = 'emergency_contact_relationship = ?'; $vals[] = trim((string) ($row[$mapping['emergency_contact_relationship']] ?? '')) ?: null; }
                             if (isset($mapping['emergency_contact_phone'])) { $sets[] = 'emergency_contact_phone = ?'; $vals[] = trim((string) ($row[$mapping['emergency_contact_phone']] ?? '')) ?: null; }
-                            if (isset($mapping['allow_email'])) { $sets[] = 'allow_email = ?'; $vals[] = normalizeBool($row[$mapping['allow_email']] ?? '') ? 1 : 0; }
-                            if (isset($mapping['allow_postal'])) { $sets[] = 'allow_postal = ?'; $vals[] = normalizeBool($row[$mapping['allow_postal']] ?? '') ? 1 : 0; }
+                            $phoneVal = member_phone_from_import_row($row, $mapping);
+                            if ($phoneVal !== null) { $sets[] = 'phone = ?'; $vals[] = $phoneVal; }
+                            $addrVal = member_address_from_import_row($row, $mapping);
+                            if ($addrVal['street'] !== null || $addrVal['city'] !== null) {
+                                $sets[] = 'address_street = ?'; $vals[] = $addrVal['street'];
+                                $sets[] = 'address_street2 = ?'; $vals[] = $addrVal['street2'];
+                                $sets[] = 'address_city = ?'; $vals[] = $addrVal['city'];
+                                $sets[] = 'address_state = ?'; $vals[] = $addrVal['state'];
+                                $sets[] = 'address_postal_code = ?'; $vals[] = $addrVal['postal_code'];
+                            }
 
                             $sql = 'UPDATE members SET ' . implode(', ', $sets) . ' WHERE id = ?';
                             $vals[] = $memberId;
@@ -433,6 +320,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $emergencyNameVal = isset($mapping['emergency_contact_name']) ? trim((string) ($row[$mapping['emergency_contact_name']] ?? '')) : '';
                     $emergencyRelVal  = isset($mapping['emergency_contact_relationship']) ? trim((string) ($row[$mapping['emergency_contact_relationship']] ?? '')) : '';
                     $emergencyPhoneVal = isset($mapping['emergency_contact_phone']) ? trim((string) ($row[$mapping['emergency_contact_phone']] ?? '')) : '';
+                    $phoneVal = member_phone_from_import_row($row, $mapping);
+                    $addrVal = member_address_from_import_row($row, $mapping);
 
                     if ($memberId === null) {
                         if ($amaNumVal !== '') {
@@ -446,13 +335,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 continue;
                             }
                         }
-                        $allowEmailIns  = isset($mapping['allow_email']) ? (normalizeBool($row[$mapping['allow_email']] ?? '') ? 1 : 0) : 1;
-                        $allowPostalIns = isset($mapping['allow_postal']) ? (normalizeBool($row[$mapping['allow_postal']] ?? '') ? 1 : 0) : 1;
                         $insertMember->execute([
                             $titleVal !== '' ? $titleVal : null,
                             $first,
                             $last,
                             $email !== '' ? $email : null,
+                            $phoneVal,
                             $birthday,
                             $notesVal !== '' ? $notesVal : null,
                             $dateJoined,
@@ -471,64 +359,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $emergencyNameVal !== '' ? $emergencyNameVal : null,
                             $emergencyRelVal !== '' ? $emergencyRelVal : null,
                             $emergencyPhoneVal !== '' ? $emergencyPhoneVal : null,
-                            $allowEmailIns,
-                            $allowPostalIns,
+                            $addrVal['street'],
+                            $addrVal['street2'],
+                            $addrVal['city'],
+                            $addrVal['state'],
+                            $addrVal['postal_code'],
                         ]);
                         $memberId = (int) $pdo->lastInsertId();
                         $added++;
-                    }
-                    foreach (['phone' => 'Home', 'phone_mobile' => 'Cell', 'phone_work' => 'Work'] as $field => $type) {
-                        if (isset($mapping[$field]) && trim((string) ($row[$mapping[$field]] ?? '')) !== '') {
-                            $num = trim((string) $row[$mapping[$field]]);
-                            if ($updateExistingOrAdd) {
-                                $phoneExists->execute([$memberId, $type, $num]);
-                                if (!$phoneExists->fetch()) {
-                                    $insertPhone->execute([$memberId, $type, $num]);
-                                }
-                            } else {
-                                $insertPhone->execute([$memberId, $type, $num]);
-                            }
-                        }
-                    }
-                    $addrType1 = 'Home';
-                    if (isset($mapping['address_type'])) {
-                        $t = trim((string) ($row[$mapping['address_type']] ?? ''));
-                        if (in_array($t, ['Home', 'Work', 'Other'], true)) $addrType1 = $t;
-                    }
-                    $street = isset($mapping['street']) ? trim((string) ($row[$mapping['street']] ?? '')) : '';
-                    $city = isset($mapping['city']) ? trim((string) ($row[$mapping['city']] ?? '')) : '';
-                    if ($street !== '' || $city !== '' || (isset($mapping['state']) && trim($row[$mapping['state']] ?? '') !== '') || (isset($mapping['postal_code']) && trim($row[$mapping['postal_code']] ?? '') !== '')) {
-                        $street2 = isset($mapping['street2']) ? trim((string) ($row[$mapping['street2']] ?? '')) : '';
-                        $state = isset($mapping['state']) ? trim((string) ($row[$mapping['state']] ?? '')) : '';
-                        $postal = isset($mapping['postal_code']) ? trim((string) ($row[$mapping['postal_code']] ?? '')) : '';
-                        if ($updateExistingOrAdd) {
-                            $addrExists->execute([$memberId, $addrType1, $street, $street2, $city, $state, $postal]);
-                            if (!$addrExists->fetch()) {
-                                $insertAddr->execute([$memberId, $addrType1, $street, $street2 !== '' ? $street2 : null, $city, $state !== '' ? $state : null, $postal !== '' ? $postal : null]);
-                            }
-                        } else {
-                            $insertAddr->execute([$memberId, $addrType1, $street, $street2 !== '' ? $street2 : null, $city, $state !== '' ? $state : null, $postal !== '' ? $postal : null]);
-                        }
-                    }
-                    $addr2Street = isset($mapping['address2_street']) ? trim((string) ($row[$mapping['address2_street']] ?? '')) : '';
-                    $addr2City = isset($mapping['address2_city']) ? trim((string) ($row[$mapping['address2_city']] ?? '')) : '';
-                    if ($addr2Street !== '' || $addr2City !== '' || (isset($mapping['address2_state']) && trim($row[$mapping['address2_state']] ?? '') !== '') || (isset($mapping['address2_postal_code']) && trim($row[$mapping['address2_postal_code']] ?? '') !== '')) {
-                        $addrType2 = 'Other';
-                        if (isset($mapping['address2_type'])) {
-                            $t = trim((string) ($row[$mapping['address2_type']] ?? ''));
-                            if (in_array($t, ['Home', 'Work', 'Other'], true)) $addrType2 = $t;
-                        }
-                        $addr2Street2 = isset($mapping['address2_street2']) ? trim((string) ($row[$mapping['address2_street2']] ?? '')) : '';
-                        $addr2State = isset($mapping['address2_state']) ? trim((string) ($row[$mapping['address2_state']] ?? '')) : '';
-                        $addr2Postal = isset($mapping['address2_postal_code']) ? trim((string) ($row[$mapping['address2_postal_code']] ?? '')) : '';
-                        if ($updateExistingOrAdd) {
-                            $addrExists->execute([$memberId, $addrType2, $addr2Street, $addr2Street2, $addr2City, $addr2State, $addr2Postal]);
-                            if (!$addrExists->fetch()) {
-                                $insertAddr->execute([$memberId, $addrType2, $addr2Street, $addr2Street2 !== '' ? $addr2Street2 : null, $addr2City, $addr2State !== '' ? $addr2State : null, $addr2Postal !== '' ? $addr2Postal : null]);
-                            }
-                        } else {
-                            $insertAddr->execute([$memberId, $addrType2, $addr2Street, $addr2Street2 !== '' ? $addr2Street2 : null, $addr2City, $addr2State !== '' ? $addr2State : null, $addr2Postal !== '' ? $addr2Postal : null]);
-                        }
                     }
                     if (isset($mapping['payment_date'], $mapping['payment_year']) && trim((string) ($row[$mapping['payment_date']] ?? '')) !== '' && trim((string) ($row[$mapping['payment_year']] ?? '')) !== '') {
                         $payDate = parseDateForDb(trim((string) $row[$mapping['payment_date']]));
@@ -600,8 +438,8 @@ if (isset($_GET['download']) && $_GET['download'] === 'sample') {
     header('Content-Disposition: attachment; filename="import_members_sample.csv"');
     $out = fopen('php://output', 'w');
     fprintf($out, "\xEF\xBB\xBF");
-    $sampleHeaders = ['first_name', 'last_name', 'email', 'title', 'birthday', 'notes', 'date_joined', 'membership_type_slot', 'membership_renewal_year', 'Member Inactive', 'Member Suspended', 'Life Member', 'Free Membership', 'AMA Life Member', 'gate_key_number', 'ama_number', 'AMA Expiry', 'FAA Number', 'FAA Expiry', 'Emergency contact name', 'Emergency contact relationship', 'Emergency contact phone', 'Allow email', 'Allow postal mail', 'Phone (Home)', 'Mobile', 'Work', 'Address Type', 'street', 'street2', 'city', 'state', 'postal_code', 'Address 2 Type', 'Address 2 Street', 'Address 2 Street 2', 'Address 2 City', 'Address 2 State', 'Address 2 Postal Code', 'payment_year', 'payment_date', 'amount_dues', 'amount_initiation'];
-    $sampleRow = ['Jane', 'Doe', 'jane@example.com', 'Ms', '1990-05-15', 'Sample note', '2020-03-15', 'Adult', '2025', '0', '0', '0', '0', '0', 'G-01', '123456', '2026-12-31', '123456789', '2026-06-30', '555-123-4567', '555-987-6543', '555-111-2222', '1', '1', 'Home', '123 Main St', 'Apt 4', 'Anytown', 'CA', '90210', 'Work', '456 Oak Ave', 'Suite 100', 'Other City', 'CA', '90211', '2025', '2025-01-10', '50.00', '25.00'];
+    $sampleHeaders = ['first_name', 'last_name', 'email', 'title', 'birthday', 'notes', 'date_joined', 'membership_type_slot', 'membership_renewal_year', 'Member Inactive', 'Member Suspended', 'Life Member', 'Free Membership', 'AMA Life Member', 'gate_key_number', 'ama_number', 'AMA Expiry', 'FAA Number', 'FAA Expiry', 'Emergency contact name', 'Emergency contact relationship', 'Emergency contact phone', 'Phone', 'street', 'street2', 'city', 'state', 'postal_code', 'payment_year', 'payment_date', 'amount_dues', 'amount_initiation'];
+    $sampleRow = ['Jane', 'Doe', 'jane@example.com', 'Ms', '1990-05-15', 'Sample note', '2020-03-15', 'Adult', '2025', '0', '0', '0', '0', '0', 'G-01', '123456', '2026-12-31', '123456789', '2026-06-30', 'John Doe', 'Spouse', '555-987-6543', '555-123-4567', '123 Main St', 'Apt 4', 'Anytown', 'CA', '90210', '2025', '2025-01-10', '50.00', '25.00'];
     fputcsv($out, $sampleHeaders, ',', '"', '\\');
     fputcsv($out, $sampleRow, ',', '"', '\\');
     fclose($out);

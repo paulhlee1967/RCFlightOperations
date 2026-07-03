@@ -461,6 +461,25 @@ $_headerBaseHref = '';
                 </li>
                 <?php endif; ?>
 
+                <?php if ((function_exists('canEditMembers') && canEditMembers()) || (function_exists('canProcessMemberships') && canProcessMemberships())): ?>
+                <?php
+                $_navPendingApps = 0;
+                if (isset($pdo)) {
+                    try {
+                        require_once __DIR__ . '/wpforms_application.php';
+                        $_navPendingApps = application_pending_count($pdo);
+                    } catch (Throwable $e) {
+                    }
+                }
+                ?>
+                <li class="nav-item">
+                    <a class="nav-link<?= navActive('applications.php') ?>"
+                       href="<?= $_headerBaseHref ?>applications.php">
+                        Applications<?php if ($_navPendingApps > 0): ?><span class="badge text-bg-warning ms-1"><?= (int) $_navPendingApps ?></span><?php endif; ?>
+                    </a>
+                </li>
+                <?php endif; ?>
+
                 <!-- Reports (members + above; read-only aggregates) -->
                 <?php if (function_exists('canViewReports') && canViewReports()): ?>
                 <li class="nav-item">

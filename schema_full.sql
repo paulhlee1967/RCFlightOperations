@@ -64,6 +64,7 @@ CREATE TABLE `members` (
   `first_name` varchar(255) NOT NULL DEFAULT '',
   `last_name` varchar(255) NOT NULL DEFAULT '',
   `email` varchar(255) DEFAULT NULL,
+  `phone` varchar(64) DEFAULT NULL,
   `birthday` date DEFAULT NULL,
   `photo_path` varchar(512) DEFAULT NULL,
   `notes` text,
@@ -84,43 +85,16 @@ CREATE TABLE `members` (
   `emergency_contact_name` varchar(255) DEFAULT NULL,
   `emergency_contact_relationship` varchar(64) DEFAULT NULL,
   `emergency_contact_phone` varchar(64) DEFAULT NULL,
-  `allow_email` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Club emails, reminders, report emails',
-  `allow_postal` tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Postal mailings (newsletters, packets)',
+  `address_street` varchar(255) DEFAULT NULL,
+  `address_street2` varchar(255) DEFAULT NULL,
+  `address_city` varchar(128) DEFAULT NULL,
+  `address_state` varchar(64) DEFAULT NULL,
+  `address_postal_code` varchar(32) DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `renewal` (`membership_renewal_year`),
   KEY `name_sort` (`last_name`,`first_name`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ---------------------------------------------------------------------------
--- Phones: type (Home/Work/Cell/Other) + number per row
--- ---------------------------------------------------------------------------
-CREATE TABLE `member_phones` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `member_id` int unsigned NOT NULL,
-  `type` enum('Home','Work','Cell','Other') NOT NULL DEFAULT 'Home',
-  `number` varchar(64) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `member_id` (`member_id`),
-  CONSTRAINT `member_phones_member` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- ---------------------------------------------------------------------------
--- Addresses: type (Home/Work/Other) + full address per row
--- ---------------------------------------------------------------------------
-CREATE TABLE `member_addresses` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `member_id` int unsigned NOT NULL,
-  `type` enum('Home','Work','Other') NOT NULL DEFAULT 'Home',
-  `street` varchar(255) DEFAULT NULL,
-  `street2` varchar(255) DEFAULT NULL,
-  `city` varchar(128) DEFAULT NULL,
-  `state` varchar(64) DEFAULT NULL,
-  `postal_code` varchar(32) DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `member_id` (`member_id`),
-  CONSTRAINT `member_addresses_member` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ---------------------------------------------------------------------------
@@ -298,6 +272,68 @@ CREATE TABLE IF NOT EXISTS `password_reset_ip_events` (
   KEY `ip_created` (`ip`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ---------------------------------------------------------------------------
+-- WPForms membership applications (pending review queue)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `member_applications` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `wpforms_entry_id` varchar(64) NOT NULL,
+  `wpforms_form_id` int unsigned DEFAULT NULL,
+  `submitted_at` datetime DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `reviewed_by` int unsigned DEFAULT NULL,
+  `approved_member_id` int unsigned DEFAULT NULL,
+  `application_kind` varchar(16) NOT NULL DEFAULT 'unknown',
+  `form_season` varchar(32) DEFAULT NULL,
+  `suggested_renewal_type` varchar(16) DEFAULT NULL,
+  `suggested_renewal_year` smallint unsigned DEFAULT NULL,
+  `matched_member_id` int unsigned DEFAULT NULL,
+  `match_confidence` varchar(16) DEFAULT NULL,
+  `match_method` varchar(32) DEFAULT NULL,
+  `first_name` varchar(255) NOT NULL DEFAULT '',
+  `last_name` varchar(255) NOT NULL DEFAULT '',
+  `middle_name` varchar(255) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `birthday` date DEFAULT NULL,
+  `phone` varchar(64) DEFAULT NULL,
+  `emergency_contact_name` varchar(255) DEFAULT NULL,
+  `emergency_contact_relationship` varchar(64) DEFAULT NULL,
+  `emergency_contact_phone` varchar(64) DEFAULT NULL,
+  `address_street` varchar(255) DEFAULT NULL,
+  `address_street2` varchar(255) DEFAULT NULL,
+  `address_city` varchar(128) DEFAULT NULL,
+  `address_state` varchar(64) DEFAULT NULL,
+  `address_postal_code` varchar(32) DEFAULT NULL,
+  `ama_number` varchar(64) DEFAULT NULL,
+  `ama_expiration` date DEFAULT NULL,
+  `faa_number` varchar(64) DEFAULT NULL,
+  `faa_expiration` date DEFAULT NULL,
+  `membership_type_slot` tinyint unsigned DEFAULT NULL,
+  `notes` text,
+  `payment_total` decimal(10,2) DEFAULT NULL,
+  `payment_initiation` decimal(10,2) DEFAULT NULL,
+  `payment_processing_fee` decimal(10,2) DEFAULT NULL,
+  `payment_gateway` varchar(64) DEFAULT NULL,
+  `payment_transaction_id` varchar(128) DEFAULT NULL,
+  `payment_status` varchar(32) DEFAULT NULL,
+  `file_ama_verification_url` varchar(512) DEFAULT NULL,
+  `file_faa_registration_url` varchar(512) DEFAULT NULL,
+  `file_badge_photo_url` varchar(512) DEFAULT NULL,
+  `file_signature_url` varchar(512) DEFAULT NULL,
+  `raw_payload` json DEFAULT NULL,
+  `rejection_reason` text,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `wpforms_entry_id` (`wpforms_entry_id`),
+  KEY `status` (`status`),
+  KEY `matched_member_id` (`matched_member_id`),
+  KEY `approved_member_id` (`approved_member_id`),
+  CONSTRAINT `member_applications_matched_member` FOREIGN KEY (`matched_member_id`) REFERENCES `members` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `member_applications_approved_member` FOREIGN KEY (`approved_member_id`) REFERENCES `members` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- -----------------------------------------------------------------------------
 -- End: embedded base schema
 -- -----------------------------------------------------------------------------
@@ -328,7 +364,8 @@ INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
   ('maintenance_mode','0'),
   ('renewal_prebook_start_month', '10'),
   ('renewal_prebook_start_day', '15'),
-  ('reports_accurate_from_year', '2027');
+  ('reports_accurate_from_year', '2027'),
+  ('application_webhook_secret', '');
 
 CREATE TABLE IF NOT EXISTS `operator_messages` (
   `id`              int unsigned  NOT NULL AUTO_INCREMENT,
@@ -648,3 +685,215 @@ SET @sql_drop_board_default = IF(
 PREPARE stmt_drop_board_default FROM @sql_drop_board_default;
 EXECUTE stmt_drop_board_default;
 DEALLOCATE PREPARE stmt_drop_board_default;
+
+-- -----------------------------------------------------------------------------
+-- Migration: member_applications (WPForms integration)
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `member_applications` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `wpforms_entry_id` varchar(64) NOT NULL,
+  `wpforms_form_id` int unsigned DEFAULT NULL,
+  `submitted_at` datetime DEFAULT NULL,
+  `reviewed_at` datetime DEFAULT NULL,
+  `reviewed_by` int unsigned DEFAULT NULL,
+  `approved_member_id` int unsigned DEFAULT NULL,
+  `application_kind` varchar(16) NOT NULL DEFAULT 'unknown',
+  `form_season` varchar(32) DEFAULT NULL,
+  `suggested_renewal_type` varchar(16) DEFAULT NULL,
+  `suggested_renewal_year` smallint unsigned DEFAULT NULL,
+  `matched_member_id` int unsigned DEFAULT NULL,
+  `match_confidence` varchar(16) DEFAULT NULL,
+  `match_method` varchar(32) DEFAULT NULL,
+  `first_name` varchar(255) NOT NULL DEFAULT '',
+  `last_name` varchar(255) NOT NULL DEFAULT '',
+  `middle_name` varchar(255) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `birthday` date DEFAULT NULL,
+  `phone` varchar(64) DEFAULT NULL,
+  `emergency_contact_name` varchar(255) DEFAULT NULL,
+  `emergency_contact_relationship` varchar(64) DEFAULT NULL,
+  `emergency_contact_phone` varchar(64) DEFAULT NULL,
+  `address_street` varchar(255) DEFAULT NULL,
+  `address_street2` varchar(255) DEFAULT NULL,
+  `address_city` varchar(128) DEFAULT NULL,
+  `address_state` varchar(64) DEFAULT NULL,
+  `address_postal_code` varchar(32) DEFAULT NULL,
+  `ama_number` varchar(64) DEFAULT NULL,
+  `ama_expiration` date DEFAULT NULL,
+  `faa_number` varchar(64) DEFAULT NULL,
+  `faa_expiration` date DEFAULT NULL,
+  `membership_type_slot` tinyint unsigned DEFAULT NULL,
+  `notes` text,
+  `payment_total` decimal(10,2) DEFAULT NULL,
+  `payment_initiation` decimal(10,2) DEFAULT NULL,
+  `payment_processing_fee` decimal(10,2) DEFAULT NULL,
+  `payment_gateway` varchar(64) DEFAULT NULL,
+  `payment_transaction_id` varchar(128) DEFAULT NULL,
+  `payment_status` varchar(32) DEFAULT NULL,
+  `file_ama_verification_url` varchar(512) DEFAULT NULL,
+  `file_faa_registration_url` varchar(512) DEFAULT NULL,
+  `file_badge_photo_url` varchar(512) DEFAULT NULL,
+  `file_signature_url` varchar(512) DEFAULT NULL,
+  `raw_payload` json DEFAULT NULL,
+  `rejection_reason` text,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `wpforms_entry_id` (`wpforms_entry_id`),
+  KEY `status` (`status`),
+  KEY `matched_member_id` (`matched_member_id`),
+  KEY `approved_member_id` (`approved_member_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
+  ('application_webhook_secret', '');
+
+-- -----------------------------------------------------------------------------
+-- Migration: single phone on members (replaces member_phones table)
+-- -----------------------------------------------------------------------------
+SET @members_phone_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'phone'
+);
+SET @sql_members_phone = IF(
+  @members_phone_col = 0,
+  'ALTER TABLE `members` ADD COLUMN `phone` varchar(64) DEFAULT NULL AFTER `email`',
+  'SELECT 1'
+);
+PREPARE stmt_members_phone FROM @sql_members_phone;
+EXECUTE stmt_members_phone;
+DEALLOCATE PREPARE stmt_members_phone;
+
+SET @member_phones_exists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_phones'
+);
+SET @sql_migrate_phones = IF(
+  @member_phones_exists > 0,
+  'UPDATE `members` m
+     SET m.`phone` = (
+       SELECT mp.`number` FROM `member_phones` mp
+        WHERE mp.`member_id` = m.`id`
+          AND mp.`number` IS NOT NULL AND TRIM(mp.`number`) != ''''
+        ORDER BY FIELD(mp.`type`, ''Cell'', ''Home'', ''Work'', ''Other''), mp.`id`
+        LIMIT 1
+     )
+   WHERE m.`phone` IS NULL OR TRIM(m.`phone`) = ''''',
+  'SELECT 1'
+);
+PREPARE stmt_migrate_phones FROM @sql_migrate_phones;
+EXECUTE stmt_migrate_phones;
+DEALLOCATE PREPARE stmt_migrate_phones;
+
+SET @sql_drop_member_phones = IF(
+  @member_phones_exists > 0,
+  'DROP TABLE `member_phones`',
+  'SELECT 1'
+);
+PREPARE stmt_drop_member_phones FROM @sql_drop_member_phones;
+EXECUTE stmt_drop_member_phones;
+DEALLOCATE PREPARE stmt_drop_member_phones;
+
+-- -----------------------------------------------------------------------------
+-- Migration: single mailing address on members (replaces member_addresses table)
+-- -----------------------------------------------------------------------------
+SET @addr_street_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'address_street'
+);
+SET @sql_addr_cols = IF(
+  @addr_street_col = 0,
+  'ALTER TABLE `members`
+     ADD COLUMN `address_street` varchar(255) DEFAULT NULL AFTER `emergency_contact_phone`,
+     ADD COLUMN `address_street2` varchar(255) DEFAULT NULL AFTER `address_street`,
+     ADD COLUMN `address_city` varchar(128) DEFAULT NULL AFTER `address_street2`,
+     ADD COLUMN `address_state` varchar(64) DEFAULT NULL AFTER `address_city`,
+     ADD COLUMN `address_postal_code` varchar(32) DEFAULT NULL AFTER `address_state`',
+  'SELECT 1'
+);
+PREPARE stmt_addr_cols FROM @sql_addr_cols;
+EXECUTE stmt_addr_cols;
+DEALLOCATE PREPARE stmt_addr_cols;
+
+SET @member_addresses_exists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_addresses'
+);
+SET @sql_migrate_addrs = IF(
+  @member_addresses_exists > 0,
+  'UPDATE `members` m
+     SET m.`address_street` = (
+           SELECT ma.`street` FROM `member_addresses` ma
+            WHERE ma.`member_id` = m.`id`
+            ORDER BY FIELD(ma.`type`, ''Home'', ''Work'', ''Other''), ma.`id`
+            LIMIT 1
+         ),
+         m.`address_street2` = (
+           SELECT ma.`street2` FROM `member_addresses` ma
+            WHERE ma.`member_id` = m.`id`
+            ORDER BY FIELD(ma.`type`, ''Home'', ''Work'', ''Other''), ma.`id`
+            LIMIT 1
+         ),
+         m.`address_city` = (
+           SELECT ma.`city` FROM `member_addresses` ma
+            WHERE ma.`member_id` = m.`id`
+            ORDER BY FIELD(ma.`type`, ''Home'', ''Work'', ''Other''), ma.`id`
+            LIMIT 1
+         ),
+         m.`address_state` = (
+           SELECT ma.`state` FROM `member_addresses` ma
+            WHERE ma.`member_id` = m.`id`
+            ORDER BY FIELD(ma.`type`, ''Home'', ''Work'', ''Other''), ma.`id`
+            LIMIT 1
+         ),
+         m.`address_postal_code` = (
+           SELECT ma.`postal_code` FROM `member_addresses` ma
+            WHERE ma.`member_id` = m.`id`
+            ORDER BY FIELD(ma.`type`, ''Home'', ''Work'', ''Other''), ma.`id`
+            LIMIT 1
+         )
+   WHERE EXISTS (SELECT 1 FROM `member_addresses` ma WHERE ma.`member_id` = m.`id`)',
+  'SELECT 1'
+);
+PREPARE stmt_migrate_addrs FROM @sql_migrate_addrs;
+EXECUTE stmt_migrate_addrs;
+DEALLOCATE PREPARE stmt_migrate_addrs;
+
+SET @sql_drop_member_addresses = IF(
+  @member_addresses_exists > 0,
+  'DROP TABLE `member_addresses`',
+  'SELECT 1'
+);
+PREPARE stmt_drop_member_addresses FROM @sql_drop_member_addresses;
+EXECUTE stmt_drop_member_addresses;
+DEALLOCATE PREPARE stmt_drop_member_addresses;
+
+-- -----------------------------------------------------------------------------
+-- Migration: drop communication preference columns (managed outside the app)
+-- -----------------------------------------------------------------------------
+SET @allow_email_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'allow_email'
+);
+SET @sql_drop_allow_email = IF(
+  @allow_email_col > 0,
+  'ALTER TABLE `members` DROP COLUMN `allow_email`',
+  'SELECT 1'
+);
+PREPARE stmt_drop_allow_email FROM @sql_drop_allow_email;
+EXECUTE stmt_drop_allow_email;
+DEALLOCATE PREPARE stmt_drop_allow_email;
+
+SET @allow_postal_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'allow_postal'
+);
+SET @sql_drop_allow_postal = IF(
+  @allow_postal_col > 0,
+  'ALTER TABLE `members` DROP COLUMN `allow_postal`',
+  'SELECT 1'
+);
+PREPARE stmt_drop_allow_postal FROM @sql_drop_allow_postal;
+EXECUTE stmt_drop_allow_postal;
+DEALLOCATE PREPARE stmt_drop_allow_postal;

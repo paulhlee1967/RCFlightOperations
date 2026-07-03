@@ -82,8 +82,8 @@ final class BadgeMemberDataTest extends TestCase
         $sql = badge_member_with_address_sql();
 
         $this->assertStringContainsString('FROM members m', $sql);
-        $this->assertStringContainsString('LEFT JOIN member_addresses a', $sql);
-        $this->assertStringContainsString('ORDER BY FIELD(type, "Home", "Work", "Other")', $sql);
+        $this->assertStringContainsString('m.address_street AS street', $sql);
+        $this->assertStringContainsString('m.address_postal_code AS postal_code', $sql);
         $this->assertStringContainsString('WHERE m.id = ?', $sql);
     }
 }

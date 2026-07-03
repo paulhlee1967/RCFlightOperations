@@ -53,7 +53,7 @@ if ($filterParam === 'current') {
 
 // Build member list based on filter
 if ($filter === 'not_renewed') {
-    $sql = 'SELECT m.id, m.title, m.first_name, m.last_name, m.email, m.birthday, m.notes, m.date_joined, m.membership_type_slot, m.membership_renewal_year, m.inactive, m.suspended, m.life_member, m.free_membership, m.gate_key_number, m.ama_number, m.ama_expiration, m.ama_life_member, m.faa_number, m.faa_expiration, m.emergency_contact_name, m.emergency_contact_relationship, m.emergency_contact_phone, m.allow_email, m.allow_postal
+    $sql = 'SELECT m.id, m.title, m.first_name, m.last_name, m.email, m.phone, m.birthday, m.notes, m.date_joined, m.membership_type_slot, m.membership_renewal_year, m.inactive, m.suspended, m.life_member, m.free_membership, m.gate_key_number, m.ama_number, m.ama_expiration, m.ama_life_member, m.faa_number, m.faa_expiration, m.emergency_contact_name, m.emergency_contact_relationship, m.emergency_contact_phone, m.address_street, m.address_street2, m.address_city, m.address_state, m.address_postal_code
             FROM members m
             WHERE ' . notYetRenewedWhereSql('m', $year) . '
             ORDER BY m.last_name, m.first_name';
@@ -61,7 +61,7 @@ if ($filter === 'not_renewed') {
     $stmt->execute(notYetRenewedWhereParams($year));
     $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } else {
-    $sql = 'SELECT id, title, first_name, last_name, email, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, allow_email, allow_postal FROM members WHERE 1=1';
+    $sql = 'SELECT id, title, first_name, last_name, email, phone, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, address_street, address_street2, address_city, address_state, address_postal_code FROM members WHERE 1=1';
     $params = [];
     if ($filter === 'year') {
         $yearFilter = membershipYearReportFilter($pdo, '', $year);
@@ -74,33 +74,10 @@ if ($filter === 'not_renewed') {
     $members = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-$phoneStmt = $pdo->prepare('SELECT type, number FROM member_phones WHERE member_id = ? ORDER BY FIELD(type, "Home", "Cell", "Work", "Other")');
-$addrStmt = $pdo->prepare('SELECT type, street, street2, city, state, postal_code FROM member_addresses WHERE member_id = ? ORDER BY id');
-
 $rows = [];
 foreach ($members as $m) {
-    $homePhone = $cellPhone = $workPhone = '';
-    $addr1 = $addr2 = null;
-    if ($format === 'full') {
-        $phoneStmt->execute([$m['id']]);
-        $phones = [];
-        while ($row = $phoneStmt->fetch(PDO::FETCH_ASSOC)) $phones[$row['type']] = $row['number'];
-        $homePhone = $phones['Home'] ?? '';
-        $cellPhone = $phones['Cell'] ?? '';
-        $workPhone = $phones['Work'] ?? '';
-        $addrStmt->execute([$m['id']]);
-        $addresses = $addrStmt->fetchAll(PDO::FETCH_ASSOC);
-        $addr1 = $addresses[0] ?? null;
-        $addr2 = $addresses[1] ?? null;
-    } elseif ($format === 'short') {
-        $phoneStmt->execute([$m['id']]);
-        while ($row = $phoneStmt->fetch(PDO::FETCH_ASSOC)) {
-            if (($row['type'] ?? '') === 'Home') $homePhone = $row['number'];
-        }
-    }
-
     if ($format === 'email') {
-        if (isset($m['allow_email']) && !(int) $m['allow_email']) {
+        if (trim((string) ($m['email'] ?? '')) === '') {
             continue;
         }
         $rows[] = [$m['last_name'] ?? '', $m['first_name'] ?? '', $m['email'] ?? ''];
@@ -139,30 +116,19 @@ foreach ($members as $m) {
             $m['emergency_contact_name'] ?? '',
             $m['emergency_contact_relationship'] ?? '',
             $m['emergency_contact_phone'] ?? '',
-            !empty($m['allow_email']) ? '1' : '0',
-            !empty($m['allow_postal']) ? '1' : '0',
-            $homePhone,
-            $cellPhone,
-            $workPhone,
-            $addr1 ? ($addr1['type'] ?? 'Home') : '',
-            $addr1 ? ($addr1['street'] ?? '') : '',
-            $addr1 ? ($addr1['street2'] ?? '') : '',
-            $addr1 ? ($addr1['city'] ?? '') : '',
-            $addr1 ? ($addr1['state'] ?? '') : '',
-            $addr1 ? ($addr1['postal_code'] ?? '') : '',
-            $addr2 ? ($addr2['type'] ?? 'Other') : '',
-            $addr2 ? ($addr2['street'] ?? '') : '',
-            $addr2 ? ($addr2['street2'] ?? '') : '',
-            $addr2 ? ($addr2['city'] ?? '') : '',
-            $addr2 ? ($addr2['state'] ?? '') : '',
-            $addr2 ? ($addr2['postal_code'] ?? '') : '',
+            $m['phone'] ?? '',
+            $m['address_street'] ?? '',
+            $m['address_street2'] ?? '',
+            $m['address_city'] ?? '',
+            $m['address_state'] ?? '',
+            $m['address_postal_code'] ?? '',
         ];
     }
 }
 
 $csvHeaders = $format === 'email' ? ['Last', 'First', 'Email'] :
     ($format === 'short' ? ['FirstName', 'LastName', 'Email', 'AMA_NO', 'AMA_EXP', 'FAA_NO', 'FAA_EXP', 'GateKey'] :
-    ['first_name', 'last_name', 'email', 'title', 'birthday', 'notes', 'date_joined', 'membership_type_slot', 'membership_renewal_year', 'Member Inactive', 'Member Suspended', 'Life Member', 'Free Membership', 'AMA Life Member', 'gate_key_number', 'ama_number', 'AMA Expiry', 'FAA Number', 'FAA Expiry', 'Emergency contact name', 'Emergency contact relationship', 'Emergency contact phone', 'Allow email', 'Allow postal mail', 'Phone (Home)', 'Mobile', 'Work', 'Address Type', 'street', 'street2', 'city', 'state', 'postal_code', 'Address 2 Type', 'Address 2 Street', 'Address 2 Street 2', 'Address 2 City', 'Address 2 State', 'Address 2 Postal Code']);
+    ['first_name', 'last_name', 'email', 'title', 'birthday', 'notes', 'date_joined', 'membership_type_slot', 'membership_renewal_year', 'Member Inactive', 'Member Suspended', 'Life Member', 'Free Membership', 'AMA Life Member', 'gate_key_number', 'ama_number', 'AMA Expiry', 'FAA Number', 'FAA Expiry', 'Emergency contact name', 'Emergency contact relationship', 'Emergency contact phone', 'Phone', 'street', 'street2', 'city', 'state', 'postal_code']);
 
 $filename = 'members';
 if ($filter === 'not_renewed') $filename .= '_not_renewed_' . $year;

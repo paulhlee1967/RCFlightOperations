@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo->beginTransaction();
-            $keys = ['app_name','support_email','renewal_prebook_start_month','renewal_prebook_start_day','reports_accurate_from_year','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','maintenance_mode'];
+            $keys = ['app_name','support_email','renewal_prebook_start_month','renewal_prebook_start_day','reports_accurate_from_year','application_webhook_secret','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','maintenance_mode'];
             foreach ($keys as $key) {
                 $val = match ($key) {
                     'smtp_port'        => (string) $smtpPort,
@@ -127,7 +127,7 @@ try {
 }
 
 $tableMissing = [];
-$expectedTables = ['club','users','members','member_phones','member_addresses','payments','dues_rules','badge_templates','incidents','audit_log','login_attempts','password_reset_tokens','password_reset_ip_events','member_fulfillments','system_config','operator_messages'];
+$expectedTables = ['club','users','members','payments','dues_rules','badge_templates','incidents','audit_log','login_attempts','password_reset_tokens','password_reset_ip_events','member_fulfillments','system_config','operator_messages'];
 foreach ($expectedTables as $tbl) {
     try {
         $pdo->query("SELECT 1 FROM `$tbl` LIMIT 1");
@@ -229,6 +229,27 @@ require_once __DIR__ . '/includes/header.php';
                         <input type="checkbox" class="form-check-input" id="maintenance_mode" name="maintenance_mode" value="1"
                                <?= !empty($configRows['maintenance_mode']) && $configRows['maintenance_mode'] === '1' ? 'checked' : '' ?>>
                         <label class="form-check-label" for="maintenance_mode">Maintenance mode (banner for logged-in users)</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">WPForms integration</div>
+        <div class="card-body">
+            <p class="text-muted small">Membership applications from your website are sent to <code>api_webhook_application.php</code> via Uncanny Automator. Set the same secret in Automator’s webhook headers.</p>
+            <div class="row g-3">
+                <div class="col-md-8">
+                    <label class="form-label" for="application_webhook_secret">Webhook secret</label>
+                    <input type="password" class="form-control" id="application_webhook_secret" name="application_webhook_secret" autocomplete="new-password"
+                           value="<?= h($configRows['application_webhook_secret'] ?? '') ?>">
+                    <div class="form-text">Send as header <code>X-Webhook-Secret</code> or <code>Authorization: Bearer …</code>. Leave blank to fall back to <code>application_webhook_secret</code> in <code>config.php</code>.</div>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="small text-muted">
+                        Endpoint:<br>
+                        <code><?= h((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'your-domain') . '/api_webhook_application.php') ?></code>
                     </div>
                 </div>
             </div>

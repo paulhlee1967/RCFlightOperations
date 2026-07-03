@@ -52,17 +52,10 @@ $backLabel = match ($fromParam) {
 // Load member + primary address
 // ---------------------------------------------------------------------------
 $stmt = $pdo->prepare('
-    SELECT m.id, m.first_name, m.last_name, m.allow_postal,
-           a.street, a.street2, a.city, a.state, a.postal_code
+    SELECT m.id, m.first_name, m.last_name,
+           m.address_street AS street, m.address_street2 AS street2,
+           m.address_city AS city, m.address_state AS state, m.address_postal_code AS postal_code
     FROM members m
-    LEFT JOIN member_addresses a
-           ON a.member_id = m.id
-          AND a.id = (
-              SELECT id FROM member_addresses
-               WHERE member_id = m.id
-               ORDER BY FIELD(type, "Home", "Work", "Other")
-               LIMIT 1
-          )
     WHERE m.id = ?
 ');
 $stmt->execute([$memberId]);
@@ -120,13 +113,6 @@ require_once __DIR__ . '/includes/header.php';
     </span>
     <?php endif; ?>
 </div>
-
-<?php if (isset($member['allow_postal']) && !(int) $member['allow_postal']): ?>
-<div class="no-print alert alert-secondary mb-3">
-    <strong>Postal opt-out on file.</strong> This member has opted out of postal mailings. Confirm before sending.
-    <a href="member_edit.php?id=<?= $memberId ?>#pane-contact" class="alert-link">Edit preferences →</a>
-</div>
-<?php endif; ?>
 
 <?php /* ── Envelope preview ──────────────────────────────────────────────── */ ?>
 <div class="no-print text-muted small fw-semibold text-uppercase mb-2" style="letter-spacing:.08em;">

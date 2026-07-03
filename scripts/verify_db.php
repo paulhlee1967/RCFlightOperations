@@ -41,7 +41,7 @@ function tableExists(PDO $pdo, string $table): bool {
 }
 
 $expectedTables = [
-    'club', 'users', 'members', 'member_phones', 'member_addresses',
+    'club', 'users', 'members',
     'payments', 'dues_rules', 'badge_templates',
     'incidents',
     'member_fulfillments', 'member_membership_years',
@@ -58,15 +58,13 @@ $expectedColumns = [
     ],
     'users' => ['id', 'email', 'password_hash', 'name', 'role', 'active', 'created_at'],
     'members' => [
-        'id', 'title', 'first_name', 'last_name', 'email', 'birthday', 'photo_path', 'notes',
+        'id', 'title', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'photo_path', 'notes',
         'date_joined', 'membership_type_slot', 'membership_renewal_year', 'inactive', 'suspended', 'life_member', 'free_membership',
         'gate_key_number', 'badge_printed_at', 'ama_number', 'ama_expiration', 'ama_life_member', 'faa_number', 'faa_expiration',
         'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone',
-        'allow_email', 'allow_postal',
+        'address_street', 'address_street2', 'address_city', 'address_state', 'address_postal_code',
         'created_at', 'updated_at',
     ],
-    'member_phones' => ['id', 'member_id', 'type', 'number'],
-    'member_addresses' => ['id', 'member_id', 'type', 'street', 'street2', 'city', 'state', 'postal_code'],
     'payments' => ['id', 'member_id', 'paid_at', 'year', 'amount_dues', 'amount_initiation', 'amount_late_fee', 'comp', 'created_at'],
     'dues_rules' => ['id', 'membership_type_slot', 'annual_dues', 'prorated_dues', 'initiation_fee', 'prorate_start_month', 'prorate_end_month'],
     'badge_templates' => ['id', 'name', 'template_data', 'is_default', 'updated_at'],

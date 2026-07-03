@@ -90,8 +90,7 @@ function reportSupportsCohortEmail(string $slug): bool
 }
 
 /**
- * Mailable recipients for a cohort report: members with allow_email = 1 and a
- * non-empty address. Re-derived from the source query (never trusts the page).
+ * Mailable recipients for a cohort report: members with a non-empty email.
  *
  * @return array<int, array{id:int, first_name:string, last_name:string, email:string}>
  */
@@ -107,7 +106,6 @@ function reportCohortRecipients(PDO $pdo, string $slug, int $year): array
                 FROM members m
                 WHERE {$filter['where']}
                   AND m.email IS NOT NULL AND TRIM(m.email) != ''
-                  AND m.allow_email = 1
                 ORDER BY m.last_name, m.first_name";
         $stmt = $pdo->prepare($sql);
         $stmt->execute($filter['params']);
@@ -140,7 +138,7 @@ function reportCohortRecipients(PDO $pdo, string $slug, int $year): array
             if (memberCompletenessMissingFields($r) === []) {
                 continue;
             }
-            if (trim((string) ($r['email'] ?? '')) === '' || !(int) ($r['allow_email'] ?? 0)) {
+            if (trim((string) ($r['email'] ?? '')) === '') {
                 continue;
             }
             $out[] = [

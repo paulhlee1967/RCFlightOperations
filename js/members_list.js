@@ -145,6 +145,7 @@
 
         const rows = [
             ['Email',      d.email],
+            ['Phone',      d.phone],
             ['AMA #',      d.ama_number],
             ['FAA #',      d.faa_number],
             ['Gate key',   d.gate_key],
@@ -155,11 +156,6 @@
                 html += '<dt class="col-5 text-muted">' + esc(label) + '</dt><dd class="col-7 mb-0">' + esc(val) + '</dd>';
             }
         });
-        if (d.phones && d.phones.length) {
-            d.phones.forEach(p => {
-                html += '<dt class="col-5 text-muted">' + esc(p.type) + '</dt><dd class="col-7 mb-0">' + esc(p.number) + '</dd>';
-            });
-        }
         html += '</dl>';
 
         if (d.id) {
