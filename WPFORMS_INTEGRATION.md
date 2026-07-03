@@ -181,4 +181,4 @@ When **Support email** is set in Installation, a notification is sent for each n
 
 ## 8. Sender.net and reminder opt-out
 
-Website applicants are typically added to your Sender.net members list via a separate Uncanny Automator recipe on the same form. AMA/FAA expiry reminders (`scripts/send_reminders.php`) can respect Sender promotional opt-outs when you set the **API token** and **unsubscribe URL** under **Administration → Installation → Sender.net (reminder opt-out)**. See [docs/admin.html](docs/admin.html#sender-opt-out) in the Help center.
+Website applicants are typically added to your Sender.net members list via a separate Uncanny Automator recipe on the same form. AMA/FAA expiry reminders use Sender’s API when configured under **Administration → Installation → Sender.net (reminder opt-out)** (per-recipient unsubscribe links; optional members group ID for auto-added contacts). See [docs/admin.html](docs/admin.html#sender-opt-out) in the Help center.

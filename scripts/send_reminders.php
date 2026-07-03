@@ -13,6 +13,7 @@
  *
  * Skips recipients whose Sender.net promotional email status is not "active"
  * when a Sender API token is configured (Administration → Installation).
+ * Sends via Sender transactional API when configured (per-recipient unsubscribe links).
  *
  * Requires config.php and optional email config (smtp or mail).
  * Templates in templates/email/.
@@ -119,48 +120,49 @@ function send_reminder_message(
     int &$errors
 ): void {
     $memberEmail = trim((string) ($member['email'] ?? ''));
-    $recipient   = $isTest ? (string) $testEmail : $memberEmail;
     $memberLabel = trim(($member['first_name'] ?? '') . ' ' . ($member['last_name'] ?? ''));
+    $useSender   = sender_net_is_configured($senderCfg);
+    $recipient   = $memberEmail;
 
-    if (!$isTest) {
-        $check = sender_net_may_email_recipient($memberEmail, $senderCfg);
-        if (!$check['send']) {
-            $detail = $check['api_error'] ?? $check['reason'];
+    if (!$isTest && $useSender) {
+        $prep = sender_net_prepare_recipient(
+            $memberEmail,
+            (string) ($member['first_name'] ?? ''),
+            (string) ($member['last_name'] ?? ''),
+            $senderCfg,
+            !$dryRun
+        );
+        if (!$prep['send']) {
+            $detail = $prep['api_error'] ?? $prep['reason'];
+            $displayEmail = $prep['normalized_email'] !== '' ? $prep['normalized_email'] : $memberEmail;
             $prefix = $dryRun ? '[dry-run] Would SKIP' : 'SKIPPED';
-            echo "{$prefix} {$templateKey} to {$memberEmail} ({$memberLabel}): {$detail}\n";
+            echo "{$prefix} {$templateKey} to {$displayEmail} ({$memberLabel}): {$detail}\n";
             if (!$dryRun) {
                 flightops_log('INFO', 'send_reminders: skipped (sender opt-out)', [
                     'template'  => $templateKey,
-                    'to'        => $memberEmail,
+                    'to'        => $displayEmail,
                     'member_id' => (int) ($member['id'] ?? 0),
-                    'reason'    => $check['reason'],
-                    'api_error' => $check['api_error'],
+                    'reason'    => $prep['reason'],
+                    'api_error' => $prep['api_error'],
                 ], 'cron');
             }
             $skipped++;
             return;
         }
 
-        $subscriberId = is_array($check['subscriber']) ? ($check['subscriber']['id'] ?? null) : null;
-        $unsubUrl     = sender_net_unsubscribe_url($memberEmail, is_string($subscriberId) ? $subscriberId : null, $senderCfg);
-        if ($unsubUrl !== null) {
-            $vars['unsubscribe_url'] = $unsubUrl;
-        } elseif (sender_net_is_configured($senderCfg)) {
-            $vars['show_unsubscribe_notice'] = true;
-        }
-        if ($check['reason'] === 'not_in_sender' && !$dryRun) {
-            flightops_log('INFO', 'send_reminders: recipient not in Sender.net (sending anyway)', [
+        $recipient = $prep['normalized_email'];
+        $vars['use_sender_unsubscribe_liquid'] = true;
+        if ($prep['created'] && !$dryRun) {
+            flightops_log('INFO', 'send_reminders: created Sender.net subscriber', [
                 'template'  => $templateKey,
-                'to'        => $memberEmail,
+                'to'        => $recipient,
                 'member_id' => (int) ($member['id'] ?? 0),
             ], 'cron');
         }
-    } else {
-        $unsubUrl = sender_net_unsubscribe_url($memberEmail, null, $senderCfg);
-        if ($unsubUrl !== null) {
-            $vars['unsubscribe_url'] = $unsubUrl;
-        } elseif (sender_net_is_configured($senderCfg)) {
-            $vars['show_unsubscribe_notice'] = true;
+    } elseif ($isTest) {
+        $recipient = (string) $testEmail;
+        if ($useSender) {
+            $vars['use_sender_unsubscribe_liquid'] = true;
         }
     }
 
@@ -173,28 +175,51 @@ function send_reminder_message(
     try {
         $data = render_email_template($templateKey, $vars, $pdo);
         $text = $data['text'];
-        if ($text !== null && isset($vars['unsubscribe_url'])) {
-            $text = sender_net_append_unsubscribe_text($text, $vars['unsubscribe_url']);
+        if ($text !== null && !empty($vars['use_sender_unsubscribe_liquid'])) {
+            $text = rtrim($text) . sender_net_unsubscribe_plain_text_line();
         }
 
-        $mailOptions = null;
-        if (!empty($vars['unsubscribe_url'])) {
-            $mailOptions = ['list_unsubscribe_url' => $vars['unsubscribe_url']];
-        }
-
-        if (send_mail($recipient, $data['subject'], $data['html'], $text, $mailCfg, $mailOptions)) {
-            echo "Sent {$templateKey} to {$recipient} (member: {$memberLabel})\n";
-            $sent++;
+        if ($useSender) {
+            $sendResult = sender_net_send_transactional(
+                $recipient,
+                $memberLabel,
+                $data['subject'],
+                $data['html'],
+                $text,
+                [
+                    'email' => $mailCfg['from_address'] ?? '',
+                    'name'  => $mailCfg['from_name'] ?? '',
+                ],
+                $senderCfg
+            );
+            if ($sendResult['ok']) {
+                echo "Sent {$templateKey} to {$recipient} (member: {$memberLabel}) via Sender.net\n";
+                $sent++;
+            } else {
+                fwrite(STDERR, "FAILED {$templateKey} to {$recipient}: {$sendResult['error']}\n");
+                flightops_log('WARN', 'send_reminders: Sender.net send failed', [
+                    'template'  => $templateKey,
+                    'to'        => $recipient,
+                    'member_id' => (int) ($member['id'] ?? 0),
+                    'error'     => $sendResult['error'],
+                ], 'cron');
+                $errors++;
+            }
         } else {
-            $lastErr = function_exists('get_last_mail_error') ? get_last_mail_error() : 'unknown';
-            fwrite(STDERR, "FAILED {$templateKey} to {$recipient}: {$lastErr}\n");
-            flightops_log('WARN', 'send_reminders: email send failed', [
-                'template'  => $templateKey,
-                'to'        => $recipient,
-                'member_id' => (int) ($member['id'] ?? 0),
-                'error'     => $lastErr,
-            ], 'cron');
-            $errors++;
+            if (send_mail($recipient, $data['subject'], $data['html'], $text, $mailCfg)) {
+                echo "Sent {$templateKey} to {$recipient} (member: {$memberLabel})\n";
+                $sent++;
+            } else {
+                $lastErr = function_exists('get_last_mail_error') ? get_last_mail_error() : 'unknown';
+                fwrite(STDERR, "FAILED {$templateKey} to {$recipient}: {$lastErr}\n");
+                flightops_log('WARN', 'send_reminders: email send failed', [
+                    'template'  => $templateKey,
+                    'to'        => $recipient,
+                    'member_id' => (int) ($member['id'] ?? 0),
+                    'error'     => $lastErr,
+                ], 'cron');
+                $errors++;
+            }
         }
     } catch (Throwable $e) {
         fwrite(STDERR, "ERROR {$templateKey} to {$recipient}: " . $e->getMessage() . "\n");

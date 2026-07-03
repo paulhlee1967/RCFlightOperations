@@ -231,16 +231,13 @@
       <strong>Administration → Installation → Sender.net (reminder opt-out)</strong>:
     </p>
     <ul>
-      <li><strong>API access token</strong> — from Sender → Settings → API access tokens. Used by the daily
-        <code>send_reminders.php</code> cron job to check each recipient’s promotional email status.</li>
-      <li><strong>Unsubscribe URL template</strong> — copy the unsubscribe link from a Sender test email
-        (often <code>https://stats.sender.net/unsubscribe/…</code>). Shown in AMA/FAA reminder footers and
-        the <code>List-Unsubscribe</code> email header.</li>
+      <li><strong>API access token</strong> — from Sender → Settings → API access tokens. Used to ensure subscribers exist (lowercase email), check promotional status, and send reminders with per-recipient unsubscribe links.</li>
+      <li><strong>Members group ID (optional)</strong> — Sender group ID for subscribers auto-added when not already in your list.</li>
     </ul>
     <p>
       Members who unsubscribed in Sender are <strong>skipped</strong> for AMA/FAA expiry reminders.
-      New applicants are typically added to Sender via your website form (Uncanny Automator);
-      SMTP delivery may use Sender’s relay separately from this promotional status check.
+      Do not paste a static unsubscribe URL from a test email — those links are tied to one recipient.
+      New applicants are typically added to Sender via your website form (Uncanny Automator).
     </p>
     <p>
       Test without sending: <code>php scripts/send_reminders.php --dry-run</code>

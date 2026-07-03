@@ -175,8 +175,8 @@ Templates live in **`templates/email/`** (e.g. `ama_expiry_60.php`, `ama_expiry_
 If your club uses [Sender.net](https://www.sender.net) for newsletters and member list management:
 
 1. **Administration → Installation → Sender.net (reminder opt-out)** — set the API access token (Sender → Settings → API access tokens).
-2. Paste your **unsubscribe URL** (from a Sender test email; often `https://stats.sender.net/unsubscribe/…`).
-3. Reminder cron will skip anyone whose Sender **promotional email** status is not `active`, and include an unsubscribe footer in sent reminders.
+2. Optionally set your **members group ID** so auto-added subscribers land in the right list.
+3. Reminder cron normalizes emails to lowercase, creates missing Sender subscribers, skips unsubscribed contacts, and sends via Sender’s API (each message gets its own unsubscribe link).
 
 Optional fallback in `config.php`: see the `sender` block in `config.php.example`.
 

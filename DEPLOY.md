@@ -176,7 +176,7 @@ After uploading files and importing the database:
    ```
    Use `--dry-run` to preview sends and opt-out skips.
 
-   **Sender.net opt-out (recommended):** In **Administration → Installation**, set the Sender API token and unsubscribe URL so AMA/FAA reminders respect newsletter opt-outs and include a compliant footer. Members are usually added to Sender when they submit your website application (Uncanny Automator); SMTP may use Sender’s relay separately from the promotional status check.
+   **Sender.net opt-out (recommended):** In **Administration → Installation**, set the Sender API token (and optional members group ID). Reminders are sent via Sender’s transactional API with per-recipient unsubscribe links.
 
 ---
 

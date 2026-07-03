@@ -111,6 +111,9 @@ function emailWrapVarsFromTemplate(array $vars): array
     if (!empty($vars['unsubscribe_url'])) {
         $out['unsubscribe_url'] = $vars['unsubscribe_url'];
     }
+    if (!empty($vars['use_sender_unsubscribe_liquid'])) {
+        $out['use_sender_unsubscribe_liquid'] = true;
+    }
     if (!empty($vars['show_unsubscribe_notice'])) {
         $out['show_unsubscribe_notice'] = true;
     }
@@ -151,6 +154,11 @@ function emailWrap(string $content, array $vars, ?PDO $pdo = null): string
             . 'You are receiving this message because you are a club member with an email address on file.<br>'
             . 'If you would like to unsubscribe from club emails, '
             . '<a href="' . $unsubscribeEsc . '" style="color:' . $colorPrimary . ';text-decoration:underline;font-weight:600;">click here to unsubscribe</a>.'
+            . '</p>';
+    } elseif (!empty($vars['use_sender_unsubscribe_liquid'])) {
+        $unsubscribeHtml = '<p style="margin:14px 0 0;font-size:12px;color:#7a6f62;line-height:1.6;">'
+            . 'You are receiving this message because you are a club member with an email address on file.<br>'
+            . 'If you would like to unsubscribe from club emails, please {{ unsubscribe_text }}.'
             . '</p>';
     } elseif (!empty($vars['show_unsubscribe_notice'])) {
         $unsubscribeHtml = '<p style="margin:14px 0 0;font-size:12px;color:#7a6f62;line-height:1.6;">'

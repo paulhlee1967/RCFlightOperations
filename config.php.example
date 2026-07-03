@@ -45,8 +45,8 @@ return [
 
     // Optional: Sender.net API for reminder opt-out checks (overridden by Administration → Installation).
     // 'sender' => [
-    //     'api_token'        => 'your-sender-api-token',
-    //     'unsubscribe_url'  => 'https://example-unsubscribe-url?email={email}',
+    //     'api_token' => 'your-sender-api-token',
+    //     'group_id'  => 'your-members-group-id',
     // ],
 
     // ── Database ──────────────────────────────────────────────────────────
