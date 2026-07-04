@@ -174,9 +174,9 @@ After uploading files and importing the database:
    ```bash
    php /path/to/RCFlightOperations/scripts/send_reminders.php
    ```
-   Use `--dry-run` to preview sends and opt-out skips.
+   Use `--dry-run` to preview sends and opt-out skips. Use `--test-email=you@example.com` with optional `--test-limit=3` to sample templates. Use `--dump-sender-payload` to write the first Sender API body to `logs/sender_payload_dump.json` (token redacted).
 
-   **Sender.net opt-out (recommended):** In **Administration → Installation**, set the Sender API token (and optional members group ID). Reminders are sent via Sender’s transactional API with per-recipient unsubscribe links.
+   **Sender.net (recommended):** In **Administration → Installation**, set the Sender API token and **members group ID**. Set `canonical_host` (or `public_base_url`) in `config.php` so reminder emails include working logo and unsubscribe links. Reminders check **transactional** opt-out only — newsletter unsubscribes in Sender do not block reminders. Each reminder includes a signed link to `unsubscribe.php` for reminder-only opt-out.
 
 ---
 

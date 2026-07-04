@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use PHPUnit\Framework\TestCase;
 
+require_once dirname(__DIR__) . '/includes/helpers.php';
 require_once dirname(__DIR__) . '/includes/member_import_helpers.php';
 require_once dirname(__DIR__) . '/includes/wpforms_application.php';
 
@@ -99,6 +100,21 @@ final class WpformsApplicationTest extends TestCase
         $this->assertNull(wpforms_application_parse_money('+17143238868'));
         $this->assertNull(wpforms_application_parse_money('759314'));
         $this->assertNull(wpforms_application_parse_money('360'));
+    }
+
+    public function test_parse_money_handles_html_entity_dollar_signs_from_automator(): void
+    {
+        $this->assertSame(50.0, wpforms_application_parse_money('&#36;50.00'));
+        $this->assertSame(4.19, wpforms_application_parse_money('&#36;4.19'));
+        $this->assertSame(134.19, wpforms_application_parse_money('&#36;134.19'));
+        $this->assertSame(50.0, wpforms_application_parse_money('&amp;#36;50.00'));
+        $this->assertSame(134.19, wpforms_application_parse_money('&amp;#36;134.19'));
+    }
+
+    public function test_parse_dues_from_label_handles_html_entity_dollar_signs(): void
+    {
+        $this->assertSame(75.0, wpforms_application_parse_dues_from_label('Adult - &#36;75.00'));
+        $this->assertSame(150.0, wpforms_application_parse_dues_from_label('Adult - &amp;#36;150.00'));
     }
 
     public function test_parse_dues_from_membership_label(): void
@@ -259,5 +275,10 @@ final class WpformsApplicationTest extends TestCase
         $this->assertSame('90210', wpforms_application_pick_value($flat, $aliases['address_postal_code']));
         $this->assertSame('931788', wpforms_application_pick_value($flat, $aliases['ama_number']));
         $this->assertSame('test-entry-99', wpforms_application_pick_value($flat, $aliases['wpforms_entry_id']));
+    }
+
+    public function test_webhook_email_normalized_to_lowercase(): void
+    {
+        $this->assertSame('jane@example.com', normalize_email('  Jane@Example.COM  '));
     }
 }

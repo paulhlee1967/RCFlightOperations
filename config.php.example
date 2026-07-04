@@ -14,9 +14,9 @@
 return [
 
     // ── Application ───────────────────────────────────────────────────────
-    // App version is defined as FLIGHT_OPS_VERSION in includes/db.php (default 1.5.1).
+    // App version is defined as FLIGHT_OPS_VERSION in includes/db.php (default 1.5.2).
     // Override in config.php before db.php loads if needed:
-    // define('FLIGHT_OPS_VERSION', '1.5.1');
+    // define('FLIGHT_OPS_VERSION', '1.5.2');
     //
     // When true, PDO connection errors include the exception message (development only).
     // Omit or false in production — errors are still written to the server log.
@@ -39,6 +39,9 @@ return [
     // this one. If omitted, the default is to strip a leading "www." (apex wins).
     // Set explicitly to force a specific host, e.g.:
     // 'canonical_host' => 'rcflightops.pvmac.com',
+    //
+    // Optional: full public URL when cron builds email image links (defaults to https://canonical_host).
+    // 'public_base_url' => 'https://rcflightops.pvmac.com',
 
     // Optional: shared secret for WPForms / Uncanny Automator webhook (overridden by Administration → Installation).
     // 'application_webhook_secret' => 'generate-a-long-random-string',

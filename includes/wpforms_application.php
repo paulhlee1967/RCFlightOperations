@@ -127,15 +127,34 @@ function wpforms_application_pick_phone_values(array $flat): array
 }
 
 /**
+ * Normalize currency text from WPForms / Uncanny Automator webhooks.
+ * Dollar signs often arrive as HTML entities (&#36; or &amp;#36;) instead of "$".
+ */
+function wpforms_application_normalize_currency_text(?string $value): string
+{
+    if ($value === null) {
+        return '';
+    }
+    $value = trim($value);
+    if ($value === '') {
+        return '';
+    }
+
+    $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    if (str_contains($value, '&#') || str_contains($value, '&amp;')) {
+        $value = html_entity_decode($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+
+    return trim($value);
+}
+
+/**
  * Parse a currency amount from WPForms fee/total fields only.
  * Rejects phones, dates, AMA numbers, and membership labels like "Adult - $80.00".
  */
 function wpforms_application_parse_money(?string $value): ?float
 {
-    if ($value === null) {
-        return null;
-    }
-    $value = trim($value);
+    $value = wpforms_application_normalize_currency_text($value);
     if ($value === '') {
         return null;
     }
@@ -173,7 +192,8 @@ function wpforms_application_money_amount_is_plausible(float $amount): bool
  */
 function wpforms_application_parse_dues_from_label(?string $value): ?float
 {
-    if ($value === null || trim($value) === '') {
+    $value = wpforms_application_normalize_currency_text($value);
+    if ($value === '') {
         return null;
     }
     if (preg_match('/\$\s*([0-9]{1,4}(?:,[0-9]{3})*(?:\.[0-9]{2})?|[0-9]+(?:\.[0-9]{2})?)/', $value, $m)) {
@@ -418,6 +438,8 @@ function wpforms_application_parse_payload(PDO $pdo, array $payload): array
     $kind   = $inferred['kind'];
     $season = $inferred['season'];
 
+    $email = $fields['email'] !== '' ? normalize_email($fields['email']) : null;
+
     return [
         'wpforms_entry_id'             => $fields['wpforms_entry_id'],
         'wpforms_form_id'              => $fields['wpforms_form_id'] !== '' ? (int) $fields['wpforms_form_id'] : WPFORMS_MEMBERSHIP_FORM_ID,
@@ -429,7 +451,7 @@ function wpforms_application_parse_payload(PDO $pdo, array $payload): array
         'first_name'                   => $fields['first_name'],
         'last_name'                    => $fields['last_name'],
         'middle_name'                  => $fields['middle_name'] !== '' ? $fields['middle_name'] : null,
-        'email'                        => $fields['email'] !== '' ? $fields['email'] : null,
+        'email'                        => $email,
         'birthday'                     => parseDateForDb($fields['birthday']),
         'phone'                        => $fields['phone'] !== '' ? $fields['phone'] : null,
         'emergency_contact_name'       => $fields['emergency_contact_name'] !== '' ? $fields['emergency_contact_name'] : null,

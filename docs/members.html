@@ -155,7 +155,7 @@
         <tbody>
           <tr><td>First / Last name</td><td>Required. Used on badges and reports.</td></tr>
           <tr><td>Title</td><td>Mr., Ms., Dr., etc. — optional, shown on some reports.</td></tr>
-          <tr><td>Email</td><td>Member’s address; used for in-app report emails, CSV “email only” export, and optional AMA/FAA expiry reminders when your host runs <code>scripts/send_reminders.php</code> (skips members who unsubscribed in Sender.net when configured under <strong>Administration → Installation</strong>). Routine newsletters are typically managed in your external mailing tool (e.g. Sender.net).</td></tr>
+          <tr><td>Email</td><td>Member’s address (stored lowercase); used for in-app report emails, CSV “email only” export, and optional AMA/FAA expiry reminders when your host runs <code>scripts/send_reminders.php</code>. Reminders honor <strong>transactional</strong> opt-out in Sender.net when configured under <strong>Administration → Installation</strong> — newsletter unsubscribes are separate. Routine newsletters are typically managed in your external mailing tool (e.g. Sender.net).</td></tr>
           <tr><td>Birthday</td><td>Used by the Birthdays This Month report.</td></tr>
           <tr><td>Notes</td><td>Free-text internal notes — not shown on badges.</td></tr>
           <tr><td>Photo</td><td>Upload a headshot; appears on the badge front if your template includes it.</td></tr>

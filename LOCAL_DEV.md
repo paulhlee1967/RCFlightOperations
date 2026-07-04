@@ -174,9 +174,10 @@ Templates live in **`templates/email/`** (e.g. `ama_expiry_60.php`, `ama_expiry_
 
 If your club uses [Sender.net](https://www.sender.net) for newsletters and member list management:
 
-1. **Administration → Installation → Sender.net (reminder opt-out)** — set the API access token (Sender → Settings → API access tokens).
-2. Optionally set your **members group ID** so auto-added subscribers land in the right list.
-3. Reminder cron normalizes emails to lowercase, creates missing Sender subscribers, skips unsubscribed contacts, and sends via Sender’s API (each message gets its own unsubscribe link).
+1. **Administration → Installation → Sender.net (reminder opt-out)** — set the API access token (Sender → Settings → API access tokens) and **members group ID** (Subscribers → your members list → group settings).
+2. In `config.php`, set **`canonical_host`** (or **`public_base_url`**) so cron-built emails include HTTPS logo and unsubscribe links.
+3. Reminder cron normalizes emails to lowercase, creates missing Sender subscribers (and adds them to the members group), skips contacts who opted out of **transactional** email, and sends via Sender’s API. Each message includes a signed **reminder-only** unsubscribe link (`unsubscribe.php`); newsletters use a separate list.
+4. Unsubscribing from a newsletter in Sender does **not** stop AMA/FAA reminders — members use the link in reminder emails (or staff can manage status in Sender).
 
 Optional fallback in `config.php`: see the `sender` block in `config.php.example`.
 
@@ -188,4 +189,6 @@ php /path/to/RCFlightOperations/scripts/send_reminders.php
 
 Use `--dry-run` to see who would get an email (and who would be skipped for opt-out) without sending.
 
-Use `--test-email=you@example.com` to deliver all matching reminders to one inbox (relaxes the date filter to 90 days).
+Use `--test-email=you@example.com` to deliver matching reminders to one inbox (relaxes the date filter to 90 days). Add `--test-limit=3` to stop after three template attempts.
+
+Use `--dump-sender-payload` to inspect the first Sender API request body (works with `--dry-run`; token redacted).

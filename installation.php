@@ -260,11 +260,13 @@ require_once __DIR__ . '/includes/header.php';
         <div class="card-header fw-semibold">Sender.net (reminder opt-out)</div>
         <div class="card-body">
             <p class="text-muted small">
-                AMA/FAA expiry reminders check each recipient’s <strong>promotional email</strong> status in Sender.net
+                AMA/FAA expiry reminders check each recipient’s <strong>transactional (reminder)</strong> status in Sender.net
                 before sending. Missing subscribers are added automatically (lowercase email) so case variants like
                 <code>Email@domain.com</code> and <code>email@domain.com</code> do not create duplicates.
-                Reminders are sent through Sender’s transactional API so each message gets its own unsubscribe link
-                (<code>{{ unsubscribe_text }}</code>). Create an API token under Sender → Settings → API access tokens.
+                Reminders are sent through Sender’s transactional API. Each message includes a signed
+                <strong>reminder-only unsubscribe link</strong> on this site (newsletters are unaffected).
+                Requires <code>canonical_host</code> in <code>config.php</code> for logo and unsubscribe URLs.
+                Create an API token under Sender → Settings → API access tokens.
             </p>
             <div class="row g-3">
                 <div class="col-md-6">
@@ -274,11 +276,11 @@ require_once __DIR__ . '/includes/header.php';
                     <div class="form-text">Required for opt-out checks and reminder delivery. Leave blank to use SMTP only (no Sender opt-out).</div>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label" for="sender_group_id">Members group ID (optional)</label>
+                    <label class="form-label" for="sender_group_id">Members group ID</label>
                     <input type="text" class="form-control" id="sender_group_id" name="sender_group_id"
                            placeholder="e.g. eZVD4w"
                            value="<?= h($configRows['sender_group_id'] ?? '') ?>">
-                    <div class="form-text">Sender group ID for auto-added subscribers (from Subscribers → your members list → group settings).</div>
+                    <div class="form-text">Sender group for auto-added subscribers (Subscribers → your members list → group settings). Required for reminders.</div>
                 </div>
             </div>
         </div>

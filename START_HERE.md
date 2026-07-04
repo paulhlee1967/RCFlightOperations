@@ -131,7 +131,9 @@ You should be redirected to **Home** (dashboard). From there you can open Member
 
 ## 9. Optional: Installation settings (SMTP, maintenance, health)
 
-After you log in as an **admin**, open **Administration → Installation** (`installation.php`) to configure outbound email (SMTP or fallback), maintenance mode, database health checks, test email, and broadcast messages to club admins. These settings are stored in the database (`system_config` and related tables), not in a separate “operator” login.
+After you log in as an **admin**, open **Administration → Installation** (`installation.php`) to configure outbound email (SMTP or fallback), Sender.net reminder opt-out (API token + members group ID), maintenance mode, database health checks, test email, and broadcast messages to club admins. These settings are stored in the database (`system_config` and related tables), not in a separate “operator” login.
+
+If you use AMA/FAA expiry reminders via cron, also set **`canonical_host`** (or **`public_base_url`**) in `config.php` so reminder emails include working logo and unsubscribe links. See [DEPLOY.md](DEPLOY.md) and [LOCAL_DEV.md](LOCAL_DEV.md).
 
 ---
 

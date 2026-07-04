@@ -28,7 +28,7 @@ function member_match_find(
 ): array {
     $first = trim($firstName);
     $last  = trim($lastName);
-    $email = $email !== null && trim($email) !== '' ? trim($email) : null;
+    $email = $email !== null && trim($email) !== '' ? normalize_email($email) : null;
     $birthday = $birthday !== null && trim($birthday) !== '' ? trim($birthday) : null;
 
     if ($amaNumber !== null && trim($amaNumber) !== '') {

@@ -1,6 +1,6 @@
 # RC Flight Operations
 
-**Version 1.5.1** — See [CHANGELOG.md](CHANGELOG.md).
+**Version 1.5.2** — See [CHANGELOG.md](CHANGELOG.md).
 
 Open-source (**MIT**) membership management for AMA-affiliated RC flying clubs. One installation serves **one club** (single database, single `config.php`). Officers get a shared dashboard, role-based logins, and club branding (logo, favicon, colors) that carries through the app and help docs.
 

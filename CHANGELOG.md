@@ -6,24 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
-### Changed
-
-- **Simplified member contact model** — Single `phone` and single mailing address on `members`; dropped `member_phones`, `member_addresses`, `allow_email`, and `allow_postal`. Idempotent migrations in `schema_full.sql` and `scripts/migrate_single_*.sql` / `migrate_drop_comm_prefs.sql`. Email cohorts and reminders use a non-empty email only; postal/email opt-out is expected in external tools (e.g. Sender.net).
-- **WPForms field map** — Application webhook maps form 6569 labels to flat member columns (`phone`, `address_street`, etc.); documented Automator JSON in [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md).
-- **Documentation** — Help center, [TECHNICAL.md](TECHNICAL.md), and [PLAN.md](PLAN.md) updated for simplified contact fields and email behavior.
+## [1.5.2] - 2026-07-03
 
 ### Added
 
-- **Sender.net reminder opt-out** — `scripts/send_reminders.php` checks each recipient’s promotional email status via the Sender.net API (`includes/sender_net.php`) before sending AMA/FAA expiry reminders. Missing subscribers are added with a normalized (lowercase) email. Reminders send via Sender’s transactional API with per-recipient `{{ unsubscribe_text }}` links. **Administration → Installation** stores the API token and optional members group ID.
+- **Reminder-only unsubscribe page** — `unsubscribe.php` lets members opt out of AMA/FAA expiry reminders via a signed link in each reminder email. Confirms with CSRF, then sets Sender.net `transactional_email_status` to `UNSUBSCRIBED` (newsletters/campaigns are unaffected).
+- **Email public URLs** — `includes/email_urls.php` builds absolute HTTPS links for cron/Sender emails (`public_base_url` or `canonical_host` in `config.php`). Club logos in Sender sends use a public thumb URL (Sender strips `data:` URIs).
+- **Sender.net reminder opt-out** — `scripts/send_reminders.php` checks each recipient’s **transactional** (`temail`) status via the Sender.net API (`includes/sender_net.php`) before sending AMA/FAA expiry reminders. Missing subscribers are added with a normalized (lowercase) email and placed in the configured members group. Reminders send via Sender’s transactional API with per-recipient signed unsubscribe links on this app. **Administration → Installation** stores the API token and members group ID.
 - **New member wizard** — Guided five-step signup: `member_wizard.php` (contact, compliance, membership), then `member_process.php?wizard=1` (record signup, print & mail). Stepper in `includes/member_wizard_nav.php`; step JS in `js/member_wizard.js`. Shared save logic in `includes/member_save.php`. New members no longer open a blank `member_edit.php` form.
+- **WPForms applications** — Website membership applications via webhook (`api_webhook_application.php`, `applications.php`, `includes/wpforms_application.php`). Review queue with renewal-year filters and pagination. See [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md).
 - **Shared club theme** — `includes/club_theme.php` centralizes default palette, WCAG on-primary text, and status color tokens. Used by `includes/header.php`, `docs/docs-theme.php`, and branded email/PDF layouts.
 - **Badge designer overhaul** — Tabbed sidebar (card options, add fields, selected field, live preview), undo/redo, fixed-width text boxes for alignment, emergency-contact merge fields, back-side merge-tag buttons with live HTML preview, design rename, and browser session backup for unsaved edits.
 
 ### Changed
 
+- **Simplified member contact model** — Single `phone` and single mailing address on `members`; dropped `member_phones`, `member_addresses`, `allow_email`, and `allow_postal`. Idempotent migrations in `schema_full.sql` and `scripts/migrate_single_*.sql` / `migrate_drop_comm_prefs.sql`. Email cohorts and reminders use a non-empty email only; postal/email opt-out is expected in external tools (e.g. Sender.net).
+- **Email normalization** — `normalize_email()` in `includes/helpers.php` lowercases addresses on save, WPForms ingest, and member matching to avoid duplicate Sender subscribers and roster rows.
+- **WPForms payment parsing** — Currency fields from Uncanny Automator that encode `$` as HTML entities (`&#36;`, `&amp;#36;`) are decoded before fee/total parsing.
+- **Reminder cron tooling** — `send_reminders.php` adds `--test-limit=N` (with `--test-email`) and `--dump-sender-payload[=path]` for debugging Sender API bodies (token redacted; default `logs/sender_payload_dump.json`).
 - **PHP 8.2 minimum** — `composer.json` and CI (PHPUnit 11 requires PHP ≥ 8.2). GitHub Actions matrix updated from 8.1/8.4 to 8.2/8.4.
 - **Unified UI/UX** — Consistent sidebar tool panels, card layout, and club-themed CSS variables across dashboard, members, reports, badge designer, configuration, incidents, and help docs (`docs/docs.css`, `docs/docs-theme.php`).
-- **Documentation** — `docs/badges.html`, `docs/members.html`, `docs/overview.html`, `docs/renewals.html`, `docs/index.html`, `docs/admin.html`, and `docs/install.html` updated for the wizard, badge designer, and theming.
+- **Documentation** — Help center, [TECHNICAL.md](TECHNICAL.md), [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md), [DEPLOY.md](DEPLOY.md), and [LOCAL_DEV.md](LOCAL_DEV.md) updated for reminder unsubscribe, Sender transactional vs campaign opt-out, WPForms, and simplified contact fields.
 
 ## [1.5.1] - 2026-07-01
 

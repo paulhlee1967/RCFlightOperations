@@ -231,17 +231,22 @@
       <strong>Administration → Installation → Sender.net (reminder opt-out)</strong>:
     </p>
     <ul>
-      <li><strong>API access token</strong> — from Sender → Settings → API access tokens. Used to ensure subscribers exist (lowercase email), check promotional status, and send reminders with per-recipient unsubscribe links.</li>
-      <li><strong>Members group ID (optional)</strong> — Sender group ID for subscribers auto-added when not already in your list.</li>
+      <li><strong>API access token</strong> — from Sender → Settings → API access tokens. Used to ensure subscribers exist (lowercase email), check <strong>transactional (reminder)</strong> status, assign the members group, and send reminders via Sender’s API.</li>
+      <li><strong>Members group ID</strong> — Sender group for auto-added subscribers (Subscribers → your members list → group settings). Required for reminders.</li>
+      <li><strong>Canonical host</strong> — set <code>canonical_host</code> (or <code>public_base_url</code>) in <code>config.php</code> on the server so cron-built emails include working logo and unsubscribe links.</li>
     </ul>
     <p>
-      Members who unsubscribed in Sender are <strong>skipped</strong> for AMA/FAA expiry reminders.
-      Do not paste a static unsubscribe URL from a test email — those links are tied to one recipient.
-      New applicants are typically added to Sender via your website form (Uncanny Automator).
+      <strong>Two separate opt-outs:</strong> Newsletter/campaign unsubscribes in Sender do <em>not</em> stop AMA/FAA expiry reminders.
+      Members who want to stop reminders use the <strong>reminder-only unsubscribe link</strong> in each expiry email (handled by
+      <code>unsubscribe.php</code> on this site). Newsletters and general club notices remain on your Sender list.
+    </p>
+    <p>
+      New applicants are typically added to Sender via your website form (Uncanny Automator). Emails are stored lowercase in the app to avoid duplicate subscribers.
     </p>
     <p>
       Test without sending: <code>php scripts/send_reminders.php --dry-run</code>
-      (from SSH on your host). Use <code>--test-email=you@example.com</code> to receive sample reminders.
+      (from SSH on your host). Use <code>--test-email=you@example.com</code> with optional <code>--test-limit=3</code> to receive sample reminders.
+      Use <code>--dump-sender-payload</code> to inspect the Sender API body (token redacted).
     </p>
 
   </main>

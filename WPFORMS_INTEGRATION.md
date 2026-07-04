@@ -90,6 +90,8 @@ Minimum useful payload example:
 
 WPForms payment gateway metadata (transaction IDs) is often **not** available as Automator tokens; `Total`, `Initiation Fee`, `Processing Fee`, and `Special Code (If you have one)` are usually enough for staff review.
 
+**Currency encoding:** Uncanny Automator sometimes sends dollar amounts with `$` as HTML entities (`&#36;50.00` or `&amp;#36;50.00`). The app decodes these before parsing fees and totals.
+
 Map payment fields using Automator tokens from the **field labels** in the dropdown — not guessed field IDs. Example keys:
 
 - `Initiation Fee` → `$50.00`
@@ -181,4 +183,13 @@ When **Support email** is set in Installation, a notification is sent for each n
 
 ## 8. Sender.net and reminder opt-out
 
-Website applicants are typically added to your Sender.net members list via a separate Uncanny Automator recipe on the same form. AMA/FAA expiry reminders use Sender’s API when configured under **Administration → Installation → Sender.net (reminder opt-out)** (per-recipient unsubscribe links; optional members group ID for auto-added contacts). See [docs/admin.html](docs/admin.html#sender-opt-out) in the Help center.
+Website applicants are typically added to your Sender.net **newsletter/members** list via a separate Uncanny Automator recipe on the same form. Applicant emails are stored **lowercase** in RC Flight Operations to match Sender.
+
+AMA/FAA expiry reminders use Sender’s API when configured under **Administration → Installation → Sender.net (reminder opt-out)**:
+
+- Set the **API token** and **members group ID** (required for auto-added reminder recipients).
+- Set **`canonical_host`** or **`public_base_url`** in `config.php` so reminder emails include logo and unsubscribe URLs when cron runs.
+- Reminders check **transactional** (`temail`) opt-out — unsubscribing from newsletters does **not** block reminders.
+- Each reminder includes a signed link to **`unsubscribe.php`** on this app (reminder-only opt-out).
+
+See [docs/admin.html](docs/admin.html#sender-opt-out) in the Help center.

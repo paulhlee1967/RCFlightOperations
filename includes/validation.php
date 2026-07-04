@@ -19,6 +19,8 @@
  * Member clean data is returned in the $clean array.
  */
 
+require_once __DIR__ . '/helpers.php';
+
 /**
  * Validate and sanitise the member save form POST data.
  *
@@ -60,7 +62,7 @@ function validate_member_input(array $post): array {
             $errors['email'] = $emailErr;
             $clean['email']  = null;
         } else {
-            $clean['email'] = $rawEmail;
+            $clean['email'] = normalize_email($rawEmail);
         }
     } else {
         $clean['email'] = null;

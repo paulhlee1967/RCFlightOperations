@@ -31,6 +31,17 @@ function h(mixed $s): string {
 }
 
 /**
+ * Normalize an email address for storage and matching (trim + lowercase).
+ *
+ * Avoids duplicate members/subscribers when the same address arrives with different casing
+ * (e.g. WPForms, Sender.net, manual entry).
+ */
+function normalize_email(string $email): string
+{
+    return strtolower(trim($email));
+}
+
+/**
  * Return the HTML attribute string ' checked' when $value is truthy.
  * Use inside checkbox inputs: <input type="checkbox" <?= checked($member['active']) ?>>
  *

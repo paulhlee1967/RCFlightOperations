@@ -5,13 +5,23 @@
  *   php scripts/send_reminders.php
  *   php scripts/send_reminders.php --dry-run
  *   php scripts/send_reminders.php --test-email=you@example.com
+ *   php scripts/send_reminders.php --test-email=you@example.com --test-limit=3
+ *   php scripts/send_reminders.php --test-email=you@example.com --dump-sender-payload
+ *   php scripts/send_reminders.php --dry-run --test-email=you@example.com --dump-sender-payload
+ *
+ * --dump-sender-payload[=path]  Write the first Sender.net API request body to JSON
+ *                               (default: logs/sender_payload_dump.json). Token redacted.
+ *                               Works with --dry-run (builds payload without sending).
  *
  * --test-email=addr  Send all matching reminders to one address instead of the
  *                    real member email. Also relaxes the date filter to show
  *                    anyone expiring in the next 90 days so you can verify
  *                    templates without waiting for an exact trigger date.
+ * --test-limit=N     With --test-email, stop after N reminder sends (default: no
+ *                    limit). Counts each template attempt (sent, skipped, or
+ *                    dry-run), across AMA and FAA batches.
  *
- * Skips recipients whose Sender.net promotional email status is not "active"
+ * Skips recipients who opted out of transactional (reminder) email in Sender.net
  * when a Sender API token is configured (Administration → Installation).
  * Sends via Sender transactional API when configured (per-recipient unsubscribe links).
  *
@@ -64,18 +74,40 @@ $senderCfg  = sender_net_load_config($pdo);
 $senderOn   = sender_net_is_configured($senderCfg);
 
 // ── Parse CLI flags ───────────────────────────────────────────────────────────
-$dryRun    = false;
-$testEmail = null;
+$dryRun              = false;
+$testEmail           = null;
+$testLimit           = null;
+$testCount           = 0;
+$dumpSenderPayload   = null;
+$senderPayloadDumped = false;
 
 foreach (array_slice($argv, 1) as $arg) {
     if ($arg === '--dry-run') {
         $dryRun = true;
+    } elseif ($arg === '--dump-sender-payload') {
+        $dumpSenderPayload = $baseDir . '/logs/sender_payload_dump.json';
+    } elseif (preg_match('/^--dump-sender-payload=(.+)$/', $arg, $m)) {
+        $dumpSenderPayload = $m[1];
+        if ($dumpSenderPayload !== '' && $dumpSenderPayload[0] !== '/') {
+            $dumpSenderPayload = $baseDir . '/' . ltrim($dumpSenderPayload, '/');
+        }
     } elseif (preg_match('/^--test-email=(.+)$/', $arg, $m)) {
         $testEmail = trim($m[1]);
+    } elseif (preg_match('/^--test-limit=(\d+)$/', $arg, $m)) {
+        $testLimit = (int) $m[1];
+        if ($testLimit < 1) {
+            fwrite(STDERR, "--test-limit must be a positive integer.\n");
+            exit(1);
+        }
     }
 }
 
 $isTest = ($testEmail !== null);
+
+if ($testLimit !== null && !$isTest) {
+    fwrite(STDERR, "--test-limit requires --test-email.\n");
+    exit(1);
+}
 
 $stmt = $pdo->query('SELECT name FROM club WHERE id = 1');
 $clubRow  = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
@@ -83,12 +115,20 @@ $clubName = $clubRow['name'] ?? 'RC Flight Operations';
 
 if ($isTest) {
     echo "TEST MODE — all emails will be sent to: {$testEmail}\n";
-    echo "Date filter relaxed to: expiring within 90 days\n\n";
+    echo "Date filter relaxed to: expiring within 90 days\n";
+    if ($testLimit !== null) {
+        echo "Test limit: {$testLimit} reminder(s)\n";
+    }
+    echo "\n";
 } elseif ($senderOn) {
-    echo "Sender.net opt-out check enabled (promotional email status).\n\n";
+    echo "Sender.net opt-out check enabled (transactional / reminder status).\n\n";
 } else {
     echo "WARNING: Sender.net API token not set — reminders will not check opt-out status.\n";
     echo "         Set it under Administration → Installation.\n\n";
+}
+
+if ($dumpSenderPayload !== null) {
+    echo "Sender payload dump enabled → {$dumpSenderPayload}\n\n";
 }
 
 $sent    = 0;
@@ -98,8 +138,14 @@ $startedAt = microtime(true);
 flightops_log('INFO', 'send_reminders: start', [
     'dry_run'     => $dryRun,
     'test_email'  => $testEmail,
+    'test_limit'  => $testLimit,
     'sender_check'=> $senderOn,
 ], 'cron');
+
+function send_reminder_test_limit_reached(?int $testLimit, int $testCount): bool
+{
+    return $testLimit !== null && $testCount >= $testLimit;
+}
 
 /**
  * @param array<string, mixed> $member
@@ -112,9 +158,12 @@ function send_reminder_message(
     array $vars,
     array $mailCfg,
     array $senderCfg,
+    array $appConfig,
     bool $dryRun,
     bool $isTest,
     ?string $testEmail,
+    ?string $dumpSenderPayload,
+    bool &$senderPayloadDumped,
     int &$sent,
     int &$skipped,
     int &$errors
@@ -151,7 +200,7 @@ function send_reminder_message(
         }
 
         $recipient = $prep['normalized_email'];
-        $vars['use_sender_unsubscribe_liquid'] = true;
+        sender_net_set_reminder_unsubscribe_vars($vars, $recipient, $pdo, $appConfig, $senderCfg);
         if ($prep['created'] && !$dryRun) {
             flightops_log('INFO', 'send_reminders: created Sender.net subscriber', [
                 'template'  => $templateKey,
@@ -162,11 +211,23 @@ function send_reminder_message(
     } elseif ($isTest) {
         $recipient = (string) $testEmail;
         if ($useSender) {
-            $vars['use_sender_unsubscribe_liquid'] = true;
+            if (!$dryRun) {
+                $ensure = sender_net_ensure_subscriber(
+                    $recipient,
+                    (string) ($member['first_name'] ?? ''),
+                    (string) ($member['last_name'] ?? ''),
+                    $senderCfg,
+                    true
+                );
+                if ($ensure['ok']) {
+                    $recipient = sender_net_normalize_email($recipient);
+                }
+            }
+            sender_net_set_reminder_unsubscribe_vars($vars, $recipient, $pdo, $appConfig, $senderCfg);
         }
     }
 
-    if ($dryRun) {
+    if ($dryRun && ($dumpSenderPayload === null || !$useSender)) {
         echo "[dry-run] Would send {$templateKey} to {$recipient} ({$memberLabel})\n";
         $sent++;
         return;
@@ -175,22 +236,62 @@ function send_reminder_message(
     try {
         $data = render_email_template($templateKey, $vars, $pdo);
         $text = $data['text'];
-        if ($text !== null && !empty($vars['use_sender_unsubscribe_liquid'])) {
-            $text = rtrim($text) . sender_net_unsubscribe_plain_text_line();
+        $unsubUrl = trim((string) ($vars['unsubscribe_url'] ?? ''));
+        if ($text !== null && $unsubUrl !== '') {
+            $text = rtrim($text) . sender_net_unsubscribe_plain_text_line($unsubUrl);
         }
 
         if ($useSender) {
+            $liquidVars = sender_net_liquid_variables(
+                $recipient,
+                (string) ($member['first_name'] ?? ''),
+                (string) ($member['last_name'] ?? '')
+            );
+            $from = [
+                'email' => $mailCfg['from_address'] ?? '',
+                'name'  => $mailCfg['from_name'] ?? '',
+            ];
+
+            if ($dumpSenderPayload !== null && !$senderPayloadDumped) {
+                $request = sender_net_build_transactional_request(
+                    $recipient,
+                    $memberLabel,
+                    $data['subject'],
+                    $data['html'],
+                    $text,
+                    $from,
+                    $senderCfg,
+                    $liquidVars
+                );
+                $ok = sender_net_dump_transactional_request($request, $dumpSenderPayload, [
+                    'template_key' => $templateKey,
+                    'recipient'    => $recipient,
+                    'member_id'    => (int) ($member['id'] ?? 0),
+                    'dry_run'        => $dryRun,
+                ]);
+                $senderPayloadDumped = true;
+                if ($ok) {
+                    echo "Sender API payload dumped to {$dumpSenderPayload}\n";
+                } else {
+                    fwrite(STDERR, "FAILED to write Sender payload dump to {$dumpSenderPayload}\n");
+                }
+            }
+
+            if ($dryRun) {
+                echo "[dry-run] Would send {$templateKey} to {$recipient} ({$memberLabel}) via Sender.net\n";
+                $sent++;
+                return;
+            }
+
             $sendResult = sender_net_send_transactional(
                 $recipient,
                 $memberLabel,
                 $data['subject'],
                 $data['html'],
                 $text,
-                [
-                    'email' => $mailCfg['from_address'] ?? '',
-                    'name'  => $mailCfg['from_name'] ?? '',
-                ],
-                $senderCfg
+                $from,
+                $senderCfg,
+                $liquidVars
             );
             if ($sendResult['ok']) {
                 echo "Sent {$templateKey} to {$recipient} (member: {$memberLabel}) via Sender.net\n";
@@ -255,6 +356,9 @@ if ($isTest) {
 $stmt = $pdo->prepare($amaSql60);
 $stmt->execute();
 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
+    if ($isTest && send_reminder_test_limit_reached($testLimit, $testCount)) {
+        break;
+    }
     send_reminder_message(
         $pdo,
         $m,
@@ -270,13 +374,19 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
         ],
         $mailCfg,
         $senderCfg,
+        $config,
         $dryRun,
         $isTest,
         $testEmail,
+        $dumpSenderPayload,
+        $senderPayloadDumped,
         $sent,
         $skipped,
         $errors
     );
+    if ($isTest) {
+        $testCount++;
+    }
 }
 
 // ── AMA expiry in 30 days ─────────────────────────────────────────────────
@@ -305,9 +415,12 @@ if (!$isTest) {
             ],
             $mailCfg,
             $senderCfg,
+            $config,
             $dryRun,
             $isTest,
             $testEmail,
+            $dumpSenderPayload,
+            $senderPayloadDumped,
             $sent,
             $skipped,
             $errors
@@ -335,6 +448,9 @@ if ($isTest) {
 $stmt = $pdo->prepare($faaSql);
 $stmt->execute();
 foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
+    if ($isTest && send_reminder_test_limit_reached($testLimit, $testCount)) {
+        break;
+    }
     send_reminder_message(
         $pdo,
         $m,
@@ -350,13 +466,19 @@ foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
         ],
         $mailCfg,
         $senderCfg,
+        $config,
         $dryRun,
         $isTest,
         $testEmail,
+        $dumpSenderPayload,
+        $senderPayloadDumped,
         $sent,
         $skipped,
         $errors
     );
+    if ($isTest) {
+        $testCount++;
+    }
 }
 
 // ── FAA expiry in 30 days ─────────────────────────────────────────────────
@@ -384,9 +506,12 @@ if (!$isTest) {
             ],
             $mailCfg,
             $senderCfg,
+            $config,
             $dryRun,
             $isTest,
             $testEmail,
+            $dumpSenderPayload,
+            $senderPayloadDumped,
             $sent,
             $skipped,
             $errors
