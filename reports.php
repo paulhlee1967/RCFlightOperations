@@ -19,8 +19,14 @@ if (!canViewReports()) {
 
 $registry = reportRegistry();
 $slug     = (string) ($_GET['report'] ?? reportDefaultSlug());
-if (!reportExists($slug)) {
+if (!reportExists($slug) || !reportVisibleToUser($slug)) {
     $slug = reportDefaultSlug();
+    foreach ($registry as $rSlug => $_meta) {
+        if (reportVisibleToUser($rSlug)) {
+            $slug = $rSlug;
+            break;
+        }
+    }
 }
 
 // Resolve year for reports that take one (clamped to available range).
@@ -142,7 +148,11 @@ $alignClass = static fn(string $a): string => $a === 'end' ? 'text-end' : 'text-
     <div class="col-12 col-lg-3">
         <nav class="card mb-3 shadow-sm" aria-label="Report types">
             <div class="card-body p-0">
-                <?php foreach ($registry as $rSlug => $meta): ?>
+                <?php foreach ($registry as $rSlug => $meta):
+                    if (!reportVisibleToUser($rSlug)) {
+                        continue;
+                    }
+                ?>
                 <a href="reports.php?report=<?= h($rSlug) ?>"
                    class="sidebar-nav-link<?= $rSlug === $slug ? ' active' : '' ?>">
                     <div class="fw-semibold"><?= h($meta['label']) ?></div>
@@ -192,8 +202,25 @@ $alignClass = static fn(string $a): string => $a === 'end' ? 'text-end' : 'text-
                                         $n   = (int) $raw;
                                         $cls .= $n > 0 ? ' text-success' : ($n < 0 ? ' text-danger' : ' text-muted');
                                     }
+                                    $cellHtml = h(reportFormatCell($raw, $fmt, false));
+                                    if ($slug === 'possible_duplicates' && $key === 'members') {
+                                        $parts = [];
+                                        foreach (explode(';', (string) ($row['members'] ?? '')) as $chunk) {
+                                            $chunk = trim($chunk);
+                                            if ($chunk === '') {
+                                                continue;
+                                            }
+                                            if (preg_match('/^(.*)\(#(\d+)\)$/', $chunk, $m)) {
+                                                $parts[] = '<a href="member_edit.php?id=' . (int) $m[2] . '" class="text-decoration-none">'
+                                                    . h(trim($m[1])) . ' <span class="text-muted">(#' . (int) $m[2] . ')</span></a>';
+                                            } else {
+                                                $parts[] = h($chunk);
+                                            }
+                                        }
+                                        $cellHtml = implode('<br>', $parts);
+                                    }
                                 ?>
-                                <td class="<?= $cls ?>"><?= h(reportFormatCell($raw, $fmt, false)) ?></td>
+                                <td class="<?= $cls ?>"><?= $cellHtml ?></td>
                                 <?php endforeach; ?>
                             </tr>
                             <?php endforeach; ?>

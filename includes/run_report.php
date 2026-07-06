@@ -24,6 +24,7 @@
 
 require_once __DIR__ . '/membership_status.php';
 require_once __DIR__ . '/member_completeness.php';
+require_once __DIR__ . '/member_match.php';
 
 /**
  * Registry of available reports, in display order.
@@ -36,6 +37,11 @@ function reportRegistry(): array
         'membership_by_year' => [
             'label'       => 'Membership by year',
             'description' => 'Current members per calendar year, with year-over-year change.',
+            'year'        => false,
+        ],
+        'incidents_by_year_type' => [
+            'label'       => 'Incidents by year/type',
+            'description' => 'Safety incidents grouped by calendar year and incident type.',
             'year'        => false,
         ],
         'retention_churn' => [
@@ -70,7 +76,28 @@ function reportRegistry(): array
             'year'        => false,
             'cohort'      => true,
         ],
+        'possible_duplicates' => [
+            'label'       => 'Possible duplicate members',
+            'description' => 'Member groups that match on AMA number, name/email, or name alone (same tiers as import matching).',
+            'year'        => false,
+            'editor'      => true,
+        ],
     ];
+}
+
+/**
+ * Whether the current user may view a report slug.
+ */
+function reportVisibleToUser(string $slug): bool
+{
+    if (!reportExists($slug)) {
+        return false;
+    }
+    if (!empty(reportRegistry()[$slug]['editor'] ?? false)) {
+        return function_exists('canEditMembers') && canEditMembers();
+    }
+
+    return true;
 }
 
 /**
@@ -297,16 +324,95 @@ function runReport(PDO $pdo, string $slug, array $params = []): array
 
     $report = match ($slug) {
         'membership_by_year'  => reportMembershipByYear($pdo),
+        'incidents_by_year_type' => reportIncidentsByYearType($pdo),
         'retention_churn'     => reportRetentionChurn($pdo),
         'membership_type_mix' => reportMembershipTypeMix($pdo, $year),
         'not_yet_renewed'     => reportNotYetRenewed($pdo, $year),
         'revenue_by_year'     => reportRevenueByYear($pdo),
         'compliance'          => reportCompliance($pdo),
         'data_completeness'   => reportDataCompleteness($pdo),
+        'possible_duplicates' => reportPossibleDuplicates($pdo),
         default               => throw new InvalidArgumentException('Unknown report: ' . $slug),
     };
 
     return reportAppendAccuracyNote($pdo, $slug, $year, $report);
+}
+
+/**
+ * Human-readable label for an incident type slug.
+ */
+function reportIncidentTypeLabel(string $type): string
+{
+    return match ($type) {
+        'near_miss'       => 'Near Miss',
+        'crash'           => 'Crash',
+        'injury'          => 'Injury',
+        'property_damage' => 'Property Damage',
+        'airspace'        => 'Airspace Violation',
+        'other'           => 'Other',
+        default           => $type,
+    };
+}
+
+/**
+ * Safety incidents grouped by calendar year and incident type (most recent first).
+ *
+ * @return array<string, mixed>
+ */
+function reportIncidentsByYearType(PDO $pdo): array
+{
+    $meta = reportRegistry()['incidents_by_year_type'];
+
+    // If the incidents table doesn't exist yet, return an empty report gracefully.
+    try {
+        $stmt = $pdo->query('
+            SELECT
+                YEAR(incident_date) AS year,
+                incident_type       AS type,
+                COUNT(*)            AS incidents
+            FROM incidents
+            GROUP BY YEAR(incident_date), incident_type
+            ORDER BY year DESC, incidents DESC, incident_type ASC
+        ');
+    } catch (Throwable $e) {
+        return [
+            'slug'        => 'incidents_by_year_type',
+            'title'       => $meta['label'],
+            'description' => $meta['description'],
+            'columns'     => [
+                ['key' => 'year',      'label' => 'Year',          'format' => 'year', 'align' => 'start'],
+                ['key' => 'type',      'label' => 'Incident type', 'format' => 'text', 'align' => 'start'],
+                ['key' => 'incidents', 'label' => 'Incidents',     'format' => 'int',  'align' => 'end'],
+            ],
+            'rows'   => [],
+            'totals' => null,
+            'note'   => 'No incident data is available yet.',
+        ];
+    }
+
+    $rows = [];
+    while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $type = (string) ($r['type'] ?? 'other');
+        $rows[] = [
+            'year'      => (int) $r['year'],
+            'type'      => reportIncidentTypeLabel($type),
+            'incidents' => (int) $r['incidents'],
+        ];
+    }
+
+    return [
+        'slug'        => 'incidents_by_year_type',
+        'title'       => $meta['label'],
+        'description' => $meta['description'],
+        'columns'     => [
+            ['key' => 'year',      'label' => 'Year',          'format' => 'year', 'align' => 'start'],
+            ['key' => 'type',      'label' => 'Incident type', 'format' => 'text', 'align' => 'start'],
+            ['key' => 'incidents', 'label' => 'Incidents',     'format' => 'int',  'align' => 'end'],
+        ],
+        'rows'   => $rows,
+        'totals' => null,
+        'note'   => 'Counts every incident record; year is derived from incident date.',
+    ];
 }
 
 /**
@@ -768,5 +874,57 @@ function reportDataCompleteness(PDO $pdo): array
         'rows'   => $rows,
         'totals' => null,
         'note'   => 'Current members only. Checks email, phone, mailing address, emergency contact, AMA/FAA numbers, and membership type. AMA life members are exempt from AMA number/expiration requirements.',
+    ];
+}
+
+/**
+ * Possible duplicate member groups (same matching tiers as import/applications).
+ *
+ * @return array<string, mixed>
+ */
+function reportPossibleDuplicates(PDO $pdo): array
+{
+    $meta   = reportRegistry()['possible_duplicates'];
+    $groups = member_match_scan_duplicates($pdo);
+
+    $rows = [];
+    foreach ($groups as $group) {
+        $labels = [];
+        $ids    = [];
+        foreach ($group['members'] as $m) {
+            $id = (int) ($m['id'] ?? 0);
+            if ($id <= 0) {
+                continue;
+            }
+            $ids[]    = $id;
+            $labels[] = trim((string) ($m['last_name'] ?? '') . ', ' . (string) ($m['first_name'] ?? ''))
+                . ' (#' . $id . ')';
+        }
+        if (count($ids) < 2) {
+            continue;
+        }
+
+        $rows[] = [
+            'confidence' => member_match_confidence_label((string) $group['confidence']),
+            'method'     => member_match_method_label((string) $group['method']),
+            'members'    => implode('; ', $labels),
+            'count'      => count($ids),
+            'member_ids' => implode(',', $ids),
+        ];
+    }
+
+    return [
+        'slug'        => 'possible_duplicates',
+        'title'       => $meta['label'],
+        'description' => $meta['description'],
+        'columns'     => [
+            ['key' => 'confidence', 'label' => 'Match tier',   'format' => 'text', 'align' => 'start'],
+            ['key' => 'method',     'label' => 'Match method', 'format' => 'text', 'align' => 'start'],
+            ['key' => 'members',    'label' => 'Members',      'format' => 'text', 'align' => 'start'],
+            ['key' => 'count',      'label' => 'Count',        'format' => 'int',  'align' => 'end'],
+        ],
+        'rows'   => $rows,
+        'totals' => null,
+        'note'   => 'Review each group and merge or correct records in the member editor. Each pair is listed once at the strongest matching tier.',
     ];
 }

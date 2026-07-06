@@ -132,3 +132,162 @@ function member_match_find(
         'candidate_ids' => [],
     ];
 }
+
+/**
+ * Human-readable label for a match confidence tier.
+ */
+function member_match_confidence_label(string $confidence): string
+{
+    return match ($confidence) {
+        'exact'    => 'Exact',
+        'probable' => 'Probable',
+        'ambiguous'=> 'Ambiguous',
+        default    => ucfirst($confidence),
+    };
+}
+
+/**
+ * Human-readable label for a match method slug.
+ */
+function member_match_method_label(string $method): string
+{
+    return match ($method) {
+        'ama_number'          => 'AMA number',
+        'name_email_birthday' => 'Name + email + birthday',
+        'name_email'          => 'Name + email',
+        'name_only'           => 'Name only',
+        default               => $method,
+    };
+}
+
+/**
+ * Stable key for a member pair (order-independent).
+ */
+function member_match_pair_key(int $idA, int $idB): string
+{
+    if ($idA > $idB) {
+        [$idA, $idB] = [$idB, $idA];
+    }
+
+    return $idA . ':' . $idB;
+}
+
+/**
+ * Scan existing members for possible duplicate groups using the same tiers as
+ * member_match_find() (AMA, name+email+birthday, name+email, name only).
+ * Each pair is reported once, at the strongest matching tier.
+ *
+ * @return array<int, array{
+ *   confidence: string,
+ *   method: string,
+ *   member_ids: int[],
+ *   members: array<int, array<string, mixed>>
+ * }>
+ */
+function member_match_scan_duplicates(PDO $pdo): array
+{
+    $tiers = [
+        [
+            'confidence' => 'exact',
+            'method'     => 'ama_number',
+            'sql'        => "
+                SELECT GROUP_CONCAT(id ORDER BY id) AS ids
+                FROM members
+                WHERE ama_number IS NOT NULL AND TRIM(ama_number) != ''
+                GROUP BY ama_number
+                HAVING COUNT(*) > 1
+            ",
+        ],
+        [
+            'confidence' => 'exact',
+            'method'     => 'name_email_birthday',
+            'sql'        => "
+                SELECT GROUP_CONCAT(id ORDER BY id) AS ids
+                FROM members
+                WHERE TRIM(first_name) != '' AND TRIM(last_name) != ''
+                  AND email IS NOT NULL AND TRIM(email) != ''
+                  AND birthday IS NOT NULL
+                GROUP BY first_name, last_name, email, birthday
+                HAVING COUNT(*) > 1
+            ",
+        ],
+        [
+            'confidence' => 'probable',
+            'method'     => 'name_email',
+            'sql'        => "
+                SELECT GROUP_CONCAT(id ORDER BY id) AS ids
+                FROM members
+                WHERE TRIM(first_name) != '' AND TRIM(last_name) != ''
+                  AND email IS NOT NULL AND TRIM(email) != ''
+                GROUP BY first_name, last_name, email
+                HAVING COUNT(*) > 1
+            ",
+        ],
+        [
+            'confidence' => 'probable',
+            'method'     => 'name_only',
+            'sql'        => "
+                SELECT GROUP_CONCAT(id ORDER BY id) AS ids
+                FROM members
+                WHERE TRIM(first_name) != '' AND TRIM(last_name) != ''
+                GROUP BY first_name, last_name
+                HAVING COUNT(*) > 1
+            ",
+        ],
+    ];
+
+    $seenPairs = [];
+    $groups    = [];
+
+    foreach ($tiers as $tier) {
+        try {
+            $stmt = $pdo->query($tier['sql']);
+        } catch (Throwable $e) {
+            continue;
+        }
+
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $ids = array_values(array_unique(array_map('intval', explode(',', (string) ($row['ids'] ?? '')))));
+            $ids = array_values(array_filter($ids, static fn (int $id): bool => $id > 0));
+            if (count($ids) < 2) {
+                continue;
+            }
+
+            $hasNewPair = false;
+            for ($i = 0; $i < count($ids); $i++) {
+                for ($j = $i + 1; $j < count($ids); $j++) {
+                    $key = member_match_pair_key($ids[$i], $ids[$j]);
+                    if (!isset($seenPairs[$key])) {
+                        $seenPairs[$key] = true;
+                        $hasNewPair      = true;
+                    }
+                }
+            }
+            if (!$hasNewPair) {
+                continue;
+            }
+
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $memberStmt   = $pdo->prepare(
+                "SELECT id, first_name, last_name, email, ama_number, birthday
+                 FROM members
+                 WHERE id IN ({$placeholders})
+                 ORDER BY last_name, first_name, id"
+            );
+            $memberStmt->execute($ids);
+            $members = $memberStmt->fetchAll(PDO::FETCH_ASSOC);
+            if (count($members) < 2) {
+                continue;
+            }
+
+            $groups[] = [
+                'confidence' => $tier['confidence'],
+                'method'     => $tier['method'],
+                'member_ids' => $ids,
+                'members'    => $members,
+            ];
+        }
+    }
+
+    return $groups;
+}

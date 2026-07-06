@@ -34,7 +34,7 @@ csrf_validate();
 
 $action = (string) ($_POST['action'] ?? '');
 $slug   = (string) ($_POST['report'] ?? '');
-if (!reportExists($slug)) {
+if (!reportExists($slug) || !reportVisibleToUser($slug)) {
     flash('Unknown report.', 'danger');
     header('Location: reports.php');
     exit;
