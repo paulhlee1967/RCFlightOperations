@@ -53,7 +53,7 @@ function wpforms_application_field_aliases(): array
         'faa_expiration'               => ['FAA Registration Expiration', 'faa_expiration'],
         'file_ama_verification_url'    => ['AMA Verification (.jpg, .pdf, .png, .doc), 5Mb Max', 'AMA Verification', 'ama_verification'],
         'file_faa_registration_url'    => ['FAA Registration (.jpg, .pdf, .png, .doc), 5Mb Max', 'FAA Registration', 'faa_registration'],
-        'file_badge_photo_url'         => ['Badge Photo (.jpg, .pdf, .png, .doc), 5Mb Max', 'Badge Photo (...)', 'Badge Photo', 'badge_photo'],
+        'file_badge_photo_url'         => ['Badge Photo (.jpg, .jpeg, .png), 5Mb Max', 'Badge Photo (.jpg, .pdf, .png, .doc), 5Mb Max', 'Badge Photo (...)', 'Badge Photo', 'badge_photo'],
         'file_signature_url'           => ['Signature', 'signature'],
         'payment_gateway_info'         => ['Payment Gateway Information', 'payment_gateway_information'],
         'payment_status'               => ['Payment Status', 'payment_status'],
@@ -912,7 +912,7 @@ function application_update_existing_member(PDO $pdo, int $memberId, array $app)
 }
 
 /**
- * @return array{ok:bool, member_id:?int, error:?string}
+ * @return array{ok:bool, member_id:?int, error:?string, renewal_type?:string, renewal_year?:int, photo_imported?:?bool, photo_error?:?string}
  */
 function application_approve(
     PDO $pdo,
@@ -957,6 +957,15 @@ function application_approve(
         $memberId = (int) $result['member_id'];
     }
 
+    $photoImported = null;
+    $photoError = null;
+    if (!empty($app['file_badge_photo_url'])) {
+        require_once __DIR__ . '/member_save.php';
+        $photoResult = member_import_photo_from_url($pdo, $memberId, (string) $app['file_badge_photo_url']);
+        $photoImported = $photoResult['ok'];
+        $photoError = $photoResult['error'];
+    }
+
     $finalRenewalType = $renewalType ?: ($app['suggested_renewal_type'] ?? 'new');
     $finalRenewalYear = $renewalYear ?: (int) ($app['suggested_renewal_year'] ?? defaultRenewalYear($pdo));
 
@@ -971,7 +980,15 @@ function application_approve(
         WHERE id = ?
     ')->execute([$reviewedBy, $memberId, $finalRenewalType, $finalRenewalYear, $applicationId]);
 
-    return ['ok' => true, 'member_id' => $memberId, 'error' => null, 'renewal_type' => $finalRenewalType, 'renewal_year' => $finalRenewalYear];
+    return [
+        'ok'             => true,
+        'member_id'      => $memberId,
+        'error'          => null,
+        'renewal_type'   => $finalRenewalType,
+        'renewal_year'   => $finalRenewalYear,
+        'photo_imported' => $photoImported,
+        'photo_error'    => $photoError,
+    ];
 }
 
 /**

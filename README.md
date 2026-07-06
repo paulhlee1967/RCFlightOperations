@@ -6,14 +6,14 @@ Open-source (**MIT**) membership management for AMA-affiliated RC flying clubs. 
 
 ## Features
 
-- **Members** — Searchable roster, CSV import/export, photos, email/postal preferences, emergency contacts
+- **Members** — Searchable roster, CSV import/export, photos, emergency contacts
 - **New member wizard** — Guided five-step signup: contact → compliance → membership → record first payment → print & mail
 - **Renewals & dues** — Record cash/check payments (the app is a ledger, not a payment processor); prorated, late, and complimentary renewals
 - **AMA & FAA compliance** — Track numbers and expirations; live AMA lookup before renewal
 - **Badge designer & printing** — Multiple CR80 templates, Fabric.js canvas editor, live member preview, undo/redo, personalized print at renewal
 - **Reports** — Membership, retention, revenue, compliance, and more — on screen, CSV, branded PDF, or email
 - **Incident log** — Optional dated safety/field incident records
-- **Website applications** — WPForms submissions via webhook; review queue with renewal-year filters and pagination ([WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md), [docs/applications.html](docs/applications.html))
+- **Website applications** — WPForms submissions via webhook; review queue; badge photo copied to member on approve ([WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md), [docs/applications.html](docs/applications.html))
 - **Administration** — Users & roles (admin, editor, treasurer, viewer), club configuration, audit log
 
 End-user help lives in **[docs/](docs/)** (also linked from the app as **Help & Documentation**).

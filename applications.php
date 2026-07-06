@@ -53,6 +53,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $rtype    = urlencode((string) ($result['renewal_type'] ?? 'new'));
         $ryear    = (int) ($result['renewal_year'] ?? defaultRenewalYear($pdo));
         flash('Application approved. Continue with signup/renewal recording.', 'success');
+        if (array_key_exists('photo_imported', $result) && $result['photo_imported'] === false) {
+            flash('Badge photo could not be copied from the website — upload it on the member record before printing.', 'warning');
+        }
         header('Location: member_process.php?id=' . $memberId . '&year=' . $ryear . '&renewal_type=' . $rtype . '#record');
         exit;
     }

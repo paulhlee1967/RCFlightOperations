@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Badge photo on application approve** — When staff approve a WPForms application with a badge photo URL, the app downloads the image from the club website (JPEG/PNG/GIF) and sets `members.photo_path` so Process Signup / Renewal is ready for badge printing. AMA/FAA files remain external links only. See [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md) and [docs/applications.html](docs/applications.html).
+
+### Changed
+
+- **Documentation** — Help center, [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md), [TECHNICAL.md](TECHNICAL.md), and [DEPLOY.md](DEPLOY.md) updated for badge photo import, image-only badge uploads on WPForms, and maintenance scripts (`reparse_applications.php`, `merge_members.php`).
+
 ## [1.5.2] - 2026-07-03
 
 ### Added

@@ -45,6 +45,9 @@ return [
 
     // Optional: shared secret for WPForms / Uncanny Automator webhook (overridden by Administration → Installation).
     // 'application_webhook_secret' => 'generate-a-long-random-string',
+    //
+    // Optional: hostnames allowed when downloading badge photos on application approve (default pvmac.com).
+    // 'wpforms_media_hosts' => ['pvmac.com', 'www.pvmac.com'],
 
     // Optional: Sender.net API for reminder opt-out checks (overridden by Administration → Installation).
     // 'sender' => [

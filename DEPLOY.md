@@ -110,7 +110,7 @@ Expected output: `Database OK: all expected tables and columns present.`
 ### 7. Smoke test
 
 - Open **Members** — edit a member; confirm single phone and mailing address fields.
-- Open **Applications** (if WPForms is wired).
+- Open **Applications** (if WPForms is wired); approve a test submission with a badge photo and confirm **Print card** shows the imported image (requires **cURL** on the server and HTTPS access to your WordPress upload URLs).
 - Spot-check a badge print / envelope (address still renders).
 - Turn off maintenance mode.
 

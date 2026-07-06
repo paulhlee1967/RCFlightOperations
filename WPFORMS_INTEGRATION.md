@@ -61,11 +61,13 @@ Send form fields as JSON key/value pairs. Use WPForms field **labels** as keys (
     "AMA Expiration": "{{10641:ANONWPFFORMS:6569|156}}",
     "Entry ID": "{{10641:WPFENTRYTOKENS:WPFENTRYID}}",
     "Application Submission Date": "{{10641:ANONWPFFORMS:6569|162}}",
-    "Badge Photo (.jpg, .pdf, .png, .doc), 5Mb Max": "{{10641:ANONWPFFORMS:6569|71}}",
+    "Badge Photo (.jpg, .jpeg, .png), 5Mb Max": "{{10641:ANONWPFFORMS:6569|71}}",
     "AMA Verification (.jpg, .pdf, .png, .doc), 5Mb Max": "{{10641:ANONWPFFORMS:6569|68}}",
     "FAA Registration (.jpg, .pdf, .png, .doc), 5Mb Max": "{{10641:ANONWPFFORMS:6569|70}}"
 }
 ```
+
+JSON keys must match each WPForms field **label** exactly. If you rename a field label in WPForms, update the matching key in Automator (the app also accepts common aliases such as `Badge Photo` — see `wpforms_application_field_aliases()` in code).
 
 `Address: Country` is sent by WPForms but is not stored on the member record (US club addresses only need city/state/zip).
 
@@ -105,9 +107,9 @@ Map payment fields using Automator tokens from the **field labels** in the dropd
 
 1. Applicant submits WPForms on the website (payment collected there).
 2. Application appears in **Applications** (navbar badge shows **total pending across all years**).
-3. Staff review details, suggested member match, and payment breakdown.
-4. **Approve** → member is created or updated → redirects to **Signup/Renewal recording** (`member_process.php`) with suggested renewal type/year.
-5. Staff record payment/fulfillment as usual (website payment is not auto-posted to the ledger).
+3. Staff review details, suggested member match, payment breakdown, and uploaded file links.
+4. **Approve** → member is created or updated → **badge photo** (if submitted) is downloaded from the website and saved on the member record → redirects to **Signup/Renewal recording** (`member_process.php`) with suggested renewal type/year.
+5. Staff record payment/fulfillment and print badge/letter as usual (website payment is not auto-posted to the ledger).
 
 For day-to-day review UI details (filters, pagination, payment display), see **[docs/applications.html](docs/applications.html)** in the in-app Help center.
 
@@ -140,6 +142,7 @@ This is for **review only** — approving an application does not post a payment
 ### Approve, reject, and cleanup
 
 - **Approve & continue to recording** — creates a new member or updates the matched member, then opens renewal recording with suggested type/year (staff can override before approving).
+- **Badge photo on approve** — when the application includes a badge photo URL from WPForms, the app downloads the image from your WordPress site (JPEG or PNG; GIF also accepted) and sets the member's `photo_path` so **Print card** works immediately on Process Signup / Renewal. AMA and FAA verification files stay as external links on the review screen only. If the download fails (wrong format, unreachable URL, file too large), approval still succeeds and a warning asks staff to upload the photo manually on the member record.
 - **Reject** — marks the application rejected and removes it from Pending; the row is kept for audit under the **Rejected** tab.
 - **Delete test data** — there is no in-app delete yet. To remove test submissions entirely (e.g. so the same WPForms entry ID can be re-sent), delete rows from `member_applications` in the database. Rejecting alone does not free the entry ID for webhook replay.
 
@@ -164,7 +167,9 @@ Full label → app field mapping lives in `includes/wpforms_application.php` (`w
 - Compliance: `AMA #`, `AMA Expiration`, `FAA Registration Number`, `FAA Registration Expiration`
 - Membership: `Membership Type`, `Membership Type (Renewal)`, or `Membership Type (Prorated)`
 - Payment: `Total (Membership + Fees)`, `Initiation Fee`, `Processing Fee`, `Special Code (If you have one)`
-- Files: AMA/FAA/badge photo URLs (linked on review screen; auto-download is future work)
+- Files: **Badge photo** — JPEG/PNG/GIF URL from WPForms; copied to the member record on approve for badge printing. **AMA / FAA verification** — URLs only (linked on review screen; not stored locally). Limit the badge photo field on WPForms to `.jpg`, `.jpeg`, `.png` so mobile camera uploads work reliably.
+
+Optional in `config.php`: `wpforms_media_hosts` — array of allowed hostnames for badge photo download (default `pvmac.com`, `www.pvmac.com`). The server must have **cURL** enabled and be able to reach those upload URLs over HTTPS.
 
 ## 6. Testing
 

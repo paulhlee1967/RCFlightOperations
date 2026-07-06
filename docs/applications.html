@@ -40,6 +40,7 @@
     <a href="#filters">Filters &amp; pagination</a>
     <a href="#payment">Payment display</a>
     <a href="#approve">Approve &amp; reject</a>
+    <a href="#badge-photo">Badge photo</a>
     <a href="#setup">Website setup</a>
     <hr class="sidebar-divider">
     <div class="sidebar-title">Other Docs</div>
@@ -73,8 +74,9 @@
     <p>
       Each website submission creates a <strong>pending</strong> application row. Staff compare
       the form data to existing members (AMA number, name, email, birthday), review uploaded
-      file links, and decide whether to approve or reject. Approved applications create a new
-      member or update a matched member, then hand off to renewal recording.
+      file links (AMA/FAA verification on the website), and decide whether to approve or reject.
+      Approved applications create a new member or update a matched member, copy the badge photo
+      when one was submitted, then hand off to renewal recording.
     </p>
     <p>
       The navbar badge and dashboard “Needs attention” card show how many applications are
@@ -94,13 +96,15 @@
       <li>Open <strong>Applications</strong> from the top nav (or follow the dashboard link).</li>
       <li>Select an applicant from the list to open the detail panel.</li>
       <li>Check the suggested member match and any <strong>Changes vs matched member</strong> table.</li>
-      <li>Review payment info and uploaded AMA/FAA/badge links.</li>
+      <li>Review payment info and uploaded AMA/FAA links (badge photo is handled on approve).</li>
       <li>Adjust <strong>Renewal type</strong> and <strong>Renewal year</strong> if needed.</li>
       <li>Click <strong>Approve &amp; continue to recording</strong> or <strong>Reject</strong>.</li>
     </ol>
     <p>
       Approval redirects to <strong>Process Signup / Renewal</strong> for the member so you
-      can record payment and print a badge. See <a href="renewals.html#record">Renewals &amp; Dues</a>.
+      can record payment and print a badge. If a badge photo was on the application, it should
+      already be on the member record — go straight to fulfillment when ready. See
+      <a href="renewals.html#record">Renewals &amp; Dues</a> and <a href="badges.html#print">Badge printing</a>.
     </p>
 
     <h2 id="filters">Filters &amp; pagination</h2>
@@ -170,6 +174,24 @@
     <p>
       Rejecting moves the application off the Pending tab and keeps it under <strong>Rejected</strong>
       with an optional reason. Rejected rows remain in the database for reference.
+    </p>
+
+    <h2 id="badge-photo">Badge photo</h2>
+    <p>
+      When an applicant uploads a badge photo on the website (JPEG or PNG recommended), approving
+      the application <strong>downloads that image</strong> from your WordPress site and saves it
+      as the member's photo — the same file used for badge printing. You do not need to upload it
+      again on the member record unless import failed.
+    </p>
+    <ul>
+      <li><strong>Supported formats:</strong> JPEG, PNG, and GIF (same as manual member photo upload).</li>
+      <li><strong>AMA / FAA files</strong> — review links only; they are not copied into RC Flight Operations.</li>
+      <li><strong>Failed import</strong> — approval still succeeds; a yellow warning asks you to upload the photo on the member's Contact tab before printing.</li>
+    </ul>
+    <p>
+      Ask applicants to use <strong>Take photo</strong> on the form (especially on phones) and
+      limit the WPForms field to <code>.jpg</code>, <code>.jpeg</code>, and <code>.png</code> for
+      the smoothest experience.
     </p>
 
     <div class="callout callout-tip">

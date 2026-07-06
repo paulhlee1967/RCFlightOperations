@@ -7,6 +7,208 @@
 
 require_once __DIR__ . '/validation.php';
 
+/** @return array<string, string> */
+function member_photo_allowed_mimes(): array
+{
+    return ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif'];
+}
+
+/**
+ * When Automator sends multiple file URLs, use the first non-empty value.
+ */
+function member_photo_pick_first_url(string $raw): string
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return '';
+    }
+    if (!str_contains($raw, ',')) {
+        return $raw;
+    }
+    foreach (explode(',', $raw) as $part) {
+        $part = trim($part);
+        if ($part !== '') {
+            return $part;
+        }
+    }
+
+    return '';
+}
+
+/**
+ * @return list<string>
+ */
+function member_photo_import_allowed_hosts(): array
+{
+    static $hosts = null;
+    if ($hosts !== null) {
+        return $hosts;
+    }
+
+    $hosts = ['pvmac.com', 'www.pvmac.com'];
+    $configPath = dirname(__DIR__) . '/config.php';
+    if (is_file($configPath)) {
+        $config = require $configPath;
+        if (!empty($config['wpforms_media_hosts']) && is_array($config['wpforms_media_hosts'])) {
+            $hosts = [];
+            foreach ($config['wpforms_media_hosts'] as $host) {
+                $host = strtolower(trim((string) $host));
+                if ($host !== '') {
+                    $hosts[] = $host;
+                }
+            }
+            if ($hosts === []) {
+                $hosts = ['pvmac.com', 'www.pvmac.com'];
+            }
+        }
+    }
+
+    return $hosts;
+}
+
+function member_photo_url_is_allowed(string $url, ?array $allowedHosts = null): bool
+{
+    $url = member_photo_pick_first_url($url);
+    if ($url === '') {
+        return false;
+    }
+
+    $parts = parse_url($url);
+    if ($parts === false || empty($parts['scheme']) || empty($parts['host'])) {
+        return false;
+    }
+    if (!in_array(strtolower((string) $parts['scheme']), ['http', 'https'], true)) {
+        return false;
+    }
+
+    $host = strtolower((string) $parts['host']);
+    $allowed = $allowedHosts ?? member_photo_import_allowed_hosts();
+    foreach ($allowed as $allowedHost) {
+        $allowedHost = strtolower(trim($allowedHost));
+        if ($allowedHost === '') {
+            continue;
+        }
+        if ($host === $allowedHost || str_ends_with($host, '.' . $allowedHost)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Validate a local image file and persist it as the member photo.
+ *
+ * @return array{ok:bool, error:?string, photo_path:?string}
+ */
+function member_save_photo_from_local_file(PDO $pdo, int $memberId, string $localPath, int $maxBytes = 5242880): array
+{
+    if ($memberId <= 0 || !is_file($localPath) || !is_readable($localPath)) {
+        return ['ok' => false, 'error' => 'Badge photo file is not readable.', 'photo_path' => null];
+    }
+
+    $size = filesize($localPath);
+    if ($size === false || $size > $maxBytes) {
+        return ['ok' => false, 'error' => 'Badge photo exceeds the 5 MB size limit.', 'photo_path' => null];
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($localPath);
+    $allowed = member_photo_allowed_mimes();
+    if (!isset($allowed[$mime])) {
+        return ['ok' => false, 'error' => 'Badge photo must be a JPEG, PNG, or GIF image.', 'photo_path' => null];
+    }
+
+    $dir = dirname(__DIR__) . '/uploads/member_photos';
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        return ['ok' => false, 'error' => 'Could not create member photo directory.', 'photo_path' => null];
+    }
+
+    $ext = $allowed[$mime];
+    $filename = $memberId . '.' . $ext;
+    $dest = $dir . '/' . $filename;
+    if (!copy($localPath, $dest)) {
+        return ['ok' => false, 'error' => 'Could not save badge photo.', 'photo_path' => null];
+    }
+
+    $photoPath = 'uploads/member_photos/' . $filename;
+    $pdo->prepare('UPDATE members SET photo_path = ? WHERE id = ?')->execute([$photoPath, $memberId]);
+
+    return ['ok' => true, 'error' => null, 'photo_path' => $photoPath];
+}
+
+/**
+ * Download a WPForms badge photo URL and save it on the member record.
+ *
+ * @return array{ok:bool, error:?string, photo_path:?string}
+ */
+function member_import_photo_from_url(PDO $pdo, int $memberId, string $url): array
+{
+    $url = member_photo_pick_first_url($url);
+    if ($url === '') {
+        return ['ok' => false, 'error' => 'No badge photo URL provided.', 'photo_path' => null];
+    }
+    if (!member_photo_url_is_allowed($url)) {
+        return ['ok' => false, 'error' => 'Badge photo URL is not from an allowed host.', 'photo_path' => null];
+    }
+    if (!function_exists('curl_init')) {
+        return ['ok' => false, 'error' => 'Server cannot download badge photos (cURL unavailable).', 'photo_path' => null];
+    }
+
+    $tmp = tempnam(sys_get_temp_dir(), 'member_photo_');
+    if ($tmp === false) {
+        return ['ok' => false, 'error' => 'Could not create temporary file.', 'photo_path' => null];
+    }
+
+    $fp = fopen($tmp, 'wb');
+    if ($fp === false) {
+        @unlink($tmp);
+
+        return ['ok' => false, 'error' => 'Could not create temporary file.', 'photo_path' => null];
+    }
+
+    $maxBytes = 5 * 1024 * 1024;
+    $bytes = 0;
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+        CURLOPT_FOLLOWLOCATION  => true,
+        CURLOPT_MAXREDIRS       => 5,
+        CURLOPT_TIMEOUT         => 30,
+        CURLOPT_FAILONERROR     => true,
+        CURLOPT_WRITEFUNCTION   => static function ($curl, string $data) use ($fp, &$bytes, $maxBytes) {
+            $len = strlen($data);
+            if ($bytes + $len > $maxBytes) {
+                return 0;
+            }
+            $written = fwrite($fp, $data);
+            if ($written === false) {
+                return 0;
+            }
+            $bytes += $written;
+
+            return $len;
+        },
+    ]);
+
+    $ok = curl_exec($ch);
+    $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlError = curl_error($ch);
+    curl_close($ch);
+    fclose($fp);
+
+    if (!$ok || $httpCode < 200 || $httpCode >= 300) {
+        @unlink($tmp);
+        error_log('member_import_photo_from_url: download failed for member ' . $memberId . ': HTTP ' . $httpCode . ' ' . $curlError);
+
+        return ['ok' => false, 'error' => 'Could not download badge photo from the website.', 'photo_path' => null];
+    }
+
+    $result = member_save_photo_from_local_file($pdo, $memberId, $tmp);
+    @unlink($tmp);
+
+    return $result;
+}
+
 /**
  * Validate POST, check AMA uniqueness, persist member + optional photo.
  *

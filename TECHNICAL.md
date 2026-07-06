@@ -39,6 +39,7 @@ This document describes how the application is built and how its parts work toge
   - **trusted_proxies** (optional) — when `trust_forwarded_https` is true, an array of IP addresses or IPv4 CIDRs; forwarded proto is honored only if `REMOTE_ADDR` matches (see `includes/trusted_proxy.php`). If omitted or empty, behavior matches a single trusted hop (weaker; set explicit IPs in production when possible)
   - **canonical_host** (optional) — single hostname for redirects and absolute URLs (see `includes/canonical_host.php`)
   - **public_base_url** (optional) — full public URL (`https://…`) for cron/Sender email image and unsubscribe links; defaults to `https://` + `canonical_host`
+  - **wpforms_media_hosts** (optional) — list of hostnames allowed when downloading badge photos from WPForms URLs on application approve (default `pvmac.com`, `www.pvmac.com`)
 
 Host-level settings (app name, maintenance mode, SMTP, health checks, admin broadcast) are managed in the main app at **Administration → Installation** (`installation.php`, admin login required), not a separate operator area.
 
@@ -86,12 +87,12 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **badge_print_helpers.php** | Design selection, mark-printed POST, member load for `badge_print.php`. |
 | **members_list_query.php** | Filter/pagination query builder for `members.php`. |
 | **members_list_helpers.php** | URL builder and list display badges (type, year, initials color). |
-| **member_save.php** | Shared member create/update from POST (`member_edit.php`, `member_wizard.php`). |
+| **member_save.php** | Shared member create/update from POST (`member_edit.php`, `member_wizard.php`). `member_import_photo_from_url()` downloads a WPForms badge photo URL on application approve (JPEG/PNG/GIF, host allowlist, 5 MB cap). |
 | **member_wizard_nav.php** | Wizard step definitions, stepper render, and URL helpers for wizard ↔ process handoff. |
 | **member_wizard_styles.php** | Inline CSS for wizard stepper (included by `member_wizard.php` and `member_process.php?wizard=1`). |
 | **member_match.php** | Duplicate member detection (AMA + tiered name/email/birthday). Used by CSV import and WPForms applications. |
 | **member_import_helpers.php** | Shared `parseDateForDb()`, `normalizeMembershipTypeSlot()`, `normalizeBool()` for import and WPForms. |
-| **wpforms_application.php** | WPForms payload parsing (including HTML-entity currency from Automator), payment breakdown, list filters (renewal year, search, pagination), pending queue, approve/reject, email notification. Stores emails lowercase via `normalize_email()`. |
+| **wpforms_application.php** | WPForms payload parsing (including HTML-entity currency from Automator), payment breakdown, list filters (renewal year, search, pagination), pending queue, approve/reject (imports badge photo via `member_import_photo_from_url()`), email notification. Stores emails lowercase via `normalize_email()`. |
 | **application_webhook_config.php** | Loads `application_webhook_secret` from `system_config` or `config.php`. |
 
 ---
@@ -123,7 +124,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **badge_print.php** | Print view for one member’s badge (front/back). Marks badge as printed. |
 | **badge_photo.php** | Securely serves member photo from `uploads/` (no direct URL to uploads). |
 | **import.php** | CSV import: upload, column mapping, preview, insert/update members (and optional payment rows). |
-| **applications.php** | WPForms membership application review queue: status tabs, renewal-year filter (defaults to `defaultRenewalYear()`), search, pagination (50/page), detail/diff, payment breakdown, approve (upsert member → `member_process.php`), reject. |
+| **applications.php** | WPForms membership application review queue: status tabs, renewal-year filter (defaults to `defaultRenewalYear()`), search, pagination (50/page), detail/diff, payment breakdown, approve (upsert member, import badge photo, → `member_process.php`), reject. |
 | **export.php** / **export_options.php** | CSV export (full, short, email-only); filters by year/renewal status. **`export.php` is POST + CSRF only** (forms in the UI and `export_options.php`). |
 | **api_verify_ama.php** | AJAX endpoint: verifies AMA number against AMA lookup via `includes/ama_verify.php`; returns JSON. |
 | **api_webhook_application.php** | Machine-to-machine webhook: receives WPForms submissions (JSON + `X-Webhook-Secret`); stores pending applications. |
@@ -150,6 +151,8 @@ Run from project root: `php scripts/script_name.php`.
 | **send_reminders.php** | Sends reminder emails (AMA/FAA expiry). Cron-friendly. When Sender.net is configured, checks transactional (`temail`) opt-out, ensures subscribers in the members group, sends via Sender API with signed app unsubscribe links. Flags: `--dry-run`, `--test-email=`, `--test-limit=N`, `--dump-sender-payload[=path]`. Requires `canonical_host` or `public_base_url` for logo/unsubscribe URLs. |
 | **mark_expired_inactive.php** | Optional maintenance: mark members as inactive based on rules. |
 | **import_member_photos.php** | Bulk import member photos (e.g. from a directory keyed by member ID or name). |
+| **reparse_applications.php** | Re-derive stored application fields from `raw_payload` after parser fixes (`--id=N` or `--all`). |
+| **merge_members.php** | Merge duplicate member records (dry-run or `--execute`; uses `includes/member_merge.php`). |
 
 **Tests:** After `composer install` (includes dev deps), run `composer test` for PHPUnit unit tests (`tests/`, `phpunit.xml`). CI runs the same suite on push/PR to `main` (PHP 8.2 and 8.4 via [`.github/workflows/test.yml`](.github/workflows/test.yml)). Production deploys can skip dev dependencies; tests cover pure PHP helpers without a live database.
 
