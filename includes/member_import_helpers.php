@@ -64,6 +64,12 @@ function normalizeMembershipTypeSlot(?string $v, array $enabledLabels): ?int
         return null;
     }
     $v = trim($v);
+    if (str_contains($v, '&#') || str_contains($v, '&amp;')) {
+        $v = trim(html_entity_decode($v, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        if (str_contains($v, '&#') || str_contains($v, '&amp;')) {
+            $v = trim(html_entity_decode($v, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+        }
+    }
     if (preg_match('/^(.+?)\s*-\s*\$/', $v, $m)) {
         $v = trim($m[1]);
     }

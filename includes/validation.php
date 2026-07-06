@@ -115,7 +115,7 @@ function validate_member_input(array $post): array {
         $clean['membership_renewal_year'] = null;
     }
 
-    // ── Optional: AMA number (digits only; one membership per number) ─────
+    // ── Optional: AMA number (normalized; one membership per number) ──────
     $rawAma = trim($post['ama_number'] ?? '');
     if ($rawAma !== '') {
         require_once __DIR__ . '/ama_verify.php';
@@ -284,7 +284,7 @@ function validate_positive_number(mixed $value): array {
 }
 
 /**
- * Whether another member already uses this AMA number (digits-only comparison).
+ * Whether another member already uses this AMA number (normalized comparison).
  *
  * @return array{id:int,first_name:string,last_name:string,ama_number:string}|null
  */

@@ -248,7 +248,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="list-group-item text-muted">No applications in this view.</div>
                 <?php else: ?>
                 <?php foreach ($applications as $row): ?>
-                <?php $rowPayment = application_payment_breakdown($row); ?>
+                <?php $rowPayment = application_payment_breakdown($row, $pdo); ?>
                 <a href="<?= h(application_list_page_url($statusFilter, $yearFilter, $searchQ, $defaultRenewalYear, array_merge($listPageExtra, ['id' => (int) $row['id']]))) ?>"
                    class="list-group-item list-group-item-action<?= $viewId === (int) $row['id'] ? ' active' : '' ?>">
                     <div class="d-flex justify-content-between align-items-start gap-2">
@@ -360,7 +360,8 @@ require_once __DIR__ . '/includes/header.php';
                     <dt class="col-sm-4">FAA</dt>
                     <dd class="col-sm-8"><?= h((string) ($application['faa_number'] ?: '—')) ?><?php if (!empty($application['faa_expiration'])): ?> (exp <?= h(formatDate($application['faa_expiration'])) ?>)<?php endif; ?></dd>
                     <dt class="col-sm-4">Membership type</dt>
-                    <dd class="col-sm-8"><?= h($membershipTypeLabels[(int) ($application['membership_type_slot'] ?? 0)] ?? '—') ?></dd>
+                    <?php $resolvedSlot = application_resolve_membership_type_slot($application, $pdo); ?>
+                    <dd class="col-sm-8"><?= h($membershipTypeLabels[$resolvedSlot ?? 0] ?? '—') ?></dd>
                 </dl>
 
                 <?php if (!empty($application['emergency_contact_name']) || !empty($application['emergency_contact_phone'])): ?>
@@ -377,7 +378,7 @@ require_once __DIR__ . '/includes/header.php';
                 <?php endif; ?>
 
                 <h2 class="h6">Payment (from website)</h2>
-                <?php $payment = application_payment_breakdown($application); ?>
+                <?php $payment = application_payment_breakdown($application, $pdo); ?>
                 <dl class="row small mb-3">
                     <?php if ($payment['membership_dues'] !== null): ?>
                     <dt class="col-sm-4">Membership dues</dt>

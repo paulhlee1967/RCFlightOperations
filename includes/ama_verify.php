@@ -28,11 +28,26 @@ const AMA_INVALID_PATTERNS = [
 ];
 
 /**
- * Normalize AMA number (digits only).
+ * Normalize AMA number for storage, lookup, and duplicate checks.
+ *
+ * Standard numeric memberships keep digits-only form (separators stripped).
+ * Custom / life numbers (e.g. IFLYRC, L330) keep AMA-allowed alphanumerics.
  */
 function ama_verify_normalize_number(string $raw): string
 {
-    return preg_replace('/[^\d]/', '', trim($raw)) ?? '';
+    $s = strtoupper(trim($raw));
+    $s = preg_replace('/\s+/', '', $s) ?? '';
+    if ($s === '') {
+        return '';
+    }
+
+    // Legacy path: plain numeric with optional dash/dot separators.
+    if (preg_match('/^[0-9.\-]+$/', $s) === 1) {
+        return preg_replace('/[^\d]/', '', $s) ?? '';
+    }
+
+    // Custom alphanumeric (letters, digits, and AMA symbols # - + & /).
+    return preg_replace('/[^A-Z0-9#\-+&\/]/', '', $s) ?? '';
 }
 
 /**

@@ -188,6 +188,58 @@ function wpforms_application_money_amount_is_plausible(float $amount): bool
 }
 
 /**
+ * Normalize WPForms choice values that may arrive as raw option indexes from Automator.
+ */
+function wpforms_application_normalize_status_choice(?string $value): string
+{
+    $value = strtolower(trim((string) $value));
+    if ($value === '') {
+        return '';
+    }
+    // Form 6569: first radio option index for "New Member" when Automator omits |label.
+    if ($value === '1') {
+        return 'new member';
+    }
+
+    return $value;
+}
+
+/**
+ * Membership slot from a raw webhook choice (label or WPForms option index 1–4).
+ */
+function wpforms_application_membership_slot_from_choice(?string $value, array $enabledLabels): ?int
+{
+    $value = wpforms_application_normalize_currency_text($value);
+    if ($value === '') {
+        return null;
+    }
+    $slot = normalizeMembershipTypeSlot($value, $enabledLabels);
+    if ($slot !== null) {
+        return $slot;
+    }
+    if (preg_match('/^[1-4]$/', $value)) {
+        return (int) $value;
+    }
+
+    return null;
+}
+
+/**
+ * Map stored application season/kind to calculateDues() renewal type.
+ */
+function wpforms_application_dues_renewal_type(?string $applicationKind, ?string $formSeason): string
+{
+    if ($applicationKind === 'renewal') {
+        return 'on_time';
+    }
+    if ($formSeason === 'prorated_new') {
+        return 'new';
+    }
+
+    return 'late';
+}
+
+/**
  * Extract dues amount from membership choice labels, e.g. "Adult - $80.00".
  */
 function wpforms_application_parse_dues_from_label(?string $value): ?float
@@ -217,7 +269,7 @@ function wpforms_application_parse_dues_from_label(?string $value): ?float
  *   coupon_applied: bool
  * }
  */
-function application_payment_breakdown(array $application): array
+function application_payment_breakdown(array $application, ?PDO $pdo = null): array
 {
     $raw = [];
     if (!empty($application['raw_payload'])) {
@@ -236,12 +288,31 @@ function application_payment_breakdown(array $application): array
         return '';
     };
 
-    $membershipRaw = $pick([
+    $membershipRaw = wpforms_application_normalize_currency_text($pick([
         'Membership Type (Prorated)',
         'Membership Type (Renewal)',
         'Membership Type',
-    ]);
+    ]));
     $membershipDues = wpforms_application_parse_dues_from_label($membershipRaw);
+
+    if ($membershipDues === null && $pdo !== null) {
+        $labels = enabledMembershipTypeLabels($pdo);
+        $slot = wpforms_application_membership_slot_from_choice($membershipRaw, $labels);
+        if ($slot === null) {
+            $stored = (int) ($application['membership_type_slot'] ?? 0);
+            $slot = ($stored >= 1 && $stored <= 4) ? $stored : null;
+        }
+        if ($slot !== null) {
+            $renewalType = wpforms_application_dues_renewal_type(
+                $application['application_kind'] ?? null,
+                $application['form_season'] ?? null
+            );
+            $calc = calculateDues($pdo, $slot, $renewalType);
+            if ($calc['dues'] > 0) {
+                $membershipDues = round($calc['dues'], 2);
+            }
+        }
+    }
 
     $initiationRaw = $pick(['Initiation Fee', 'Deleted field #163']);
     $processingRaw = $pick(['Processing Fee']);
@@ -352,8 +423,11 @@ function wpforms_application_new_member_season_from_date(?string $submittedAt): 
  */
 function wpforms_application_infer_kind_season(array $fields, ?string $submittedAt = null): array
 {
-    $newOrRenewal = strtolower(trim($fields['new_or_renewal'] ?? ''));
-    $newClosed    = strtolower(trim($fields['new_member_closed'] ?? ''));
+    $newOrRenewal = wpforms_application_normalize_status_choice($fields['new_or_renewal'] ?? '');
+    if ($newOrRenewal === '2') {
+        $newOrRenewal = 'renewal';
+    }
+    $newClosed    = wpforms_application_normalize_status_choice($fields['new_member_closed'] ?? '');
     $renewalType  = trim($fields['membership_type_renewal'] ?? '');
     $proratedType = trim($fields['membership_type_prorated'] ?? '');
     $regularType  = trim($fields['membership_type'] ?? '');
@@ -361,12 +435,13 @@ function wpforms_application_infer_kind_season(array $fields, ?string $submitted
     if ($newOrRenewal === 'renewal') {
         return ['kind' => 'renewal', 'season' => 'renewal_window', 'membership_label' => $renewalType];
     }
-    if ($newOrRenewal === 'new member') {
-        return ['kind' => 'new', 'season' => 'renewal_window', 'membership_label' => $regularType];
-    }
     // Prorated membership choice is definitive; check before hidden-field ghosts from Automator.
     if ($proratedType !== '') {
         return ['kind' => 'new', 'season' => 'prorated_new', 'membership_label' => $proratedType];
+    }
+    if ($newOrRenewal === 'new member') {
+        $season = wpforms_application_new_member_season_from_date($submittedAt) ?? 'renewal_window';
+        return ['kind' => 'new', 'season' => $season, 'membership_label' => $regularType];
     }
     if ($newClosed === 'new member' || $regularType !== '') {
         $label = $regularType !== '' ? $regularType : $proratedType;
@@ -375,6 +450,65 @@ function wpforms_application_infer_kind_season(array $fields, ?string $submitted
         return ['kind' => 'new', 'season' => $season, 'membership_label' => $label];
     }
     return ['kind' => 'unknown', 'season' => null, 'membership_label' => ''];
+}
+
+/**
+ * Resolve membership type slot for display, re-parsing raw payload when the stored value is missing.
+ */
+function application_resolve_membership_type_slot(array $application, ?PDO $pdo = null): ?int
+{
+    $stored = (int) ($application['membership_type_slot'] ?? 0);
+    if ($stored >= 1 && $stored <= 4) {
+        return $stored;
+    }
+    if ($pdo === null || empty($application['raw_payload'])) {
+        return null;
+    }
+    $decoded = json_decode((string) $application['raw_payload'], true);
+    if (!is_array($decoded)) {
+        return null;
+    }
+    $parsed = wpforms_application_parse_payload($pdo, $decoded);
+
+    return $parsed['membership_type_slot'];
+}
+
+/**
+ * Re-derive stored application fields from raw_payload (e.g. after parser fixes).
+ *
+ * @return array{ok:bool, updated:bool, error:?string}
+ */
+function application_reparse_stored_fields(PDO $pdo, int $applicationId): array
+{
+    $app = application_fetch($pdo, $applicationId);
+    if (!$app) {
+        return ['ok' => false, 'updated' => false, 'error' => 'Application not found.'];
+    }
+    $decoded = json_decode((string) ($app['raw_payload'] ?? ''), true);
+    if (!is_array($decoded)) {
+        return ['ok' => false, 'updated' => false, 'error' => 'Missing or invalid raw_payload.'];
+    }
+
+    $parsed = wpforms_application_parse_payload($pdo, $decoded);
+    $stmt = $pdo->prepare('
+        UPDATE member_applications SET
+            application_kind = ?,
+            form_season = ?,
+            suggested_renewal_type = ?,
+            suggested_renewal_year = ?,
+            membership_type_slot = ?
+        WHERE id = ?
+    ');
+    $stmt->execute([
+        $parsed['application_kind'],
+        $parsed['form_season'],
+        $parsed['suggested_renewal_type'],
+        $parsed['suggested_renewal_year'],
+        $parsed['membership_type_slot'],
+        $applicationId,
+    ]);
+
+    return ['ok' => true, 'updated' => $stmt->rowCount() > 0, 'error' => null];
 }
 
 function wpforms_application_suggested_renewal_type(string $kind, ?string $season): ?string
@@ -437,7 +571,7 @@ function wpforms_application_parse_payload(PDO $pdo, array $payload): array
 
     $inferred = wpforms_application_infer_kind_season($fields, $submittedAtDb ?? $submittedAtRaw);
     $enabledLabels = enabledMembershipTypeLabels($pdo);
-    $membershipSlot = normalizeMembershipTypeSlot($inferred['membership_label'], $enabledLabels);
+    $membershipSlot = wpforms_application_membership_slot_from_choice($inferred['membership_label'], $enabledLabels);
 
     $street  = $fields['address_street'];
     $street2 = $fields['address_street2'];

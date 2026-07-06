@@ -64,9 +64,16 @@ final class AmaVerifyTest extends TestCase
         $this->assertSame('Jones', $result['last_name']);
     }
 
-    public function testNormalizeAmaNumberStripsNonDigits(): void
+    public function testNormalizeAmaNumberStripsNumericSeparators(): void
     {
         $this->assertSame('123456', ama_verify_normalize_number(' 12-3456 '));
+    }
+
+    public function testNormalizeAmaNumberPreservesAlphanumeric(): void
+    {
+        $this->assertSame('IFLYRC', ama_verify_normalize_number('i fly rc'));
+        $this->assertSame('L330', ama_verify_normalize_number('l330'));
+        $this->assertSame('FLY#1', ama_verify_normalize_number('fly#1'));
     }
 
     public function testValidateRejectsShortAmaNumber(): void

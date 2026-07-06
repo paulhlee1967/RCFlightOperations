@@ -196,6 +196,77 @@ final class WpformsApplicationTest extends TestCase
         $this->assertTrue($payment['coupon_applied']);
     }
 
+    public function test_payment_breakdown_without_pdo_skips_numeric_dues_lookup(): void
+    {
+        $application = [
+            'application_kind' => 'new',
+            'form_season' => 'prorated_new',
+            'membership_type_slot' => 1,
+            'raw_payload' => json_encode([
+                'Membership Type (Prorated)' => '1',
+                'Initiation Fee' => '&#36;50.00',
+                'Processing Fee' => '&#36;4.19',
+                'Total (Membership + Fees)' => '&#36;134.19',
+            ]),
+        ];
+        $payment = application_payment_breakdown($application);
+        $this->assertNull($payment['membership_dues']);
+        $this->assertSame(50.0, $payment['initiation']);
+        $this->assertSame(134.19, $payment['total_paid']);
+    }
+
+    public function test_dues_renewal_type_for_prorated_season(): void
+    {
+        $this->assertSame('new', wpforms_application_dues_renewal_type('new', 'prorated_new'));
+        $this->assertSame('on_time', wpforms_application_dues_renewal_type('renewal', 'renewal_window'));
+        $this->assertSame('late', wpforms_application_dues_renewal_type('new', 'regular_new'));
+    }
+
+    public function test_infer_prorated_before_raw_new_or_renewal_option_index(): void
+    {
+        $fields = [
+            'new_or_renewal'           => '1',
+            'new_member_closed'        => '1',
+            'membership_type'          => '',
+            'membership_type_renewal'  => '',
+            'membership_type_prorated' => '1',
+        ];
+        $result = wpforms_application_infer_kind_season($fields, '2026-07-03');
+        $this->assertSame('new', $result['kind']);
+        $this->assertSame('prorated_new', $result['season']);
+        $this->assertSame('1', $result['membership_label']);
+        $this->assertSame(1, wpforms_application_membership_slot_from_choice($result['membership_label'], [1 => 'Adult']));
+    }
+
+    public function test_infer_prorated_before_ghost_new_member_closed_field(): void
+    {
+        $fields = [
+            'new_or_renewal'           => '',
+            'new_member_closed'        => 'New Member',
+            'membership_type'          => '',
+            'membership_type_renewal'  => '',
+            'membership_type_prorated' => 'Adult - &#36;80.00',
+        ];
+        $result = wpforms_application_infer_kind_season($fields, '2026-07-05');
+        $this->assertSame('prorated_new', $result['season']);
+        $this->assertSame('Adult - &#36;80.00', $result['membership_label']);
+        $labels = [1 => 'Adult'];
+        $this->assertSame(1, wpforms_application_membership_slot_from_choice($result['membership_label'], $labels));
+    }
+
+    public function test_normalize_status_choice_maps_raw_option_index(): void
+    {
+        $this->assertSame('new member', wpforms_application_normalize_status_choice('1'));
+        $this->assertSame('renewal', wpforms_application_normalize_status_choice('Renewal'));
+    }
+
+    public function test_membership_slot_from_numeric_prorated_choice(): void
+    {
+        $labels = [1 => 'Adult', 2 => 'Youth'];
+        $this->assertSame(1, wpforms_application_membership_slot_from_choice('1', $labels));
+        $this->assertSame(1, wpforms_application_membership_slot_from_choice('Adult - $80.00', $labels));
+    }
+
     public function test_list_filters_default_to_current_renewal_year(): void
     {
         $filters = application_parse_list_filters(null, ['status' => 'pending']);

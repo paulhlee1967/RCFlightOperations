@@ -48,10 +48,37 @@
 require_once __DIR__ . '/../includes/cli_only_script.php';
 flightops_require_cli();
 
+/**
+ * Write CLI output to STDOUT (cPanel Terminal often hides STDERR).
+ */
+function send_reminders_out(string $message, bool $isError = false): void
+{
+    $line = $message;
+    if ($isError && stripos($line, 'error') !== 0) {
+        $line = 'ERROR: ' . $line;
+    }
+    if ($line !== '' && !str_ends_with($line, "\n")) {
+        $line .= "\n";
+    }
+    echo $line;
+}
+
+register_shutdown_function(static function (): void {
+    $err = error_get_last();
+    if ($err === null) {
+        return;
+    }
+    if (!in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR], true)) {
+        return;
+    }
+    send_reminders_out($err['message'] . ' in ' . $err['file'] . ':' . $err['line'], true);
+});
+
 $baseDir = dirname(__DIR__);
+send_reminders_out('send_reminders: starting (PHP ' . PHP_VERSION . ', ' . php_sapi_name() . ')');
 require_once $baseDir . '/includes/app_log.php';
 if (!is_file($baseDir . '/config.php')) {
-    fwrite(STDERR, "Missing config.php.\n");
+    send_reminders_out('Missing config.php in ' . $baseDir, true);
     flightops_log('ERROR', 'send_reminders: missing config.php', [], 'cron');
     exit(1);
 }
@@ -71,17 +98,21 @@ try {
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);
 } catch (PDOException $e) {
-    fwrite(STDERR, 'Database connection failed: ' . $e->getMessage() . "\n");
+    send_reminders_out('Database connection failed: ' . $e->getMessage(), true);
     flightops_log('ERROR', 'send_reminders: DB connection failed', ['error' => $e->getMessage()], 'cron');
     exit(1);
 }
 
-require $baseDir . '/includes/mail.php';
-require $baseDir . '/includes/email_templates.php';
-require $baseDir . '/includes/installation_config.php';
-require $baseDir . '/includes/sender_net.php';
-require $baseDir . '/includes/membership_status.php';
-require $baseDir . '/templates/email/email_layout.php';
+try {
+    require $baseDir . '/includes/mail.php';
+    require $baseDir . '/includes/email_templates.php';
+    require $baseDir . '/includes/installation_config.php';
+    require $baseDir . '/includes/sender_net.php';
+    require $baseDir . '/templates/email/email_layout.php';
+} catch (Throwable $e) {
+    send_reminders_out('Bootstrap failed: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine(), true);
+    exit(1);
+}
 
 $mailCfg    = installation_mail_config($pdo);
 $senderCfg  = sender_net_load_config($pdo);
@@ -117,7 +148,7 @@ foreach (array_slice($argv, 1) as $arg) {
     } elseif (preg_match('/^--test-limit=(\d+)$/', $arg, $m)) {
         $testLimit = (int) $m[1];
         if ($testLimit < 1) {
-            fwrite(STDERR, "--test-limit must be a positive integer.\n");
+            send_reminders_out("--test-limit must be a positive integer.", true);
             exit(1);
         }
     } elseif ($arg === '--staff-digest') {
@@ -127,7 +158,7 @@ foreach (array_slice($argv, 1) as $arg) {
     } elseif (preg_match('/^--staff-digest-window=(\d+)$/', $arg, $m)) {
         $staffDigestWindow = (int) $m[1];
         if ($staffDigestWindow < 1 || $staffDigestWindow > 365) {
-            fwrite(STDERR, "--staff-digest-window must be between 1 and 365.\n");
+            send_reminders_out('--staff-digest-window must be between 1 and 365.', true);
             exit(1);
         }
     }
@@ -136,7 +167,7 @@ foreach (array_slice($argv, 1) as $arg) {
 $isTest = ($testEmail !== null);
 
 if ($testLimit !== null && !$isTest) {
-    fwrite(STDERR, "--test-limit requires --test-email.\n");
+    send_reminders_out('--test-limit requires --test-email.', true);
     exit(1);
 }
 
@@ -309,7 +340,7 @@ function send_reminder_message(
                 if ($ok) {
                     echo "Sender API payload dumped to {$dumpSenderPayload}\n";
                 } else {
-                    fwrite(STDERR, "FAILED to write Sender payload dump to {$dumpSenderPayload}\n");
+                    send_reminders_out("FAILED to write Sender payload dump to {$dumpSenderPayload}", true);
                 }
             }
 
@@ -333,7 +364,7 @@ function send_reminder_message(
                 echo "Sent {$templateKey} to {$recipient} (member: {$memberLabel}) via Sender.net\n";
                 $sent++;
             } else {
-                fwrite(STDERR, "FAILED {$templateKey} to {$recipient}: {$sendResult['error']}\n");
+                send_reminders_out("FAILED {$templateKey} to {$recipient}: {$sendResult['error']}", true);
                 flightops_log('WARN', 'send_reminders: Sender.net send failed', [
                     'template'  => $templateKey,
                     'to'        => $recipient,
@@ -348,7 +379,7 @@ function send_reminder_message(
                 $sent++;
             } else {
                 $lastErr = function_exists('get_last_mail_error') ? get_last_mail_error() : 'unknown';
-                fwrite(STDERR, "FAILED {$templateKey} to {$recipient}: {$lastErr}\n");
+                send_reminders_out("FAILED {$templateKey} to {$recipient}: {$lastErr}", true);
                 flightops_log('WARN', 'send_reminders: email send failed', [
                     'template'  => $templateKey,
                     'to'        => $recipient,
@@ -359,7 +390,7 @@ function send_reminder_message(
             }
         }
     } catch (Throwable $e) {
-        fwrite(STDERR, "ERROR {$templateKey} to {$recipient}: " . $e->getMessage() . "\n");
+        send_reminders_out("ERROR {$templateKey} to {$recipient}: " . $e->getMessage(), true);
         flightops_log('ERROR', 'send_reminders: exception while sending', [
             'template'  => $templateKey,
             'to'        => $recipient,
@@ -525,7 +556,7 @@ function send_staff_digest(
             $sent++;
         } else {
             $lastErr = function_exists('get_last_mail_error') ? get_last_mail_error() : 'unknown';
-            fwrite(STDERR, "FAILED staff digest to {$addr}: {$lastErr}\n");
+            send_reminders_out("FAILED staff digest to {$addr}: {$lastErr}", true);
             flightops_log('WARN', 'send_reminders: staff digest send failed', [
                 'to'    => $addr,
                 'error' => $lastErr,

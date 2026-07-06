@@ -47,12 +47,12 @@ Send form fields as JSON key/value pairs. Use WPForms field **labels** as keys (
     "Email": "{{10641:ANONWPFFORMS:6569|23}}",
     "Relationship": "{{10641:ANONWPFFORMS:6569|178}}",
     "Date of Birth": "{{10641:ANONWPFFORMS:6569|157}}",
-    "New Member or Renewal": "{{10641:ANONWPFFORMS:6569|30}}",
-    "New Member (Renewal Period Closed)": "{{10641:ANONWPFFORMS:6569|113}}",
+    "New Member or Renewal": "{{10641:ANONWPFFORMS:6569|30|label}}",
+    "New Member (Renewal Period Closed)": "{{10641:ANONWPFFORMS:6569|113|label}}",
     "Initiation Fee": "{{10641:ANONWPFFORMS:6569|187}}",
-    "Membership Type": "{{10641:ANONWPFFORMS:6569|47}}",
-    "Membership Type (Renewal)": "{{10641:ANONWPFFORMS:6569|48}}",
-    "Membership Type (Prorated)": "{{10641:ANONWPFFORMS:6569|49}}",
+    "Membership Type": "{{10641:ANONWPFFORMS:6569|47|label}}",
+    "Membership Type (Renewal)": "{{10641:ANONWPFFORMS:6569|48|label}}",
+    "Membership Type (Prorated)": "{{10641:ANONWPFFORMS:6569|49|label}}",
     "Processing Fee": "{{10641:ANONWPFFORMS:6569|165}}",
     "Total (Membership + Fees)": "{{10641:ANONWPFFORMS:6569|120}}",
     "FAA Registration Number": "{{10641:ANONWPFFORMS:6569|28}}",
@@ -68,6 +68,8 @@ Send form fields as JSON key/value pairs. Use WPForms field **labels** as keys (
 ```
 
 `Address: Country` is sent by WPForms but is not stored on the member record (US club addresses only need city/state/zip).
+
+**Important — use `|label` on choice fields:** For radio/select fields (membership type, new vs renewal), pick the Automator token that ends in **`|label`**, not the raw option value. Without it, Automator may send `1` instead of `Adult - $80.00`, which breaks membership dues on the review screen. Hidden conditional fields can also leak ghost values (e.g. `New Member` in the renewal-closed field during prorated season); the app ignores those when a prorated membership choice is present.
 
 Minimum useful payload example:
 
