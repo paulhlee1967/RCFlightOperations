@@ -314,9 +314,43 @@ function wpforms_application_parse_gateway_info(string $text): array
 }
 
 /**
+ * Map a submission timestamp to the new-member season when form fields are ambiguous.
+ * Mirrors WPForms conditional seasons (Jan–Jun regular, Jul–Oct 14 prorated, Oct 15+ renewal).
+ *
+ * @return 'regular_new'|'prorated_new'|'renewal_window'|null
+ */
+function wpforms_application_new_member_season_from_date(?string $submittedAt): ?string
+{
+    if ($submittedAt === null || trim($submittedAt) === '') {
+        return null;
+    }
+    $ts = strtotime($submittedAt);
+    if ($ts === false) {
+        return null;
+    }
+    $month = (int) date('n', $ts);
+    $day   = (int) date('j', $ts);
+
+    if ($month >= 1 && $month <= 6) {
+        return 'regular_new';
+    }
+    if ($month >= 7 && $month <= 9) {
+        return 'prorated_new';
+    }
+    if ($month === 10 && $day < 15) {
+        return 'prorated_new';
+    }
+    if ($month === 10 || $month === 11 || $month === 12) {
+        return 'renewal_window';
+    }
+
+    return null;
+}
+
+/**
  * @return array{kind:string,season:?string,membership_label:string}
  */
-function wpforms_application_infer_kind_season(array $fields): array
+function wpforms_application_infer_kind_season(array $fields, ?string $submittedAt = null): array
 {
     $newOrRenewal = strtolower(trim($fields['new_or_renewal'] ?? ''));
     $newClosed    = strtolower(trim($fields['new_member_closed'] ?? ''));
@@ -330,14 +364,15 @@ function wpforms_application_infer_kind_season(array $fields): array
     if ($newOrRenewal === 'new member') {
         return ['kind' => 'new', 'season' => 'renewal_window', 'membership_label' => $regularType];
     }
-    if ($newClosed === 'new member') {
-        return ['kind' => 'new', 'season' => 'regular_new', 'membership_label' => $regularType];
-    }
+    // Prorated membership choice is definitive; check before hidden-field ghosts from Automator.
     if ($proratedType !== '') {
         return ['kind' => 'new', 'season' => 'prorated_new', 'membership_label' => $proratedType];
     }
-    if ($regularType !== '') {
-        return ['kind' => 'new', 'season' => 'regular_new', 'membership_label' => $regularType];
+    if ($newClosed === 'new member' || $regularType !== '') {
+        $label = $regularType !== '' ? $regularType : $proratedType;
+        $season = wpforms_application_new_member_season_from_date($submittedAt)
+            ?? ($newClosed === 'new member' ? 'regular_new' : 'regular_new');
+        return ['kind' => 'new', 'season' => $season, 'membership_label' => $label];
     }
     return ['kind' => 'unknown', 'season' => null, 'membership_label' => ''];
 }
@@ -393,7 +428,14 @@ function wpforms_application_parse_payload(PDO $pdo, array $payload): array
         $fields['emergency_contact_phone'] = $phones[1];
     }
 
-    $inferred = wpforms_application_infer_kind_season($fields);
+    $submittedAtRaw = $fields['submitted_at'];
+    $submittedAtDb  = parseDateForDb($submittedAtRaw);
+    if ($submittedAtDb === null && $submittedAtRaw !== '') {
+        $ts = strtotime($submittedAtRaw);
+        $submittedAtDb = $ts !== false ? date('Y-m-d', $ts) : null;
+    }
+
+    $inferred = wpforms_application_infer_kind_season($fields, $submittedAtDb ?? $submittedAtRaw);
     $enabledLabels = enabledMembershipTypeLabels($pdo);
     $membershipSlot = normalizeMembershipTypeSlot($inferred['membership_label'], $enabledLabels);
 
@@ -422,13 +464,6 @@ function wpforms_application_parse_payload(PDO $pdo, array $payload): array
     }
     $paymentInitiation = wpforms_application_parse_money($fields['initiation_fee']);
     $paymentProcessing = wpforms_application_parse_money($fields['processing_fee']);
-
-    $submittedAtRaw = $fields['submitted_at'];
-    $submittedAtDb  = parseDateForDb($submittedAtRaw);
-    if ($submittedAtDb === null && $submittedAtRaw !== '') {
-        $ts = strtotime($submittedAtRaw);
-        $submittedAtDb = $ts !== false ? date('Y-m-d', $ts) : null;
-    }
 
     $amaNumber = $fields['ama_number'];
     if ($amaNumber !== '') {

@@ -66,6 +66,56 @@ final class WpformsApplicationTest extends TestCase
         $this->assertSame('prorated_new', $result['season']);
     }
 
+    public function test_infer_prorated_when_automator_sends_ghost_closed_field(): void
+    {
+        $fields = [
+            'new_or_renewal'           => '',
+            'new_member_closed'        => 'New Member',
+            'membership_type'          => 'Adult - $75.00',
+            'membership_type_renewal'  => '',
+            'membership_type_prorated' => '',
+        ];
+        $result = wpforms_application_infer_kind_season($fields, '2026-07-05');
+        $this->assertSame('new', $result['kind']);
+        $this->assertSame('prorated_new', $result['season']);
+        $this->assertSame('Adult - $75.00', $result['membership_label']);
+    }
+
+    public function test_infer_prorated_takes_priority_over_ghost_closed_field(): void
+    {
+        $fields = [
+            'new_or_renewal'           => '',
+            'new_member_closed'        => 'New Member',
+            'membership_type'          => 'Adult - $160.00',
+            'membership_type_renewal'  => '',
+            'membership_type_prorated' => 'Adult - $75.00',
+        ];
+        $result = wpforms_application_infer_kind_season($fields, '2026-07-05');
+        $this->assertSame('prorated_new', $result['season']);
+        $this->assertSame('Adult - $75.00', $result['membership_label']);
+    }
+
+    public function test_infer_regular_new_respects_january_submission_date(): void
+    {
+        $fields = [
+            'new_or_renewal'           => '',
+            'new_member_closed'        => 'New Member',
+            'membership_type'          => 'Adult - $160.00',
+            'membership_type_renewal'  => '',
+            'membership_type_prorated' => '',
+        ];
+        $result = wpforms_application_infer_kind_season($fields, '2026-03-15');
+        $this->assertSame('regular_new', $result['season']);
+    }
+
+    public function test_new_member_season_from_date_boundaries(): void
+    {
+        $this->assertSame('regular_new', wpforms_application_new_member_season_from_date('2026-06-30'));
+        $this->assertSame('prorated_new', wpforms_application_new_member_season_from_date('2026-07-01'));
+        $this->assertSame('prorated_new', wpforms_application_new_member_season_from_date('2026-10-14'));
+        $this->assertSame('renewal_window', wpforms_application_new_member_season_from_date('2026-10-15'));
+    }
+
     public function test_suggested_renewal_type_mapping(): void
     {
         $this->assertSame('on_time', wpforms_application_suggested_renewal_type('renewal', 'renewal_window'));
