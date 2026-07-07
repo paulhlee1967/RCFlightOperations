@@ -23,7 +23,7 @@ flightops_send_security_headers();
 
 requireLogin();
 
-// Allow read-only access for "viewer" role too (Members page quick-view).
+// Read-only member detail for staff roles (Membership Manager uses member_edit.php).
 if (!canViewMembers()) {
     http_response_code(403);
     header('Content-Type: application/json');

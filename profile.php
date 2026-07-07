@@ -1,8 +1,7 @@
 <?php
 /**
  * Profile: change your own password.
- * Any logged-in user (admin, editor, treasurer, viewer) can set a new password
- * after verifying their current one.
+ * Any logged-in user can set a new password after verifying their current one.
  */
 
 require_once __DIR__ . '/includes/db.php';

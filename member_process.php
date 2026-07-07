@@ -165,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate();
 }
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'record_renewal') {
-    if (!canEditMembers()) {
+    if (!canProcessMemberships()) {
         header('Location: member_process.php?id=' . $memberId . '&error=permission');
         exit;
     }
@@ -618,8 +618,8 @@ if ($fromWizard) {
             <div class="pt-3">
         <?php endif; ?>
 
-        <?php if (!canEditMembers()): ?>
-        <p class="text-muted">You have view access only and cannot record renewals.</p>
+        <?php if (!canProcessMemberships()): ?>
+        <p class="text-muted">You do not have permission to record renewals.</p>
         <?php else: ?>
         <form method="post" action="member_process.php?id=<?= $memberId ?><?= $fromWizard ? '&wizard=1' : '' ?>" id="record-renewal-form">
             <?= csrf_field() ?>

@@ -16,6 +16,7 @@ final class MembersListQueryTest extends TestCase
         $this->assertSame('', $f['memberTypeFilter']);
         $this->assertNull($f['memberTypeSlotFilter']);
         $this->assertSame('current', $f['statusFilter']);
+        $this->assertSame('', $f['badgeFilter']);
         $this->assertSame('name', $f['sort']);
     }
 
@@ -53,6 +54,20 @@ final class MembersListQueryTest extends TestCase
 
         $this->assertSame('', $f['memberTypeFilter']);
         $this->assertNull($f['memberTypeSlotFilter']);
+    }
+
+    public function testParseRequestAcceptsBadgeUnprintedFilter(): void
+    {
+        $f = members_list_parse_request(['badge' => 'unprinted']);
+
+        $this->assertSame('unprinted', $f['badgeFilter']);
+    }
+
+    public function testParseRequestRejectsInvalidBadgeFilter(): void
+    {
+        $f = members_list_parse_request(['badge' => 'printed']);
+
+        $this->assertSame('', $f['badgeFilter']);
     }
 
     public function testOrderByMapDefinesExpectedSortKeys(): void

@@ -5,7 +5,7 @@
  * Shows all safety incidents for this club, newest first.
  * Filterable by type, severity, status, and year.
  *
- * Access: Admin and Editor can add/edit (via incident_edit.php). Treasurer and Viewer: list read-only.
+ * Access: Administrator and Membership Manager can add/edit. Club Staff and Report Viewer: read-only.
  */
 
 require_once __DIR__ . '/includes/db.php';

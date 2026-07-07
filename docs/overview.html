@@ -163,12 +163,12 @@
     <thead><tr><th>Nav item</th><th>Who sees it</th><th>What's there</th></tr></thead>
     <tbody>
       <tr><td><strong>Home</strong></td><td>Everyone</td><td>Dashboard with stat cards and attention items</td></tr>
-      <tr><td><strong>Members</strong></td><td>Admin, Editor, Treasurer</td><td>Member list, search and filtering, <strong>New member</strong> wizard, import from spreadsheet</td></tr>
-      <tr><td><strong>Applications</strong></td><td>Admin, Editor, Treasurer</td><td>Website membership submissions (WPForms) — review, approve, reject; filtered by renewal year with pagination</td></tr>
+      <tr><td><strong>Members</strong></td><td>Administrator, Membership Manager, Club Staff</td><td>Member list, search and filtering; <strong>New member</strong> wizard and import (Manager+ only)</td></tr>
+      <tr><td><strong>Applications</strong></td><td>Administrator, Membership Manager, Club Staff</td><td>Website membership submissions (WPForms) — review, approve, reject; filtered by renewal year with pagination</td></tr>
       <tr><td><strong>Reports</strong></td><td>All roles</td><td>Seven built-in reports with CSV and PDF export</td></tr>
-      <tr><td><strong>Incidents</strong></td><td>Admin and Editor (add/edit); Treasurer and Viewer (read-only)</td><td>Safety and field incident log</td></tr>
-      <tr><td><strong>Badge Design</strong></td><td>Admin, Editor (when feature is enabled)</td><td>CR80 badge designer — multiple templates, live member preview, undo/redo</td></tr>
-      <tr><td><strong>Administration</strong></td><td>Admin only</td><td>Users, club configuration, and audit log</td></tr>
+      <tr><td><strong>Incidents</strong></td><td>Administrator and Membership Manager (add/edit); Club Staff and Report Viewer (read-only)</td><td>Safety and field incident log</td></tr>
+      <tr><td><strong>Badge Design</strong></td><td>Administrator, Membership Manager</td><td>CR80 badge designer — multiple templates, live member preview, undo/redo</td></tr>
+      <tr><td><strong>Administration</strong></td><td>Administrator only</td><td>Users, club configuration, and audit log</td></tr>
       <tr><td><strong>Your name (top right)</strong></td><td>Everyone</td><td>Change your password, access help docs, log out</td></tr>
     </tbody>
   </table>
@@ -202,9 +202,9 @@
 <h2 id="roles">User Roles at a Glance</h2>
 <p>
   Each person who logs in has a role that controls what they can see and do.
-  Assigning roles thoughtfully means your treasurer can run reports and record payments
-  without accidentally editing member records, and a board member can pull a membership
-  snapshot without seeing things they shouldn't change.
+  Assigning roles thoughtfully means Club Staff can run renewals and exports without
+  editing member contact records, and a board member with Report Viewer access can
+  review aggregates without browsing individual member details.
 </p>
 
 <div class="docs-table-wrap">
@@ -212,24 +212,24 @@
     <thead><tr><th>Role</th><th>Best for</th><th>What they can do</th></tr></thead>
     <tbody>
       <tr>
-        <td><strong>Admin</strong></td>
+        <td><strong>Administrator</strong></td>
         <td>Club secretary, webmaster</td>
         <td>Full access — members, renewals, reports, badge design, users, and club configuration</td>
       </tr>
       <tr>
-        <td><strong>Editor</strong></td>
+        <td><strong>Membership Manager</strong></td>
         <td>Membership coordinator</td>
-        <td>Add and edit members, record renewals, run reports, design and print badges — everything except managing other users or changing club settings</td>
+        <td>Add and edit members, record renewals, run reports, design and print badges — everything except managing users or changing club settings</td>
       </tr>
       <tr>
-        <td><strong>Treasurer</strong></td>
-        <td>Club treasurer</td>
-        <td>Record renewals, view and export member lists, run all reports — cannot edit member contact details</td>
+        <td><strong>Club Staff</strong></td>
+        <td>Signup desk, renewal volunteers</td>
+        <td>Record renewals, approve applications, view and export member lists, print badges, run reports — cannot edit member contact details</td>
       </tr>
       <tr>
-        <td><strong>Viewer</strong></td>
-        <td>Board member wanting report access</td>
-        <td>View and export reports only — no member data changes</td>
+        <td><strong>Report Viewer</strong></td>
+        <td>Board member needing oversight</td>
+        <td>View and export reports and read the incident log — no member list, exports, or operational actions</td>
       </tr>
     </tbody>
   </table>

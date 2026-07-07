@@ -70,6 +70,11 @@ function reportRegistry(): array
             'description' => 'Current members with credentials expired or expiring within 60 days.',
             'year'        => false,
         ],
+        'birthdays' => [
+            'label'       => 'Birthdays this week',
+            'description' => 'Current members with a birthday in the current calendar week.',
+            'year'        => false,
+        ],
         'data_completeness' => [
             'label'       => 'Missing member data',
             'description' => 'Current members with incomplete contact, emergency, compliance, or membership fields.',
@@ -80,7 +85,7 @@ function reportRegistry(): array
             'label'       => 'Possible duplicate members',
             'description' => 'Member groups that match on AMA number, name/email, or name alone (same tiers as import matching).',
             'year'        => false,
-            'editor'      => true,
+            'manager_only' => true,
         ],
     ];
 }
@@ -93,7 +98,7 @@ function reportVisibleToUser(string $slug): bool
     if (!reportExists($slug)) {
         return false;
     }
-    if (!empty(reportRegistry()[$slug]['editor'] ?? false)) {
+    if (!empty(reportRegistry()[$slug]['manager_only'] ?? false)) {
         return function_exists('canEditMembers') && canEditMembers();
     }
 
@@ -330,6 +335,7 @@ function runReport(PDO $pdo, string $slug, array $params = []): array
         'not_yet_renewed'     => reportNotYetRenewed($pdo, $year),
         'revenue_by_year'     => reportRevenueByYear($pdo),
         'compliance'          => reportCompliance($pdo),
+        'birthdays'           => reportBirthdays($pdo),
         'data_completeness'   => reportDataCompleteness($pdo),
         'possible_duplicates' => reportPossibleDuplicates($pdo),
         default               => throw new InvalidArgumentException('Unknown report: ' . $slug),
@@ -824,6 +830,54 @@ function reportCompliance(PDO $pdo): array
         'rows'   => $rows,
         'totals' => null,
         'note'   => 'Current members only. Includes credentials already expired or expiring on or before ' . formatDate($in60) . '.',
+    ];
+}
+
+/**
+ * Current members with a birthday in the current calendar week (Mon–Sun).
+ *
+ * @return array<string, mixed>
+ */
+function reportBirthdays(PDO $pdo): array
+{
+    $meta    = reportRegistry()['birthdays'];
+    $current = membershipStatusYear();
+    $where   = currentMemberWhereSql('m', $current);
+    $week    = birthdayThisWeekWhereParts('m');
+    $weekStart = date('Y-m-d', strtotime('monday this week'));
+    $weekEnd   = date('Y-m-d', strtotime('sunday this week'));
+
+    $sql = "SELECT m.last_name, m.first_name, m.birthday
+            FROM members m
+            WHERE {$where} AND {$week['sql']}
+            ORDER BY DATE_FORMAT(m.birthday, '%m-%d'), m.last_name, m.first_name";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge(currentMemberWhereParams($current), $week['params']));
+
+    $rows = [];
+    while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $birthday = (string) ($r['birthday'] ?? '');
+        $rows[] = [
+            'last_name'  => $r['last_name'],
+            'first_name' => $r['first_name'],
+            'birthday'   => $birthday,
+            'day'        => $birthday !== '' ? date('l', strtotime($birthday)) : '',
+        ];
+    }
+
+    return [
+        'slug'        => 'birthdays',
+        'title'       => $meta['label'],
+        'description' => $meta['description'],
+        'columns'     => [
+            ['key' => 'last_name',  'label' => 'Last name',  'format' => 'text', 'align' => 'start'],
+            ['key' => 'first_name', 'label' => 'First name', 'format' => 'text', 'align' => 'start'],
+            ['key' => 'birthday',   'label' => 'Birthday',   'format' => 'date', 'align' => 'end'],
+            ['key' => 'day',        'label' => 'Day',        'format' => 'text', 'align' => 'end'],
+        ],
+        'rows'   => $rows,
+        'totals' => null,
+        'note'   => 'Current members only. Week of ' . formatDate($weekStart) . '–' . formatDate($weekEnd) . '.',
     ];
 }
 

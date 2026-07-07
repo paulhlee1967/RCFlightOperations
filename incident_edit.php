@@ -8,7 +8,7 @@
  *
  * POST         — Save (insert or update), redirect to incidents.php
  *
- * Access: Editor and Admin roles only. Viewer/Treasurer see read-only via incidents.php.
+ * Access: Membership Manager and Administrator only. Club Staff and Report Viewer see read-only via incidents.php.
  */
 
 require_once __DIR__ . '/includes/db.php';

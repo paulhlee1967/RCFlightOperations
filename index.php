@@ -18,7 +18,11 @@ if (empty($_SESSION['user_role']) && isset($pdo)) {
     $stmt = $pdo->prepare('SELECT role FROM users WHERE id = ?');
     $stmt->execute([$_SESSION['user_id']]);
     $row = $stmt->fetch();
-    if ($row) $_SESSION['user_role'] = $row['role'];
+    if ($row) {
+        $_SESSION['user_role'] = normalizeUserRole((string) ($row['role'] ?? ''));
+    }
+} elseif (!empty($_SESSION['user_role'])) {
+    $_SESSION['user_role'] = normalizeUserRole((string) $_SESSION['user_role']);
 }
 
 $currentYear = membershipStatusYear();
@@ -45,9 +49,9 @@ $stmt = $pdo->prepare("
     SELECT COUNT(*) AS cnt
     FROM members m
     WHERE {$currentWhere}
-      AND (m.badge_printed_at IS NULL OR YEAR(m.badge_printed_at) < ?)
+      AND " . badgeUnprintedWhereSql('m') . "
 ");
-$stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$currentYear]));
+$stmt->execute(array_merge(currentMemberWhereParams($currentYear), badgeUnprintedWhereParams($currentYear)));
 $unprintedBadges = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
 // ── Stat: AMA/FAA compliance alerts ─────────────────────────────────────────
@@ -81,29 +85,14 @@ $expiredCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 // ── Stat: birthdays this week ────────────────────────────────────────────────
 $weekStart = date('Y-m-d', strtotime('monday this week'));
 $weekEnd   = date('Y-m-d', strtotime('sunday this week'));
-$startMd = date('m-d', strtotime($weekStart));
-$endMd   = date('m-d', strtotime($weekEnd));
+$birthdayWeek = birthdayThisWeekWhereParts('m');
 
-// Use a month-day range so weeks spanning months (e.g. Jan 29 – Feb 4)
-// are handled correctly.
-if ($startMd <= $endMd) {
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) AS cnt
-        FROM members m
-        WHERE {$currentWhere} AND m.birthday IS NOT NULL
-          AND DATE_FORMAT(m.birthday, '%m-%d') BETWEEN ? AND ?
-    ");
-    $stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$startMd, $endMd]));
-} else {
-    $stmt = $pdo->prepare("
-        SELECT COUNT(*) AS cnt
-        FROM members m
-        WHERE {$currentWhere} AND m.birthday IS NOT NULL
-          AND (DATE_FORMAT(m.birthday, '%m-%d') >= ? OR DATE_FORMAT(m.birthday, '%m-%d') <= ?)
-    ");
-    $stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$startMd, $endMd]));
-}
-
+$stmt = $pdo->prepare("
+    SELECT COUNT(*) AS cnt
+    FROM members m
+    WHERE {$currentWhere} AND {$birthdayWeek['sql']}
+");
+$stmt->execute(array_merge(currentMemberWhereParams($currentYear), $birthdayWeek['params']));
 $birthdaysThisWeek = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
 // ── Stat: members with no email ──────────────────────────────────────────────
@@ -163,7 +152,9 @@ require_once __DIR__ . '/includes/header.php';
 
     <!-- Current members -->
     <div class="col-6 col-sm-4 col-xl">
+        <?php if (canViewMembers()): ?>
         <a href="members.php?status=current" class="card stat-card text-decoration-none h-100">
+        <?php else: ?><div class="card stat-card h-100"><?php endif; ?>
             <div class="card-body p-3">
                 <div class="stat-icon text-primary">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
@@ -174,12 +165,14 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="stat-label">Current members</div>
                 <div class="stat-sub <?= $memberDelta >= 0 ? 'text-success' : 'text-danger' ?>"><?= h($memberDeltaStr) ?></div>
             </div>
-        </a>
+        <?php if (canViewMembers()): ?></a><?php else: ?></div><?php endif; ?>
     </div>
 
     <!-- Not yet renewed -->
     <div class="col-6 col-sm-4 col-xl">
-        <div class="card stat-card h-100">
+        <?php if (canViewReports()): ?>
+        <a href="reports.php?report=not_yet_renewed&amp;year=<?= (int) $renewalYear ?>" class="card stat-card text-decoration-none h-100">
+        <?php else: ?><div class="card stat-card h-100"><?php endif; ?>
             <div class="card-body p-3">
                 <div class="stat-icon <?= $notRenewed > 0 ? 'text-warning' : 'text-success' ?>">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
@@ -191,13 +184,13 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="stat-label">Not yet renewed</div>
                 <div class="stat-sub text-muted">for <?= $renewalYear ?></div>
             </div>
-        </div>
+        <?php if (canViewReports()): ?></a><?php else: ?></div><?php endif; ?>
     </div>
 
     <!-- Unprinted badges -->
     <div class="col-6 col-sm-4 col-xl">
-        <?php if (canEditMembers()): ?>
-        <a href="members.php?status=current" class="card stat-card text-decoration-none h-100">
+        <?php if (canViewMembers()): ?>
+        <a href="members.php?status=current&amp;badge=unprinted" class="card stat-card text-decoration-none h-100">
         <?php else: ?><div class="card stat-card h-100"><?php endif; ?>
             <div class="card-body p-3">
                 <div class="stat-icon <?= $unprintedBadges > 0 ? 'text-secondary' : 'text-success' ?>">
@@ -210,12 +203,14 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="stat-label">Badges unprinted</div>
                 <div class="stat-sub text-muted"><?= $currentYear ?> renewals</div>
             </div>
-        <?php if (canEditMembers()): ?></a><?php else: ?></div><?php endif; ?>
+        <?php if (canViewMembers()): ?></a><?php else: ?></div><?php endif; ?>
     </div>
 
     <!-- AMA/FAA compliance -->
     <div class="col-6 col-sm-4 col-xl">
-        <div class="card stat-card h-100">
+        <?php if (canViewReports()): ?>
+        <a href="reports.php?report=compliance" class="card stat-card text-decoration-none h-100">
+        <?php else: ?><div class="card stat-card h-100"><?php endif; ?>
             <div class="card-body p-3">
                 <div class="stat-icon <?= $complianceAlerts > 0 ? ($expiredCount > 0 ? 'text-danger' : 'text-warning') : 'text-success' ?>">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
@@ -226,12 +221,14 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="stat-label">AMA/FAA alerts</div>
                 <div class="stat-sub text-muted"><?= $expiredCount > 0 ? $expiredCount . ' already expired' : 'within 60 days' ?></div>
             </div>
-        </div>
+        <?php if (canViewReports()): ?></a><?php else: ?></div><?php endif; ?>
     </div>
 
     <!-- Birthdays this week -->
     <div class="col-6 col-sm-4 col-xl">
-        <div class="card stat-card h-100">
+        <?php if (canViewReports()): ?>
+        <a href="reports.php?report=birthdays" class="card stat-card text-decoration-none h-100">
+        <?php else: ?><div class="card stat-card h-100"><?php endif; ?>
             <div class="card-body p-3">
                 <div class="stat-icon text-info">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
@@ -242,7 +239,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="stat-label">Birthdays this week</div>
                 <div class="stat-sub text-muted"><?= h(date('M j', strtotime($weekStart))) ?>–<?= h(date('M j', strtotime($weekEnd))) ?></div>
             </div>
-        </div>
+        <?php if (canViewReports()): ?></a><?php else: ?></div><?php endif; ?>
     </div>
 
 </div><!-- /.row stat cards -->
@@ -360,6 +357,39 @@ if ($pendingApplications > 0) {
                 <div>
                     <h2 class="h6 card-title mb-1">Badge design</h2>
                     <p class="card-text text-muted small mb-0">Design the CR80 member ID card layout</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <?php endif; ?>
+
+    <?php if (canViewReports() && !canEditMembers() && !canProcessMemberships()): ?>
+    <div class="col-sm-6 col-lg-4">
+        <a href="reports.php" class="card nav-card text-decoration-none text-body h-100">
+            <div class="card-body d-flex align-items-start gap-3">
+                <div class="nav-card-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 11.5 3h-7A1.5 1.5 0 0 0 3 4.5v9A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 11.5 4.5z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="h6 card-title mb-1">Reports</h2>
+                    <p class="card-text text-muted small mb-0">Membership, revenue, and compliance reports</p>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-6 col-lg-4">
+        <a href="incidents.php" class="card nav-card text-decoration-none text-body h-100">
+            <div class="card-body d-flex align-items-start gap-3">
+                <div class="nav-card-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="h6 card-title mb-1">Incidents</h2>
+                    <p class="card-text text-muted small mb-0">Safety and field incident log (read-only)</p>
                 </div>
             </div>
         </a>

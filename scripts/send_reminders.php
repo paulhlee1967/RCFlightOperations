@@ -24,7 +24,7 @@
  *                    dry-run), across AMA and FAA batches.
  *
  * --staff-digest             Send a weekly summary email (one email per staff user)
- *                            to active users with role treasurer/editor, listing
+ *                            to active users with role staff or manager, listing
  *                            current members whose AMA/FAA credentials are expired
  *                            or expiring soon (default: 60 days).
  * --staff-digest-window=N    Window in days for expiring-soon (default: 60).
@@ -458,7 +458,7 @@ function staff_digest_rows(PDO $pdo, int $windowDays): array
 }
 
 /**
- * Send staff digest to treasurer/editor users (one email per staff user).
+ * Send staff digest to manager/staff users (one email per staff user).
  */
 function send_staff_digest(
     PDO $pdo,
@@ -471,7 +471,7 @@ function send_staff_digest(
 ): void {
     $staff = [];
     try {
-        $stmt = $pdo->prepare("SELECT email, name, role FROM users WHERE active = 1 AND role IN ('treasurer','editor')");
+        $stmt = $pdo->prepare("SELECT email, name, role FROM users WHERE active = 1 AND role IN ('staff','manager','treasurer','editor')");
         $stmt->execute();
         $staff = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
     } catch (Throwable $e) {
@@ -487,7 +487,7 @@ function send_staff_digest(
     }
 
     if ($recipients === []) {
-        echo "No active treasurer/editor users found for staff digest.\n";
+        echo "No active manager/staff users found for staff digest.\n";
         return;
     }
 
@@ -542,7 +542,7 @@ function send_staff_digest(
     $html = emailWrap($content, [
         'club_name'   => $clubName,
         'eyebrow'     => 'Staff digest',
-        'footer_note' => 'This weekly digest is sent to treasurer/editor users only.',
+        'footer_note' => 'This weekly digest is sent to Membership Manager and Club Staff users only.',
     ], $pdo);
 
     foreach ($recipients as $addr => $name) {

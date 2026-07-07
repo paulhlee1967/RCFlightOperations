@@ -54,7 +54,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **db.php** | Loads `config.php`, defines `FLIGHT_OPS_VERSION` and `FLIGHT_OPS_COPYRIGHT_YEAR_START`, creates PDO `$pdo`, bootstraps `helpers.php`, `session_ini.php` (session cookie defaults). Defines `flightops_refresh_maintenance_mode_global()`; **`includes/auth.php` calls it after `session_start()`** so the maintenance banner sees the logged-in session. **Include first** on any page that needs the database. |
 | **helpers.php** | Common utilities: `h()` (HTML escape), `normalize_email()`, `checked()`, `selected()`, `formatMoney()`, `formatDate()`, `defaultRenewalYear(?PDO)` (uses `renewal_prebook_start_month` from `system_config` when `$pdo` passed), `memberStatusBadge()`. Required by `db.php` so they are available everywhere. |
 | **flash.php** | One-time messages after redirects: `flash($message, $type)`. Messages stored in `$_SESSION['flash']`; `header.php` renders them as Bootstrap toasts and clears them. `getFlash()` returns one message for simple inline use. |
-| **auth.php** | Session and permissions. `requireLogin()`, `requireAdmin()`, `currentUserId()`, `isAdmin()`, `canEditMembers()`, `canProcessMemberships()`, `canManagePayments()` (void mistaken payments: editors and treasurers). Uses `safe_redirect.php` for redirect URLs. Include **after** `db.php`. |
+| **auth.php** | Session and permissions. `requireLogin()`, `requireAdmin()`, `currentUserId()`, `isAdmin()`, `canEditMembers()`, `canProcessMemberships()`, `canManagePayments()` (void mistaken payments: managers and staff). Roles: `admin`, `manager`, `staff`, `report_viewer`. Uses `safe_redirect.php` for redirect URLs. Include **after** `db.php`. |
 | **csrf.php** | CSRF token: `csrf_token()`, `csrf_field()`, `csrf_validate($options)` — use `csrf_validate(['json' => true])` for `fetch` JSON endpoints so errors stay machine-readable. |
 | **safe_redirect.php** | `safe_redirect_url($candidate, $default)` — validates redirect URLs to prevent open redirects (only relative paths, no `://`, no `..`). |
 | **session_ini.php** | `flightops_apply_session_cookie_params()`, `flightops_is_https_request($config)`, `flightops_request_scheme($config)` — session hardening before `session_start()`. |
@@ -107,10 +107,10 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **forgot_password.php** / **reset_password.php** | Password reset flow (tokens in `password_reset_tokens`). |
 | **installation.php** | Host/app settings: SMTP, Sender.net (reminder opt-out), maintenance mode, health, broadcast to admins. **Admin only.** |
 | **members.php** | Member list: pagination, filters (status, type, search). Links to new member wizard, edit, renew, print badge, export. |
-| **member_wizard.php** | Guided new-member workflow (steps 1–3: contact, compliance, membership). POST saves via `member_save.php`, then redirects to `member_process.php?wizard=1`. Editor or Admin. |
+| **member_wizard.php** | Guided new-member workflow (steps 1–3: contact, compliance, membership). POST saves via `member_save.php`, then redirects to `member_process.php?wizard=1`. Membership Manager or Administrator. |
 | **member_edit.php** | Edit existing member (contact, compliance, membership tabs). New members are redirected to `member_wizard.php`. POST handled in page; validation via `validation.php`. |
 | **payment_add.php** | POST: add a payment row for a member (from Payment history tab). |
-| **payment_delete.php** | POST: permanently delete an erroneous payment row. Admin, editor, or treasurer. The deletion is recorded in `audit_log` and the member's frozen membership-year roster is re-synced. |
+| **payment_delete.php** | POST: permanently delete an erroneous payment row. Administrator, Membership Manager, or Club Staff. The deletion is recorded in `audit_log` and the member's frozen membership-year roster is re-synced. |
 | **member_detail.php** | Read-only member view (optional alternate to edit). |
 | **member_process.php** | Renewal workflow: record payment, update `membership_renewal_year`, clear badge-printed flag. With `?wizard=1`, continues the new-member wizard (steps 4–5: record signup, print & mail). Uses `defaultRenewalYear()`, dues from `dues_rules`. |
 | **member_delete.php** | Deletes member and related data (payments, fulfillments, etc.); removes photo file from `uploads/`. |
@@ -118,9 +118,9 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **user_edit.php** | Add/edit app user, role, active flag, password (Admin only). |
 | **config_site.php** | Club configuration: General (name), Design (logo, favicon, colors), membership type labels, and **dues_rules** per slot. Admin only. |
 | **reports.php** | Reports module: report picker, year selector, table render, CSV/PDF export, and email panels. Read access via `canViewReports()`. Report data comes from `includes/run_report.php`. |
-| **report_email.php** | POST: email a report. `action=snapshot` sends the rendered table to one or more addresses; `action=members` emails a per-member message to a cohort report (e.g. not-yet-renewed) for members with a non-empty email. The member blast requires editor/treasurer. |
-| **incidents.php** / **incident_edit.php** / **incident_delete.php** | Safety / field incident log; editors add/edit, treasurer/viewer can read per nav rules. |
-| **badge_design.php** | Badge template designer page (layout + Fabric config). Tabbed sidebar, undo/redo, live member preview. JSON API in `includes/badge_design_api.php`; UI in `js/badge_design.js`. Editor or Admin. |
+| **report_email.php** | POST: email a report. `action=snapshot` sends the rendered table to one or more addresses; `action=members` emails a per-member message to a cohort report (e.g. not-yet-renewed) for members with a non-empty email. The member blast requires Membership Manager or Club Staff. |
+| **incidents.php** / **incident_edit.php** / **incident_delete.php** | Safety / field incident log; managers add/edit; staff and report viewers can read per nav rules. |
+| **badge_design.php** | Badge template designer page (layout + Fabric config). Tabbed sidebar, undo/redo, live member preview. JSON API in `includes/badge_design_api.php`; UI in `js/badge_design.js`. Membership Manager or Administrator. |
 | **badge_print.php** | Print view for one member’s badge (front/back). Marks badge as printed. |
 | **badge_photo.php** | Securely serves member photo from `uploads/` (no direct URL to uploads). |
 | **import.php** | CSV import: upload, column mapping, preview, insert/update members (and optional payment rows). |

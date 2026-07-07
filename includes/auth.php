@@ -1,7 +1,13 @@
 <?php
 /**
  * Require login. Include after db.php.
- * Expects session keys: user_id, user_email, user_name.
+ * Expects session keys: user_id, user_email, user_name, user_role.
+ *
+ * Roles (stored in users.role):
+ *   admin         — Administrator (full access)
+ *   manager       — Membership Manager (member records, renewals, badges)
+ *   staff         — Club Staff (renewals, applications, exports; read-only member PII)
+ *   report_viewer — Report Viewer (reports and incidents read-only; no member PII)
  */
 
 if (session_status() === PHP_SESSION_NONE) {
@@ -16,6 +22,26 @@ if (!function_exists('safe_redirect_url')) {
     require_once __DIR__ . '/safe_redirect.php';
 }
 
+/** @var array<string, string> Legacy role slugs from before the 2026 rename. */
+function legacyUserRoleMap(): array
+{
+    return [
+        'editor'    => 'manager',
+        'treasurer' => 'staff',
+        'viewer'    => 'report_viewer',
+    ];
+}
+
+function normalizeUserRole(string $role): string
+{
+    $role = trim($role);
+    if ($role === '') {
+        return 'manager';
+    }
+
+    return legacyUserRoleMap()[$role] ?? $role;
+}
+
 function requireLogin(): void {
     if (empty($_SESSION['user_id'])) {
         $redirect = safe_redirect_url($_SERVER['REQUEST_URI'] ?? '', 'index.php');
@@ -27,8 +53,10 @@ function requireLogin(): void {
         $stmt->execute([$_SESSION['user_id']]);
         $row = $stmt->fetch();
         if ($row) {
-            $_SESSION['user_role'] = $row['role'];
+            $_SESSION['user_role'] = normalizeUserRole((string) ($row['role'] ?? ''));
         }
+    } elseif (!empty($_SESSION['user_role'])) {
+        $_SESSION['user_role'] = normalizeUserRole((string) $_SESSION['user_role']);
     }
 }
 
@@ -36,8 +64,16 @@ function currentUserId(): int {
     return (int) ($_SESSION['user_id'] ?? 0);
 }
 
+function currentUserRole(): string {
+    if (empty($_SESSION['user_id'])) {
+        return '';
+    }
+
+    return normalizeUserRole((string) ($_SESSION['user_role'] ?? ''));
+}
+
 function isAdmin(): bool {
-    return ($_SESSION['user_role'] ?? '') === 'admin';
+    return currentUserRole() === 'admin';
 }
 
 function requireAdmin(): void {
@@ -48,39 +84,44 @@ function requireAdmin(): void {
     }
 }
 
-/**
- * Role-based permissions. Roles: admin (full), editor, treasurer, viewer.
- */
 function canManageUsers(): bool {
     return isAdmin();
 }
 
 function canViewReports(): bool {
-    if (empty($_SESSION['user_id'])) return false;
-    $role = $_SESSION['user_role'] ?? '';
-    return in_array($role, ['admin', 'editor', 'treasurer', 'viewer'], true);
+    if (empty($_SESSION['user_id'])) {
+        return false;
+    }
+
+    return in_array(currentUserRole(), ['admin', 'manager', 'staff', 'report_viewer'], true);
 }
 
 /**
- * Members list + read-only member detail (PII) viewing.
- * NOTE: write actions remain gated by canEditMembers()/canProcessMemberships().
+ * Members list + read-only member detail (PII). Excludes Report Viewer.
  */
 function canViewMembers(): bool {
-    if (empty($_SESSION['user_id'])) return false;
-    $role = $_SESSION['user_role'] ?? '';
-    return in_array($role, ['admin', 'editor', 'treasurer', 'viewer'], true);
+    if (empty($_SESSION['user_id'])) {
+        return false;
+    }
+
+    return in_array(currentUserRole(), ['admin', 'manager', 'staff'], true);
 }
 
 function canEditMembers(): bool {
-    if (empty($_SESSION['user_id'])) return false;
-    $role = $_SESSION['user_role'] ?? '';
-    return in_array($role, ['admin', 'editor'], true);
+    if (empty($_SESSION['user_id'])) {
+        return false;
+    }
+
+    return in_array(currentUserRole(), ['admin', 'manager'], true);
 }
 
+/** Renewals, applications, exports, badge print — without editing member contact fields. */
 function canProcessMemberships(): bool {
-    if (empty($_SESSION['user_id'])) return false;
-    $role = $_SESSION['user_role'] ?? '';
-    return in_array($role, ['admin', 'editor', 'treasurer'], true);
+    if (empty($_SESSION['user_id'])) {
+        return false;
+    }
+
+    return in_array(currentUserRole(), ['admin', 'manager', 'staff'], true);
 }
 
 function canManagePayments(): bool {
@@ -93,9 +134,15 @@ function canManageConfig(): bool {
 
 function getSystemUserRoles(): array {
     return [
-        'admin'    => 'Admin (full access + config + users)',
-        'editor'   => 'Editor (members, reports)',
-        'treasurer' => 'Treasurer (reports, view/export members)',
-        'viewer'   => 'Viewer (reports only)',
+        'admin'         => 'Administrator — full access, users, and club configuration',
+        'manager'       => 'Membership Manager — member records, renewals, badges, and incidents',
+        'staff'         => 'Club Staff — renewals, applications, exports, and badge printing (read-only member details)',
+        'report_viewer' => 'Report Viewer — reports and incident log read-only (no member list or exports)',
     ];
+}
+
+/** CSS class suffix for role badges/avatars (hyphenated). */
+function userRoleCssSuffix(string $role): string
+{
+    return str_replace('_', '-', normalizeUserRole($role));
 }

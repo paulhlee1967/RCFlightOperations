@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_id']    = (int) $user['id'];
                 $_SESSION['user_email'] = $user['email'];
                 $_SESSION['user_name']  = $user['name'];
-                $_SESSION['user_role']  = $user['role'] ?? 'editor';
+                $_SESSION['user_role']  = normalizeUserRole((string) ($user['role'] ?? 'manager'));
 
                 $redirect = safe_redirect_url($_GET['redirect'] ?? 'index.php', 'index.php');
                 header('Location: ' . $redirect);

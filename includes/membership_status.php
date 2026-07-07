@@ -440,3 +440,43 @@ function snapshotMembershipYear(PDO $pdo, int $year, string $source = 'backfill'
 
     return $stmt->rowCount();
 }
+
+/**
+ * SQL fragment: member badge not printed for the given membership year.
+ */
+function badgeUnprintedWhereSql(string $alias): string
+{
+    $p = $alias !== '' ? $alias . '.' : '';
+
+    return "({$p}badge_printed_at IS NULL OR YEAR({$p}badge_printed_at) < ?)";
+}
+
+/** @return array{0:int} */
+function badgeUnprintedWhereParams(int $year): array
+{
+    return [$year];
+}
+
+/**
+ * SQL + params for birthdays in the current calendar week (Mon–Sun).
+ *
+ * @return array{sql:string, params:array<int, string>}
+ */
+function birthdayThisWeekWhereParts(string $alias): array
+{
+    $p       = $alias !== '' ? $alias . '.' : '';
+    $startMd = date('m-d', strtotime('monday this week'));
+    $endMd   = date('m-d', strtotime('sunday this week'));
+
+    if ($startMd <= $endMd) {
+        return [
+            'sql'    => "{$p}birthday IS NOT NULL AND DATE_FORMAT({$p}birthday, '%m-%d') BETWEEN ? AND ?",
+            'params' => [$startMd, $endMd],
+        ];
+    }
+
+    return [
+        'sql'    => "{$p}birthday IS NOT NULL AND (DATE_FORMAT({$p}birthday, '%m-%d') >= ? OR DATE_FORMAT({$p}birthday, '%m-%d') <= ?)",
+        'params' => [$startMd, $endMd],
+    ];
+}

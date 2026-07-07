@@ -48,7 +48,7 @@ CREATE TABLE `users` (
   `email` varchar(255) NOT NULL,
   `password_hash` varchar(255) NOT NULL DEFAULT '',
   `name` varchar(255) NOT NULL DEFAULT '',
-  `role` varchar(32) NOT NULL DEFAULT 'editor',
+  `role` varchar(32) NOT NULL DEFAULT 'manager',
   `active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

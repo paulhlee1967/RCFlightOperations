@@ -32,12 +32,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         csrf_validate();
         $email = trim($_POST['email'] ?? '');
         $name = trim($_POST['name'] ?? '');
-        $role = trim($_POST['role'] ?? 'editor');
+        $role = normalizeUserRole(trim($_POST['role'] ?? 'manager'));
         $active = isset($_POST['active']) ? 1 : 0;
         $newPassword = $_POST['new_password'] ?? '';
 
         $roles = array_keys(getSystemUserRoles());
-        if (!in_array($role, $roles, true)) $role = 'editor';
+        if (!in_array($role, $roles, true)) $role = 'manager';
 
         if ($email === '') {
             $error = 'Email is required.';

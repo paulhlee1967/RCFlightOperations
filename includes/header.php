@@ -453,7 +453,7 @@ $_headerBaseHref = '';
                        href="<?= $_headerBaseHref ?>index.php">Home</a>
                 </li>
 
-                <!-- Members (viewers + above) -->
+                <!-- Members (Club Staff and above) -->
                 <?php if (function_exists('canViewMembers') && canViewMembers()): ?>
                 <li class="nav-item">
                     <a class="nav-link<?= navActive(['members.php', 'member_edit.php', 'member_wizard.php', 'member_view.php', 'member_delete.php', 'member_process.php']) ?>"

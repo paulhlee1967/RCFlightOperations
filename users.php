@@ -24,11 +24,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_user'])) {
 
     $email    = trim($_POST['email']    ?? '');
     $name     = trim($_POST['name']     ?? '');
-    $role     = trim($_POST['role']     ?? 'editor');
+    $role     = normalizeUserRole(trim($_POST['role'] ?? 'manager'));
     $password = $_POST['password']      ?? '';
 
     $roles = array_keys(getSystemUserRoles());
-    if (!in_array($role, $roles, true)) $role = 'editor';
+    if (!in_array($role, $roles, true)) $role = 'manager';
 
     if ($email === '') {
         $error = 'Email is required.';
@@ -77,12 +77,14 @@ function userInitials(string $name, string $email): string {
 }
 
 function roleBadge(string $role): array {
+    $role = normalizeUserRole($role);
+
     return match ($role) {
-        'admin'     => ['class' => 'role-badge-admin',     'label' => 'Admin'],
-        'editor'    => ['class' => 'role-badge-editor',    'label' => 'Editor'],
-        'treasurer' => ['class' => 'role-badge-treasurer', 'label' => 'Treasurer'],
-        'viewer'    => ['class' => 'role-badge-viewer',    'label' => 'Viewer'],
-        default     => ['class' => 'role-badge-viewer',    'label' => ucfirst($role)],
+        'admin'         => ['class' => 'role-badge-admin',         'label' => 'Administrator'],
+        'manager'       => ['class' => 'role-badge-manager',       'label' => 'Membership Manager'],
+        'staff'         => ['class' => 'role-badge-staff',         'label' => 'Club Staff'],
+        'report_viewer' => ['class' => 'role-badge-report-viewer', 'label' => 'Report Viewer'],
+        default         => ['class' => 'role-badge-report-viewer', 'label' => ucfirst($role)],
     };
 }
 
@@ -98,10 +100,10 @@ require_once __DIR__ . '/includes/header.php';
     padding: 0.2em 0.55em; border-radius: 4px;
     letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
 }
-.role-badge-admin     { background: rgba(var(--club-primary-rgb), 0.12); color: var(--club-primary); }
-.role-badge-editor    { background: color-mix(in srgb, var(--club-success) 18%, var(--club-bg)); color: var(--club-success); }
-.role-badge-treasurer { background: color-mix(in srgb, var(--club-warning) 18%, var(--club-bg)); color: var(--club-warning); }
-.role-badge-viewer    { background: var(--club-accent); color: var(--club-muted); }
+.role-badge-admin         { background: rgba(var(--club-primary-rgb), 0.12); color: var(--club-primary); }
+.role-badge-manager       { background: color-mix(in srgb, var(--club-success) 18%, var(--club-bg)); color: var(--club-success); }
+.role-badge-staff         { background: color-mix(in srgb, var(--club-warning) 18%, var(--club-bg)); color: var(--club-warning); }
+.role-badge-report-viewer { background: var(--club-accent); color: var(--club-muted); }
 
 .user-avatar {
     width: 36px; height: 36px; border-radius: 50%;
@@ -109,10 +111,10 @@ require_once __DIR__ . '/includes/header.php';
     font-size: 0.7rem; font-weight: 700; letter-spacing: 0.02em;
     flex-shrink: 0; color: #fff; user-select: none;
 }
-.user-avatar-admin     { background: var(--club-primary); }
-.user-avatar-editor    { background: var(--club-success); }
-.user-avatar-treasurer { background: var(--club-warning); }
-.user-avatar-viewer    { background: var(--club-muted); }
+.user-avatar-admin         { background: var(--club-primary); }
+.user-avatar-manager       { background: var(--club-success); }
+.user-avatar-staff         { background: var(--club-warning); }
+.user-avatar-report-viewer { background: var(--club-muted); }
 
 .user-row td    { vertical-align: middle; padding: 0.75rem 1rem; }
 .user-row.inactive { opacity: 0.5; }
@@ -188,7 +190,7 @@ require_once __DIR__ . '/includes/header.php';
                 <select name="role" id="nu_role" class="form-select">
                     <?php foreach (getSystemUserRoles() as $value => $label): ?>
                     <option value="<?= h($value) ?>"
-                        <?= ($_POST['role'] ?? 'editor') === $value ? ' selected' : '' ?>>
+                        <?= ($_POST['role'] ?? 'manager') === $value ? ' selected' : '' ?>>
                         <?= h($label) ?>
                     </option>
                     <?php endforeach; ?>
@@ -238,7 +240,7 @@ require_once __DIR__ . '/includes/header.php';
                 ?>
                 <tr class="user-row<?= !$isActive ? ' inactive' : '' ?>">
                     <td class="ps-3">
-                        <span class="user-avatar user-avatar-<?= h($u['role']) ?>">
+                        <span class="user-avatar user-avatar-<?= h(userRoleCssSuffix((string) $u['role'])) ?>">
                             <?= h($initials) ?>
                         </span>
                     </td>

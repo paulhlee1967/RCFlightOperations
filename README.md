@@ -14,7 +14,7 @@ Open-source (**MIT**) membership management for AMA-affiliated RC flying clubs. 
 - **Reports** — Membership, retention, revenue, compliance, and more — on screen, CSV, branded PDF, or email
 - **Incident log** — Optional dated safety/field incident records
 - **Website applications** — WPForms submissions via webhook; review queue; badge photo copied to member on approve ([WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md), [docs/applications.html](docs/applications.html))
-- **Administration** — Users & roles (admin, editor, treasurer, viewer), club configuration, audit log
+- **Administration** — Users & roles (administrator, membership manager, club staff, report viewer), club configuration, audit log
 
 End-user help lives in **[docs/](docs/)** (also linked from the app as **Help & Documentation**).
 

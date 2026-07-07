@@ -13,7 +13,7 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` and the cod
 - **Reports:** Seven built-in reports — membership by year, retention & churn, type mix, not yet renewed, revenue, AMA/FAA compliance, and missing member data — built on per-year membership history (`member_membership_years`, `payments`, `member_fulfillments`). Export CSV/PDF; email members with an address on file or a snapshot to a board address.
 - **Incidents:** Safety / field incident log (optional workflow for AMA or club records).
 - **Import/export:** CSV import for members; CSV/PDF export.
-- **Admin:** Users (roles: admin, editor, treasurer, viewer), club config (General, Design: logo, favicon, colors), audit log viewer, **Installation** (SMTP, maintenance, health).
+- **Admin:** Users (roles: administrator, membership manager, club staff, report viewer), club config (General, Design: logo, favicon, colors), audit log viewer, **Installation** (SMTP, maintenance, health).
 
 ---
 

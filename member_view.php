@@ -1,8 +1,8 @@
 <?php
 /**
- * member_view.php — Read-only member record (for viewer role).
+ * member_view.php — Read-only member record (Club Staff).
  *
- * This page intentionally has no write actions. Editors should use member_edit.php.
+ * This page intentionally has no write actions. Membership Managers use member_edit.php.
  */
 
 require_once __DIR__ . '/includes/db.php';

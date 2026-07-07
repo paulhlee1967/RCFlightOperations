@@ -48,6 +48,7 @@ function members_list_order_by_map(): array
  *   memberTypeFilter:string,
  *   memberTypeSlotFilter:?int,
  *   statusFilter:string,
+ *   badgeFilter:string,
  *   sort:string
  * }
  */
@@ -86,6 +87,11 @@ function members_list_parse_request(array $get): array
         $sort = 'name';
     }
 
+    $badgeFilter = (string) ($get['badge'] ?? '');
+    if ($badgeFilter !== 'unprinted') {
+        $badgeFilter = '';
+    }
+
     return [
         'searchQ'              => $searchQ,
         'perPage'              => $perPage,
@@ -93,6 +99,7 @@ function members_list_parse_request(array $get): array
         'memberTypeFilter'     => $memberTypeFilter,
         'memberTypeSlotFilter' => $memberTypeSlotFilter,
         'statusFilter'         => $statusFilter,
+        'badgeFilter'          => $badgeFilter,
         'sort'                 => $sort,
     ];
 }
@@ -119,6 +126,7 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
     $page                 = $filters['page'];
     $memberTypeSlotFilter = $filters['memberTypeSlotFilter'];
     $statusFilter         = $filters['statusFilter'];
+    $badgeFilter          = $filters['badgeFilter'];
     $sort                 = $filters['sort'];
 
     $orderByMap    = members_list_order_by_map();
@@ -150,6 +158,11 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
             $baseSql  .= ' AND NOT ' . currentMemberWhereSql('', $currentYear);
             $countSql .= ' AND NOT ' . currentMemberWhereSql('', $currentYear);
             $params    = array_merge($params, currentMemberWhereParams($currentYear));
+        }
+        if ($badgeFilter === 'unprinted') {
+            $baseSql  .= ' AND ' . badgeUnprintedWhereSql('');
+            $countSql .= ' AND ' . badgeUnprintedWhereSql('');
+            $params    = array_merge($params, badgeUnprintedWhereParams($currentYear));
         }
         $baseSql .= " $orderBy";
     } else {
@@ -191,6 +204,10 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
             $baseSql  .= ' AND NOT ' . currentMemberWhereSql('m', $currentYear);
             $countSql .= ' AND NOT ' . currentMemberWhereSql('m', $currentYear);
         }
+        if ($badgeFilter === 'unprinted') {
+            $baseSql  .= ' AND ' . badgeUnprintedWhereSql('m');
+            $countSql .= ' AND ' . badgeUnprintedWhereSql('m');
+        }
         $baseSql .= " $orderBySearch";
 
         $params = [];
@@ -205,6 +222,9 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
         }
         if ($statusFilter === 'current' || $statusFilter === 'inactive') {
             $params = array_merge($params, currentMemberWhereParams($currentYear));
+        }
+        if ($badgeFilter === 'unprinted') {
+            $params = array_merge($params, badgeUnprintedWhereParams($currentYear));
         }
     }
 
@@ -234,6 +254,7 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
         'per'         => $perPage !== 25 ? $perPage : null,
         'member_type' => $filters['memberTypeFilter'] !== '' ? $filters['memberTypeFilter'] : null,
         'status'      => $statusFilter,
+        'badge'       => $badgeFilter !== '' ? $badgeFilter : null,
         'sort'        => $sort !== 'name' ? $sort : null,
     ], static fn ($v) => $v !== null);
 

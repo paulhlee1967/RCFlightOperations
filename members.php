@@ -42,6 +42,7 @@ $page                 = $filters['page'];
 $memberTypeFilter     = $filters['memberTypeFilter'];
 $memberTypeSlotFilter = $filters['memberTypeSlotFilter'];
 $statusFilter         = $filters['statusFilter'];
+$badgeFilter          = $filters['badgeFilter'];
 $sort                 = $filters['sort'];
 
 $list = members_list_fetch($pdo, $filters, $currentYear);
@@ -227,6 +228,9 @@ if (!empty($_GET['deleted'])) {
         <?php if ($memberTypeFilter !== ''): ?>
         <input type="hidden" name="member_type" value="<?= htmlspecialchars($memberTypeFilter) ?>">
         <?php endif; ?>
+        <?php if ($badgeFilter !== ''): ?>
+        <input type="hidden" name="badge" value="<?= htmlspecialchars($badgeFilter) ?>">
+        <?php endif; ?>
 
         <div class="col flex-grow-1" style="min-width:180px;">
             <label for="member-search" class="visually-hidden">Search members</label>
@@ -247,7 +251,7 @@ if (!empty($_GET['deleted'])) {
         </div>
         <div class="col-auto d-flex gap-1">
             <button type="submit" class="btn btn-sm btn-outline-primary">Search</button>
-            <?php if ($searchQ !== '' || $memberTypeFilter !== '' || $statusFilter !== 'current' || $sort !== 'name'): ?>
+            <?php if ($searchQ !== '' || $memberTypeFilter !== '' || $statusFilter !== 'current' || $badgeFilter !== '' || $sort !== 'name'): ?>
             <a href="members.php" class="btn btn-sm btn-outline-secondary">Clear</a>
             <?php endif; ?>
         </div>
@@ -256,6 +260,11 @@ if (!empty($_GET['deleted'])) {
     <?php if ($searchQ !== ''): ?>
     <p class="text-muted small mt-1 mb-0">
         Showing results for &ldquo;<?= htmlspecialchars($searchQ) ?>&rdquo;
+    </p>
+    <?php endif; ?>
+    <?php if ($badgeFilter === 'unprinted'): ?>
+    <p class="text-muted small mt-1 mb-0">
+        Showing current members whose badge has not been printed for <?= (int) $currentYear ?>.
     </p>
     <?php endif; ?>
 </div>
