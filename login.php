@@ -10,6 +10,7 @@
  */
 
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/safe_redirect.php';
 require_once __DIR__ . '/includes/flightops_logo.php';
