@@ -53,8 +53,8 @@ function wpforms_application_field_aliases(): array
         'faa_expiration'               => ['FAA Registration Expiration', 'faa_expiration'],
         // Legacy: AMA card upload removed from form 6569; kept for older application rows.
         'file_ama_verification_url'    => ['AMA Verification (.jpg, .pdf, .png, .doc), 5Mb Max', 'AMA Verification', 'ama_verification'],
-        'file_faa_registration_url'    => ['FAA Registration (.jpg, .pdf, .png, .doc), 5Mb Max', 'FAA Registration', 'faa_registration'],
-        'file_badge_photo_url'         => ['Badge Photo (.jpg, .jpeg, .png), 5Mb Max', 'Badge Photo (.jpg, .pdf, .png, .doc), 5Mb Max', 'Badge Photo (...)', 'Badge Photo', 'badge_photo'],
+        'file_faa_registration_url'    => ['FAA Registration (.jpg, .jpeg, .png), 5Mb Max', 'FAA Registration (.jpg, .png), 5Mb Max', 'FAA Registration (.jpg, .pdf, .png, .doc), 5Mb Max', 'FAA Registration', 'faa_registration'],
+        'file_badge_photo_url'         => ['Badge Photo (.jpg, .jpeg, .png), 5Mb Max', 'Badge Photo (.jpg, .png), 5Mb Max', 'Badge Photo (.jpg, .pdf, .png, .doc), 5Mb Max', 'Badge Photo (...)', 'Badge Photo', 'badge_photo'],
         'file_signature_url'           => ['Signature', 'signature'],
         'payment_gateway_info'         => ['Payment Gateway Information', 'payment_gateway_information'],
         'payment_status'               => ['Payment Status', 'payment_status'],
@@ -913,7 +913,7 @@ function application_update_existing_member(PDO $pdo, int $memberId, array $app)
 }
 
 /**
- * @return array{ok:bool, member_id:?int, error:?string, renewal_type?:string, renewal_year?:int, photo_imported?:?bool, photo_error?:?string}
+ * @return array{ok:bool, member_id:?int, error:?string, renewal_type?:string, renewal_year?:int, photo_imported?:?bool, photo_error?:?string, faa_card_imported?:?bool, faa_card_error?:?string}
  */
 function application_approve(
     PDO $pdo,
@@ -967,6 +967,15 @@ function application_approve(
         $photoError = $photoResult['error'];
     }
 
+    $faaCardImported = null;
+    $faaCardError = null;
+    if (!empty($app['file_faa_registration_url'])) {
+        require_once __DIR__ . '/member_save.php';
+        $faaResult = member_import_faa_card_from_url($pdo, $memberId, (string) $app['file_faa_registration_url']);
+        $faaCardImported = $faaResult['ok'];
+        $faaCardError = $faaResult['error'];
+    }
+
     $finalRenewalType = $renewalType ?: ($app['suggested_renewal_type'] ?? 'new');
     $finalRenewalYear = $renewalYear ?: (int) ($app['suggested_renewal_year'] ?? defaultRenewalYear($pdo));
 
@@ -989,6 +998,8 @@ function application_approve(
         'renewal_year'   => $finalRenewalYear,
         'photo_imported' => $photoImported,
         'photo_error'    => $photoError,
+        'faa_card_imported' => $faaCardImported,
+        'faa_card_error'    => $faaCardError,
     ];
 }
 

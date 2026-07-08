@@ -78,4 +78,29 @@ final class MemberPhotoImportTest extends TestCase
             @unlink($tmp);
         }
     }
+
+    public function test_save_faa_card_from_local_file_rejects_non_supported_format(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        $tmp = tempnam(sys_get_temp_dir(), 'member_faa_card_test_');
+        $this->assertNotFalse($tmp);
+        file_put_contents($tmp, 'not a real image or pdf');
+
+        try {
+            $result = member_save_faa_card_from_local_file($pdo, 1, $tmp);
+            $this->assertFalse($result['ok']);
+            $this->assertSame('FAA card must be a PDF, JPG, or PNG file.', $result['error']);
+            $this->assertNull($result['faa_card_path']);
+        } finally {
+            @unlink($tmp);
+        }
+    }
+
+    public function test_import_faa_card_from_url_rejects_disallowed_host(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        $result = member_import_faa_card_from_url($pdo, 1, 'https://evil.example.com/faa.pdf');
+        $this->assertFalse($result['ok']);
+        $this->assertSame('FAA card URL is not from an allowed host.', $result['error']);
+    }
 }

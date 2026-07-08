@@ -34,14 +34,14 @@ $singleId = isset($_REQUEST['id']) ? (int) $_REQUEST['id'] : 0;
 $isBulk   = count($bulkIds) > 0;
 
 /**
- * Remove a member photo file only if it resolves under project uploads/ (blocks path traversal).
+ * Remove a member uploaded file only if it resolves under project uploads/ (blocks path traversal).
  */
-function flightops_safe_unlink_member_photo(string $relativePhotoPath): void {
-    $relativePhotoPath = ltrim($relativePhotoPath, '/');
-    if ($relativePhotoPath === '' || str_contains($relativePhotoPath, '..')) {
+function flightops_safe_unlink_member_upload(string $relativePath): void {
+    $relativePath = ltrim($relativePath, '/');
+    if ($relativePath === '' || str_contains($relativePath, '..')) {
         return;
     }
-    $full  = realpath(__DIR__ . '/' . $relativePhotoPath);
+    $full  = realpath(__DIR__ . '/' . $relativePath);
     $base  = realpath(__DIR__ . '/uploads');
     if ($full === false || $base === false || !is_file($full)) {
         return;
@@ -57,12 +57,15 @@ function deleteMembers(PDO $pdo, array $ids, int $userId = 0): int {
     if (empty($ids)) return 0;
     $placeholders = implode(',', array_fill(0, count($ids), '?'));
 
-    $stmt = $pdo->prepare("SELECT photo_path FROM members WHERE id IN ($placeholders)");
+    $stmt = $pdo->prepare("SELECT photo_path, faa_card_path FROM members WHERE id IN ($placeholders)");
     $stmt->execute($ids);
-    $photoPaths = [];
+    $uploads = [];
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         if (!empty($row['photo_path'])) {
-            $photoPaths[] = (string) $row['photo_path'];
+            $uploads[] = (string) $row['photo_path'];
+        }
+        if (!empty($row['faa_card_path'])) {
+            $uploads[] = (string) $row['faa_card_path'];
         }
     }
 
@@ -80,8 +83,8 @@ function deleteMembers(PDO $pdo, array $ids, int $userId = 0): int {
         }
     }
 
-    foreach ($photoPaths as $rel) {
-        flightops_safe_unlink_member_photo($rel);
+    foreach ($uploads as $rel) {
+        flightops_safe_unlink_member_upload($rel);
     }
 
     return $deleted;

@@ -60,7 +60,7 @@ $expectedColumns = [
     'members' => [
         'id', 'title', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'photo_path', 'notes',
         'date_joined', 'membership_type_slot', 'membership_renewal_year', 'inactive', 'suspended', 'life_member', 'free_membership',
-        'gate_key_number', 'badge_printed_at', 'ama_number', 'ama_expiration', 'ama_life_member', 'faa_number', 'faa_expiration',
+        'gate_key_number', 'badge_printed_at', 'ama_number', 'ama_expiration', 'ama_life_member', 'faa_number', 'faa_expiration', 'faa_card_path',
         'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone',
         'address_street', 'address_street2', 'address_city', 'address_state', 'address_postal_code',
         'created_at', 'updated_at',

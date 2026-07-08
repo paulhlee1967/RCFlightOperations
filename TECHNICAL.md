@@ -101,7 +101,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 
 | File | Purpose |
 |------|--------|
-| **index.php** | Dashboard: stat cards (members, not renewed, badges unprinted, AMA/FAA alerts, gate keys, revenue). Requires login. |
+| **index.php** | Dashboard: stat cards (current members, not yet renewed, badges unprinted, AMA/FAA alerts, birthdays this week). Requires login. |
 | **login.php** | Club user login. Session: `user_id`, `user_email`, `user_name`, `user_role`. Uses CSRF and safe redirect. |
 | **logout.php** | Destroys session, redirects to login. |
 | **forgot_password.php** / **reset_password.php** | Password reset flow (tokens in `password_reset_tokens`). |

@@ -167,30 +167,34 @@
     <!-- ── Report ── -->
     <h2 id="report">Compliance Report</h2>
     <p>
-      Go to <strong>Reports → AMA/FAA Compliance</strong>. This report shows members split
-      into sections:
+      Go to <strong>Reports → AMA/FAA compliance</strong>. This report lists
+      <strong>current members</strong> whose AMA or FAA expiration is within the next
+      60 days or already past, sorted soonest first. Each row shows AMA and FAA numbers,
+      expiration dates, and a <strong>Status</strong> column of <em>Expired</em> or
+      <em>Expiring</em>.
     </p>
-    <ul>
-      <li><strong>AMA expired</strong> — members whose AMA expiration has already passed</li>
-      <li><strong>AMA expiring soon</strong> — expiring within the next 60 days</li>
-      <li><strong>FAA expired</strong> — members with an FAA expiration in the past</li>
-      <li><strong>FAA expiring soon</strong> — FAA expiring within 60 days</li>
-    </ul>
     <p>
-      Each row links directly to the member's Compliance tab for quick updating. The report
-      can be exported to CSV or emailed to your club's compliance officer.
+      Rows link to the member record for quick updating. The report can be exported to
+      CSV or emailed to your club's compliance officer. AMA life members with no
+      expiration on file are not listed.
     </p>
 
     <!-- ── Renewal blocking ── -->
     <h2 id="renewal-block">How AMA Blocks Renewals</h2>
-    <p>When you try to record a renewal, RC Flight Operations checks two things:</p>
+    <p>When you record a renewal, RC Flight Operations enforces AMA readiness unless the member is an <strong>AMA life member</strong>:</p>
     <ol>
-      <li>Does the member have an AMA number on file? (Or are they an AMA life member?)</li>
-      <li>Is the AMA expiration date on or after December 31 of the renewal year?</li>
+      <li>The member must have an AMA expiration date on file (YYYY-MM-DD format).</li>
+      <li>That expiration must be on or after December 31 of the renewal year.</li>
     </ol>
     <p>
-      If either check fails, the renewal is blocked and you'll see a warning with a link
-      to the Compliance tab. Fix the AMA info, save, then come back to record the renewal.
+      If either check fails, the renewal is blocked and you'll see an alert with a link
+      to the Compliance tab. Fix the AMA info, save, then try again. AMA life members
+      skip the expiration gate; a stale expiration date on file is ignored for them.
+    </p>
+    <p>
+      Missing AMA <em>number</em> shows as a warning on the review step but does not
+      by itself block recording — however you should verify and save the number before
+      the member flies.
     </p>
     <div class="callout callout-info">
       <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>

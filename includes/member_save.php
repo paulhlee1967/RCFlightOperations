@@ -13,6 +13,17 @@ function member_photo_allowed_mimes(): array
     return ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif'];
 }
 
+/** @return array<string, string> */
+function member_faa_card_allowed_mimes(): array
+{
+    // FAA registration “card” is commonly uploaded as PDF or an image.
+    return [
+        'application/pdf' => 'pdf',
+        'image/jpeg'      => 'jpg',
+        'image/png'       => 'png',
+    ];
+}
+
 /**
  * When Automator sends multiple file URLs, use the first non-empty value.
  */
@@ -138,36 +149,39 @@ function member_save_photo_from_local_file(PDO $pdo, int $memberId, string $loca
 }
 
 /**
- * Download a WPForms badge photo URL and save it on the member record.
+ * Download a WPForms media URL to a temp file (host allowlist, size cap).
  *
- * @return array{ok:bool, error:?string, photo_path:?string}
+ * @return array{ok:bool, error:?string, local_path:?string}
  */
-function member_import_photo_from_url(PDO $pdo, int $memberId, string $url): array
-{
+function member_download_media_url_to_temp_file(
+    string $url,
+    int $memberId,
+    string $logContext,
+    int $maxBytes = 5242880
+): array {
     $url = member_photo_pick_first_url($url);
     if ($url === '') {
-        return ['ok' => false, 'error' => 'No badge photo URL provided.', 'photo_path' => null];
+        return ['ok' => false, 'error' => 'No file URL provided.', 'local_path' => null];
     }
     if (!member_photo_url_is_allowed($url)) {
-        return ['ok' => false, 'error' => 'Badge photo URL is not from an allowed host.', 'photo_path' => null];
+        return ['ok' => false, 'error' => 'File URL is not from an allowed host.', 'local_path' => null];
     }
     if (!function_exists('curl_init')) {
-        return ['ok' => false, 'error' => 'Server cannot download badge photos (cURL unavailable).', 'photo_path' => null];
+        return ['ok' => false, 'error' => 'Server cannot download files from the website (cURL unavailable).', 'local_path' => null];
     }
 
-    $tmp = tempnam(sys_get_temp_dir(), 'member_photo_');
+    $tmp = tempnam(sys_get_temp_dir(), 'member_media_');
     if ($tmp === false) {
-        return ['ok' => false, 'error' => 'Could not create temporary file.', 'photo_path' => null];
+        return ['ok' => false, 'error' => 'Could not create temporary file.', 'local_path' => null];
     }
 
     $fp = fopen($tmp, 'wb');
     if ($fp === false) {
         @unlink($tmp);
 
-        return ['ok' => false, 'error' => 'Could not create temporary file.', 'photo_path' => null];
+        return ['ok' => false, 'error' => 'Could not create temporary file.', 'local_path' => null];
     }
 
-    $maxBytes = 5 * 1024 * 1024;
     $bytes = 0;
     $ch = curl_init($url);
     curl_setopt_array($ch, [
@@ -198,13 +212,109 @@ function member_import_photo_from_url(PDO $pdo, int $memberId, string $url): arr
 
     if (!$ok || $httpCode < 200 || $httpCode >= 300) {
         @unlink($tmp);
-        error_log('member_import_photo_from_url: download failed for member ' . $memberId . ': HTTP ' . $httpCode . ' ' . $curlError);
+        error_log($logContext . ': download failed for member ' . $memberId . ': HTTP ' . $httpCode . ' ' . $curlError);
 
-        return ['ok' => false, 'error' => 'Could not download badge photo from the website.', 'photo_path' => null];
+        return ['ok' => false, 'error' => 'Could not download file from the website.', 'local_path' => null];
     }
 
-    $result = member_save_photo_from_local_file($pdo, $memberId, $tmp);
-    @unlink($tmp);
+    return ['ok' => true, 'error' => null, 'local_path' => $tmp];
+}
+
+/**
+ * Download a WPForms badge photo URL and save it on the member record.
+ *
+ * @return array{ok:bool, error:?string, photo_path:?string}
+ */
+function member_import_photo_from_url(PDO $pdo, int $memberId, string $url): array
+{
+    $download = member_download_media_url_to_temp_file($url, $memberId, 'member_import_photo_from_url');
+    if (!$download['ok']) {
+        $error = $download['error'] ?? 'Could not download badge photo from the website.';
+        if ($error === 'No file URL provided.') {
+            $error = 'No badge photo URL provided.';
+        } elseif ($error === 'File URL is not from an allowed host.') {
+            $error = 'Badge photo URL is not from an allowed host.';
+        } elseif ($error === 'Server cannot download files from the website (cURL unavailable).') {
+            $error = 'Server cannot download badge photos (cURL unavailable).';
+        } elseif ($error === 'Could not download file from the website.') {
+            $error = 'Could not download badge photo from the website.';
+        }
+
+        return ['ok' => false, 'error' => $error, 'photo_path' => null];
+    }
+
+    $result = member_save_photo_from_local_file($pdo, $memberId, (string) $download['local_path']);
+    @unlink((string) $download['local_path']);
+
+    return $result;
+}
+
+/**
+ * Validate an uploaded FAA card file and persist it as a member attachment.
+ *
+ * @return array{ok:bool, error:?string, faa_card_path:?string}
+ */
+function member_save_faa_card_from_local_file(PDO $pdo, int $memberId, string $localPath, int $maxBytes = 5242880): array
+{
+    if ($memberId <= 0 || !is_file($localPath) || !is_readable($localPath)) {
+        return ['ok' => false, 'error' => 'FAA card file is not readable.', 'faa_card_path' => null];
+    }
+
+    $size = filesize($localPath);
+    if ($size === false || $size > $maxBytes) {
+        return ['ok' => false, 'error' => 'FAA card exceeds the 5 MB size limit.', 'faa_card_path' => null];
+    }
+
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($localPath);
+    $allowed = member_faa_card_allowed_mimes();
+    if (!isset($allowed[$mime])) {
+        return ['ok' => false, 'error' => 'FAA card must be a PDF, JPG, or PNG file.', 'faa_card_path' => null];
+    }
+
+    $dir = dirname(__DIR__) . '/uploads/member_faa_cards';
+    if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
+        return ['ok' => false, 'error' => 'Could not create FAA card directory.', 'faa_card_path' => null];
+    }
+
+    $ext = $allowed[$mime];
+    $filename = $memberId . '.' . $ext;
+    $dest = $dir . '/' . $filename;
+    if (!copy($localPath, $dest)) {
+        return ['ok' => false, 'error' => 'Could not save FAA card.', 'faa_card_path' => null];
+    }
+
+    $path = 'uploads/member_faa_cards/' . $filename;
+    $pdo->prepare('UPDATE members SET faa_card_path = ? WHERE id = ?')->execute([$path, $memberId]);
+
+    return ['ok' => true, 'error' => null, 'faa_card_path' => $path];
+}
+
+/**
+ * Download a WPForms FAA registration URL and save it on the member record.
+ *
+ * @return array{ok:bool, error:?string, faa_card_path:?string}
+ */
+function member_import_faa_card_from_url(PDO $pdo, int $memberId, string $url): array
+{
+    $download = member_download_media_url_to_temp_file($url, $memberId, 'member_import_faa_card_from_url');
+    if (!$download['ok']) {
+        $error = $download['error'] ?? 'Could not download FAA card from the website.';
+        if ($error === 'No file URL provided.') {
+            $error = 'No FAA card URL provided.';
+        } elseif ($error === 'File URL is not from an allowed host.') {
+            $error = 'FAA card URL is not from an allowed host.';
+        } elseif ($error === 'Server cannot download files from the website (cURL unavailable).') {
+            $error = 'Server cannot download FAA cards (cURL unavailable).';
+        } elseif ($error === 'Could not download file from the website.') {
+            $error = 'Could not download FAA card from the website.';
+        }
+
+        return ['ok' => false, 'error' => $error, 'faa_card_path' => null];
+    }
+
+    $result = member_save_faa_card_from_local_file($pdo, $memberId, (string) $download['local_path']);
+    @unlink((string) $download['local_path']);
 
     return $result;
 }
@@ -288,6 +398,27 @@ function save_member_from_post(PDO $pdo, ?int $memberId, array $post, array $fil
                 if (move_uploaded_file($files['photo']['tmp_name'], $path)) {
                     $photoPath = 'uploads/member_photos/' . $filename;
                     $pdo->prepare('UPDATE members SET photo_path = ? WHERE id = ?')->execute([$photoPath, $memberId]);
+                }
+            }
+        }
+    }
+
+    if ($memberId) {
+        if (!empty($files['faa_card']['tmp_name']) && is_uploaded_file($files['faa_card']['tmp_name'])) {
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->file($files['faa_card']['tmp_name']);
+            $allowed = member_faa_card_allowed_mimes();
+            if (isset($allowed[$mime]) && (int) $files['faa_card']['size'] <= 5 * 1024 * 1024) {
+                $dir = dirname(__DIR__) . '/uploads/member_faa_cards';
+                if (!is_dir($dir)) {
+                    mkdir($dir, 0755, true);
+                }
+                $ext = $allowed[$mime];
+                $filename = $memberId . '.' . $ext;
+                $path = $dir . '/' . $filename;
+                if (move_uploaded_file($files['faa_card']['tmp_name'], $path)) {
+                    $faaPath = 'uploads/member_faa_cards/' . $filename;
+                    $pdo->prepare('UPDATE members SET faa_card_path = ? WHERE id = ?')->execute([$faaPath, $memberId]);
                 }
             }
         }

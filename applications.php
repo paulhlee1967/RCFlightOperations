@@ -56,6 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (array_key_exists('photo_imported', $result) && $result['photo_imported'] === false) {
             flash('Badge photo could not be copied from the website — upload it on the member record before printing.', 'warning');
         }
+        if (array_key_exists('faa_card_imported', $result) && $result['faa_card_imported'] === false) {
+            flash('FAA registration card could not be copied from the website — upload it on the member Compliance tab.', 'warning');
+        }
         header('Location: member_process.php?id=' . $memberId . '&year=' . $ryear . '&renewal_type=' . $rtype . '#record');
         exit;
     }

@@ -96,8 +96,10 @@
   <li>Clears the "badge printed" flag so you're reminded to print a new card.</li>
 </ol>
 <p>
-  A member is considered <strong>Active</strong> when their renewal year matches the
-  current calendar year.
+  A member is considered <strong>current</strong> when their renewal year matches the
+  calendar year, they are not marked inactive or suspended, and they have either a
+  payment (or fulfillment) on file for that year <em>or</em> a <strong>Life member</strong>
+  or <strong>Free membership</strong> flag on the Membership tab.
 </p>
 
 <!-- ── Process signup / renewal (matches in-app button label) ── -->
@@ -133,9 +135,10 @@
   <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
   <div class="callout-body">
     <strong>AMA required before renewal</strong>
-    You cannot record a renewal if the member has no AMA number on file, or if their
-    AMA expiration is before December 31 of the renewal year.
-    Fix it on the <a href="compliance.html">Compliance tab</a> first.
+    You cannot record a renewal if the member has no AMA expiration on file, or if their
+    AMA expiration is before December 31 of the renewal year — unless they are marked
+    <strong>AMA life member</strong> on the Compliance tab.
+    Fix AMA info on the <a href="compliance.html">Compliance tab</a> first.
   </div>
 </div>
 
@@ -190,33 +193,54 @@
 </ul>
 
 <!-- ── Comps ── -->
-<h2 id="comps">Complementary &amp; Free Members</h2>
-<p>Two ways to handle members who don't pay dues:</p>
+<h2 id="comps">Complementary, Life &amp; Free Members</h2>
+<p>Three related ways to handle members who don't pay dues:</p>
 <div class="docs-table-wrap">
   <table class="docs-table">
     <thead><tr><th>Method</th><th>When to use</th><th>How to set</th></tr></thead>
     <tbody>
       <tr>
         <td><strong>Complementary renewal</strong></td>
-        <td>One-time complimentary year (e.g., club officer courtesy)</td>
-        <td>Check the "Complementary" box when recording the renewal — records $0</td>
+        <td>Record a $0 renewal for any year — one-time courtesy or annual life/free renewal</td>
+        <td>Check <strong>Complementary (no charge)</strong> when recording the renewal. Optionally use <strong>If complementary, also set</strong> to turn on the Life member or Free membership flag in the same step.</td>
+      </tr>
+      <tr>
+        <td><strong>Life member flag</strong></td>
+        <td>Permanent club life member — no dues required going forward</td>
+        <td>Check <strong>Life member</strong> on the Membership tab, or set it when recording a complementary renewal. Only this flag is needed for life members — do not also check Free membership.</td>
       </tr>
       <tr>
         <td><strong>Free membership flag</strong></td>
-        <td>Permanent free membership (e.g., honorary member)</td>
-        <td>Check "Free membership" on the Membership tab; a renewal still needs to be recorded each year</td>
+        <td>Complimentary membership for non–life members (e.g., board comp, scholarship)</td>
+        <td>Check <strong>Free membership</strong> on the Membership tab, or set it when recording a complementary renewal</td>
       </tr>
     </tbody>
   </table>
+</div>
+<div class="callout callout-tip">
+  <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
+  <div class="callout-body">
+    <strong>Life vs Free</strong>
+    Both flags waive the payment requirement for current status, but they mean different things.
+    Use <strong>Life member</strong> for formal lifetime club members. Use <strong>Free membership</strong>
+    for other complimentary cases. Checking both is redundant — pick one.
+    <strong>Inactive</strong> and <strong>Suspended</strong> are separate status flags and can
+    combine with life or free (for example, a suspended life member).
+  </div>
 </div>
 
 <!-- ── Life members ── -->
 <h2 id="life">Life Members</h2>
 <p>
-  Check <strong>Life member</strong> on the Membership tab. Life members still need a
-  renewal recorded each year (as complementary) to show as "Active" — but the
-  system will remind you. The <em>Waived / Free Memberships</em> report shows all
-  life and free members.
+  Check <strong>Life member</strong> on the Membership tab (or set it during a complementary
+  renewal). Life members still need a renewal recorded each year — usually as
+  <strong>Complementary</strong> — so their renewal year stays current. They appear on the
+  <strong>Not yet renewed</strong> report and dashboard card like any other member who
+  hasn't renewed for the working year yet.
+</p>
+<p>
+  Life members are never auto-marked inactive by the optional
+  <code>scripts/mark_expired_inactive.php</code> maintenance script.
 </p>
 
 <!-- ── Dues config ── -->

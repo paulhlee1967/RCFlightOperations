@@ -169,27 +169,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <div class="tab-pane fade" id="pane-compliance" role="tabpanel">
-                <div class="row g-3">
-                    <div class="col-12 col-md-3">
-                        <label class="form-label">AMA number</label>
-                        <div class="form-control bg-light"><?= htmlspecialchars($member['ama_number'] ?? '') ?></div>
-                    </div>
-                    <div class="col-12 col-md-3">
-                        <label class="form-label">AMA expiration</label>
-                        <div class="form-control bg-light"><?= htmlspecialchars($member['ama_expiration'] ?? '') ?></div>
-                        <?php if (!empty($member['ama_life_member'])): ?>
-                            <div class="small text-muted mt-1">AMA life member</div>
-                        <?php endif; ?>
-                    </div>
-                    <div class="col-12 col-md-3">
-                        <label class="form-label">FAA number</label>
-                        <div class="form-control bg-light"><?= htmlspecialchars($member['faa_number'] ?? '') ?></div>
-                    </div>
-                    <div class="col-12 col-md-3">
-                        <label class="form-label">FAA expiration</label>
-                        <div class="form-control bg-light"><?= htmlspecialchars($member['faa_expiration'] ?? '') ?></div>
-                    </div>
-                </div>
+                <?php require __DIR__ . '/includes/member_compliance_view.php'; ?>
             </div>
 
             <div class="tab-pane fade" id="pane-membership" role="tabpanel">

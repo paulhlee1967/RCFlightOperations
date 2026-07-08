@@ -179,6 +179,26 @@
   </div>
 </div>
 
+<h3 id="r-currentmembers">Current members</h3>
+<p>
+  A roster of everyone who counts as a current member right now — useful at the field
+  when you need to verify someone is paid up. Shows name, phone, date paid (or
+  fulfillment date), and status for life or complimentary members. Always reflects
+  the live roster for the current year — no year picker. Export to PDF or CSV to
+  keep a printed copy in the clubhouse.
+</p>
+<div class="docs-table-wrap">
+  <table class="docs-table">
+    <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Last / First name</td><td>Member name</td></tr>
+      <tr><td>Phone</td><td>Phone number on file</td></tr>
+      <tr><td>Date paid</td><td>Most recent payment or fulfillment date for the current membership year</td></tr>
+      <tr><td>Status</td><td><strong>Life member</strong> or <strong>Complimentary</strong> when applicable</td></tr>
+    </tbody>
+  </table>
+</div>
+
 <h3 id="r-compliance">AMA/FAA compliance</h3>
 <p>
   Current members whose AMA or FAA credentials are already expired or will expire within
@@ -193,6 +213,27 @@
   emergency contact, AMA/FAA numbers, or membership type. Lists each member's missing
   fields and supports <a href="#email-members">emailing the group</a> (members with an
   email on file).
+</p>
+
+<h3 id="r-incidents">Incidents by year/type</h3>
+<p>
+  Safety incidents grouped by calendar year and incident type. Useful for annual safety
+  summaries and AMA reporting. Year-over-year — no year picker.
+</p>
+
+<h3 id="r-birthdays">Birthdays this week</h3>
+<p>
+  Current members with a birthday in the current calendar week (Monday–Sunday), sorted
+  by date. Always reflects the live roster — no year picker. Linked from the dashboard
+  <strong>Birthdays this week</strong> card.
+</p>
+
+<h3 id="r-duplicates">Possible duplicate members</h3>
+<p>
+  Groups of members that may be the same person — matched on AMA number, name plus
+  email, or name alone (same tiers as CSV import matching). Visible to
+  <strong>Administrator</strong> and <strong>Membership Manager</strong> only.
+  Use when cleaning up data after an import or spotting double entries.
 </p>
 
 <!-- ── Year selector ── -->
@@ -290,12 +331,12 @@
 <!-- ── Email members ── -->
 <h2 id="email-members">Email Members (Cohort)</h2>
 <p>
-  The <strong>Not yet renewed</strong> report adds a second panel:
-  <strong>Email these members</strong> — a personalized reminder sent to everyone on the
-  list at once. Handy for a renewal nudge.
+  <strong>Not yet renewed</strong> and <strong>Missing member data</strong> each add a second panel:
+  <strong>Email these members</strong> — a personalized message sent to everyone on the
+  list at once. Handy for renewal nudges or asking members to complete their records.
 </p>
 <ol class="step-list">
-  <li>Open <strong>Not yet renewed</strong> and confirm the year is correct.</li>
+  <li>Open the report and confirm the year (for <strong>Not yet renewed</strong>) or review the list.</li>
   <li>In the <strong>Email these members</strong> panel, write a <strong>subject</strong> and <strong>message</strong>.</li>
   <li>Use these tokens to personalize each message:
     <ul>

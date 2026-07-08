@@ -202,37 +202,9 @@ require_once __DIR__ . '/includes/member_wizard_styles.php';
 
             <!-- Step 2: Compliance -->
             <div class="wizard-step-panel<?= $initialStep === 'compliance' ? ' is-active' : '' ?>" data-wizard-step="2" id="wizard-step-compliance">
-                <h2 class="h5 mb-3">AMA &amp; FAA compliance</h2>
-                <p class="text-muted small">Verify AMA membership before recording signup. FAA registration is recommended for mailer packets.</p>
-                <div class="row g-3">
-                    <div class="col-12 col-sm-6 col-md-3">
-                        <label class="form-label">AMA number</label>
-                        <input type="text" class="form-control" name="ama_number" id="ama_number" value="<?= h($member['ama_number'] ?? '') ?>">
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-3" id="ama-expiration-wrap">
-                        <label class="form-label">AMA expiration</label>
-                        <input type="date" class="form-control" name="ama_expiration" id="ama_expiration" value="<?= h($member['ama_expiration'] ?? '') ?>">
-                        <span id="ama-status-badge" class="ama-status-badge" aria-live="polite"></span>
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-6 d-flex flex-column flex-sm-row align-items-stretch align-items-sm-end pb-2 gap-2">
-                        <button type="button" class="btn btn-primary btn-sm" id="verify-ama-btn">Verify AMA membership</button>
-                        <span id="verify-ama-status" class="small flex-grow-1 border border-light rounded px-2 py-1 bg-white" role="status" aria-live="polite"></span>
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-3">
-                        <label class="form-label">FAA number</label>
-                        <input type="text" class="form-control" name="faa_number" id="faa_number" value="<?= h($member['faa_number'] ?? '') ?>">
-                    </div>
-                    <div class="col-12 col-sm-6 col-md-3">
-                        <label class="form-label">FAA expiration</label>
-                        <input type="date" class="form-control" name="faa_expiration" value="<?= h($member['faa_expiration'] ?? '') ?>">
-                    </div>
-                    <div class="col-12">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" name="ama_life_member" id="ama_life_member" value="1"<?= checked($member['ama_life_member'] ?? 0) ?>>
-                            <label class="form-check-label" for="ama_life_member">AMA life member</label>
-                        </div>
-                    </div>
-                </div>
+                <h2 class="h5 mb-2">AMA &amp; FAA compliance</h2>
+                <p class="text-muted small mb-3">Verify AMA membership before recording signup. FAA registration is recommended for mailer packets.</p>
+                <?php require __DIR__ . '/includes/member_compliance_fields.php'; ?>
             </div>
 
             <!-- Step 3: Membership -->

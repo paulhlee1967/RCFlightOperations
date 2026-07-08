@@ -346,6 +346,8 @@ final class WpformsApplicationTest extends TestCase
             'Entry ID',
             'Application Submission Date',
             'Badge Photo (.jpg, .jpeg, .png), 5Mb Max',
+            'FAA Registration (.jpg, .jpeg, .png), 5Mb Max',
+            'Badge Photo (.jpg, .pdf, .png, .doc), 5Mb Max',
             'FAA Registration (.jpg, .pdf, .png, .doc), 5Mb Max',
         ];
 

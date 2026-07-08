@@ -82,6 +82,7 @@ CREATE TABLE `members` (
   `ama_life_member` tinyint(1) NOT NULL DEFAULT 0,
   `faa_number` varchar(64) DEFAULT NULL,
   `faa_expiration` date DEFAULT NULL,
+  `faa_card_path` varchar(512) DEFAULT NULL,
   `emergency_contact_name` varchar(255) DEFAULT NULL,
   `emergency_contact_relationship` varchar(64) DEFAULT NULL,
   `emergency_contact_phone` varchar(64) DEFAULT NULL,
@@ -897,3 +898,21 @@ SET @sql_drop_allow_postal = IF(
 PREPARE stmt_drop_allow_postal FROM @sql_drop_allow_postal;
 EXECUTE stmt_drop_allow_postal;
 DEALLOCATE PREPARE stmt_drop_allow_postal;
+
+-- -----------------------------------------------------------------------------
+-- Migration: FAA card attachment on members (faa_card_path)
+-- -----------------------------------------------------------------------------
+SET @faa_card_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME   = 'members'
+    AND COLUMN_NAME  = 'faa_card_path'
+);
+SET @sql_faa_card = IF(
+  @faa_card_col = 0,
+  'ALTER TABLE `members` ADD COLUMN `faa_card_path` varchar(512) DEFAULT NULL AFTER `faa_expiration`',
+  'SELECT 1'
+);
+PREPARE stmt_faa_card FROM @sql_faa_card;
+EXECUTE stmt_faa_card;
+DEALLOCATE PREPARE stmt_faa_card;

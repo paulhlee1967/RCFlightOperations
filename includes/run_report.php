@@ -65,6 +65,11 @@ function reportRegistry(): array
             'description' => 'Dues, initiation, and late fees collected per membership year.',
             'year'        => false,
         ],
+        'current_members' => [
+            'label'       => 'Current members',
+            'description' => 'All current members with contact info and renewal date — handy for field verification.',
+            'year'        => false,
+        ],
         'compliance' => [
             'label'       => 'AMA/FAA compliance',
             'description' => 'Current members with credentials expired or expiring within 60 days.',
@@ -334,6 +339,7 @@ function runReport(PDO $pdo, string $slug, array $params = []): array
         'membership_type_mix' => reportMembershipTypeMix($pdo, $year),
         'not_yet_renewed'     => reportNotYetRenewed($pdo, $year),
         'revenue_by_year'     => reportRevenueByYear($pdo),
+        'current_members'     => reportCurrentMembers($pdo),
         'compliance'          => reportCompliance($pdo),
         'birthdays'           => reportBirthdays($pdo),
         'data_completeness'   => reportDataCompleteness($pdo),
@@ -768,6 +774,67 @@ function reportNotYetRenewed(PDO $pdo, int $year): array
         'rows'   => $rows,
         'totals' => null,
         'note'   => 'Members who counted for ' . ($year - 1) . ' but have no payment/fulfillment (or life/free status) for ' . $year . '.',
+    ];
+}
+
+/**
+ * All current members with name, phone, and payment/renewal date for field verification.
+ *
+ * @return array<string, mixed>
+ */
+function reportCurrentMembers(PDO $pdo): array
+{
+    $meta    = reportRegistry()['current_members'];
+    $current = membershipStatusYear();
+    $where   = currentMemberWhereSql('m', $current);
+
+    $sql = "SELECT m.last_name, m.first_name, m.phone, m.life_member, m.free_membership,
+                   (SELECT MAX(p.paid_at) FROM payments p
+                    WHERE p.member_id = m.id AND p.year = ?) AS paid_at,
+                   (SELECT MAX(f.processed_at) FROM member_fulfillments f
+                    WHERE f.member_id = m.id AND f.year = ?) AS fulfilled_at
+            FROM members m
+            WHERE {$where}
+            ORDER BY m.last_name, m.first_name";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge(currentMemberWhereParams($current), [$current, $current]));
+
+    $rows = [];
+    while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $paidAt = (string) ($r['paid_at'] ?? '');
+        if ($paidAt === '') {
+            $paidAt = (string) ($r['fulfilled_at'] ?? '');
+        }
+        $status = '';
+        if (!empty($r['life_member'])) {
+            $status = 'Life member';
+        } elseif (!empty($r['free_membership'])) {
+            $status = 'Complimentary';
+        }
+
+        $rows[] = [
+            'last_name'  => $r['last_name'],
+            'first_name' => $r['first_name'],
+            'phone'      => $r['phone'],
+            'paid_at'    => $paidAt !== '' ? $paidAt : null,
+            'status'     => $status,
+        ];
+    }
+
+    return [
+        'slug'        => 'current_members',
+        'title'       => $meta['label'] . ' — ' . $current,
+        'description' => $meta['description'],
+        'columns'     => [
+            ['key' => 'last_name',  'label' => 'Last name',  'format' => 'text', 'align' => 'start'],
+            ['key' => 'first_name', 'label' => 'First name', 'format' => 'text', 'align' => 'start'],
+            ['key' => 'phone',      'label' => 'Phone',      'format' => 'text', 'align' => 'start'],
+            ['key' => 'paid_at',    'label' => 'Date paid',  'format' => 'date', 'align' => 'end'],
+            ['key' => 'status',     'label' => 'Status',     'format' => 'text', 'align' => 'end'],
+        ],
+        'rows'   => $rows,
+        'totals' => null,
+        'note'   => 'Current members for ' . $current . '. Date paid is the most recent payment or fulfillment for this year; life and complimentary members may have no payment date.',
     ];
 }
 
