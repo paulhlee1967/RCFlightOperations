@@ -62,7 +62,6 @@ Send form fields as JSON key/value pairs. Use WPForms field **labels** as keys (
     "Entry ID": "{{10641:WPFENTRYTOKENS:WPFENTRYID}}",
     "Application Submission Date": "{{10641:ANONWPFFORMS:6569|162}}",
     "Badge Photo (.jpg, .jpeg, .png), 5Mb Max": "{{10641:ANONWPFFORMS:6569|71}}",
-    "AMA Verification (.jpg, .pdf, .png, .doc), 5Mb Max": "{{10641:ANONWPFFORMS:6569|68}}",
     "FAA Registration (.jpg, .pdf, .png, .doc), 5Mb Max": "{{10641:ANONWPFFORMS:6569|70}}"
 }
 ```
@@ -142,7 +141,7 @@ This is for **review only** — approving an application does not post a payment
 ### Approve, reject, and cleanup
 
 - **Approve & continue to recording** — creates a new member or updates the matched member, then opens renewal recording with suggested type/year (staff can override before approving).
-- **Badge photo on approve** — when the application includes a badge photo URL from WPForms, the app downloads the image from your WordPress site (JPEG or PNG; GIF also accepted) and sets the member's `photo_path` so **Print card** works immediately on Process Signup / Renewal. AMA and FAA verification files stay as external links on the review screen only. If the download fails (wrong format, unreachable URL, file too large), approval still succeeds and a warning asks staff to upload the photo manually on the member record.
+- **Badge photo on approve** — when the application includes a badge photo URL from WPForms, the app downloads the image from your WordPress site (JPEG or PNG; GIF also accepted) and sets the member's `photo_path` so **Print card** works immediately on Process Signup / Renewal. FAA registration uploads (if collected on the form) stay as external links on the review screen only. If the download fails (wrong format, unreachable URL, file too large), approval still succeeds and a warning asks staff to upload the photo manually on the member record.
 - **Reject** — marks the application rejected and removes it from Pending; the row is kept for audit under the **Rejected** tab.
 - **Delete test data** — there is no in-app delete yet. To remove test submissions entirely (e.g. so the same WPForms entry ID can be re-sent), delete rows from `member_applications` in the database. Rejecting alone does not free the entry ID for webhook replay.
 
@@ -167,7 +166,7 @@ Full label → app field mapping lives in `includes/wpforms_application.php` (`w
 - Compliance: `AMA #`, `AMA Expiration`, `FAA Registration Number`, `FAA Registration Expiration`
 - Membership: `Membership Type`, `Membership Type (Renewal)`, or `Membership Type (Prorated)`
 - Payment: `Total (Membership + Fees)`, `Initiation Fee`, `Processing Fee`, `Special Code (If you have one)`
-- Files: **Badge photo** — JPEG/PNG/GIF URL from WPForms; copied to the member record on approve for badge printing. **AMA / FAA verification** — URLs only (linked on review screen; not stored locally). Limit the badge photo field on WPForms to `.jpg`, `.jpeg`, `.png` so mobile camera uploads work reliably.
+- Files: **Badge photo** — JPEG/PNG/GIF URL from WPForms; copied to the member record on approve for badge printing. **FAA registration** (if still on your form) — URL only (linked on review screen; not stored locally). AMA card photos are no longer collected on the website form; staff verify AMA via the member record **Verify AMA membership** action after approval. Limit the badge photo field on WPForms to `.jpg`, `.jpeg`, `.png` so mobile camera uploads work reliably.
 
 Optional in `config.php`: `wpforms_media_hosts` — array of allowed hostnames for badge photo download (default `pvmac.com`, `www.pvmac.com`). The server must have **cURL** enabled and be able to reach those upload URLs over HTTPS.
 

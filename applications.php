@@ -411,18 +411,20 @@ require_once __DIR__ . '/includes/header.php';
                     <dd class="col-sm-8"><code class="small"><?= h((string) ($application['payment_transaction_id'] ?: '—')) ?></code></dd>
                 </dl>
 
-                <?php if (!empty($application['file_badge_photo_url']) || !empty($application['file_ama_verification_url'])): ?>
+                <?php
+                $uploadedFiles = array_filter([
+                    'Badge photo' => $application['file_badge_photo_url'] ?? '',
+                    'AMA verification' => $application['file_ama_verification_url'] ?? '',
+                    'FAA registration' => $application['file_faa_registration_url'] ?? '',
+                    'Signature' => $application['file_signature_url'] ?? '',
+                ], static fn ($url) => trim((string) $url) !== '');
+                ?>
+                <?php if ($uploadedFiles !== []): ?>
                 <h2 class="h6">Uploaded files</h2>
                 <ul class="small mb-3">
-                    <?php if (!empty($application['file_badge_photo_url'])): ?>
-                    <li><a href="<?= h($application['file_badge_photo_url']) ?>" target="_blank" rel="noopener">Badge photo</a></li>
-                    <?php endif; ?>
-                    <?php if (!empty($application['file_ama_verification_url'])): ?>
-                    <li><a href="<?= h($application['file_ama_verification_url']) ?>" target="_blank" rel="noopener">AMA verification</a></li>
-                    <?php endif; ?>
-                    <?php if (!empty($application['file_faa_registration_url'])): ?>
-                    <li><a href="<?= h($application['file_faa_registration_url']) ?>" target="_blank" rel="noopener">FAA registration</a></li>
-                    <?php endif; ?>
+                    <?php foreach ($uploadedFiles as $label => $url): ?>
+                    <li><a href="<?= h($url) ?>" target="_blank" rel="noopener"><?= h($label) ?></a></li>
+                    <?php endforeach; ?>
                 </ul>
                 <?php endif; ?>
 

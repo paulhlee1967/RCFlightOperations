@@ -51,6 +51,7 @@ function wpforms_application_field_aliases(): array
         'ama_expiration'               => ['AMA Expiration', 'ama_expiration'],
         'faa_number'                   => ['FAA Registration Number', 'faa_number', 'FAA Number'],
         'faa_expiration'               => ['FAA Registration Expiration', 'faa_expiration'],
+        // Legacy: AMA card upload removed from form 6569; kept for older application rows.
         'file_ama_verification_url'    => ['AMA Verification (.jpg, .pdf, .png, .doc), 5Mb Max', 'AMA Verification', 'ama_verification'],
         'file_faa_registration_url'    => ['FAA Registration (.jpg, .pdf, .png, .doc), 5Mb Max', 'FAA Registration', 'faa_registration'],
         'file_badge_photo_url'         => ['Badge Photo (.jpg, .jpeg, .png), 5Mb Max', 'Badge Photo (.jpg, .pdf, .png, .doc), 5Mb Max', 'Badge Photo (...)', 'Badge Photo', 'badge_photo'],
