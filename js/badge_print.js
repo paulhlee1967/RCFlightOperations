@@ -13,6 +13,10 @@
     var cfg = window.FLIGHTOPS_BADGE_PRINT || {};
     var memberData = cfg.memberData || {};
     var templateData = cfg.templateData || null;
+    var autoMarkCard = !!cfg.autoMarkCard;
+    var returnTo = cfg.returnTo || '';
+    var workflowMemberId = cfg.memberId || null;
+    var workflowYear = cfg.workYear || null;
 
     var printArea = document.getElementById('card-print-area');
     var printFront = printArea && printArea.getAttribute('data-print-front') === '1';
@@ -51,6 +55,26 @@
         );
     }
 
+    var didAutoMarkAndReturn = false;
+
+    /**
+     * Submit the on-page "Mark as printed" form (same-tab POST redirect).
+     * When from the workflow, the server marks the checklist and sends us to #fulfill.
+     */
+    function markWorkflowCardAndReturn() {
+        if (!autoMarkCard || didAutoMarkAndReturn) return;
+        didAutoMarkAndReturn = true;
+
+        var form = document.getElementById('mark-printed-form');
+        if (form) {
+            form.submit();
+            return;
+        }
+        if (returnTo) {
+            window.location.href = returnTo;
+        }
+    }
+
     /**
      * Inject (or replace) a <style id="dynamic-page-size"> tag to set @page
      * to the correct physical CR80 dimensions for the given orientation.
@@ -76,7 +100,23 @@
         }
     }
 
-    document.getElementById('do-print').addEventListener('click', function() {
+    var printBtn = document.getElementById('do-print');
+    var isChromium = (function () {
+        var ua = navigator.userAgent || '';
+        // Edge/Chrome (Chromium) have the most issues with chained window.print().
+        return ua.indexOf('Edg/') >= 0 || ua.indexOf('Chrome/') >= 0;
+    })();
+
+    // Explicit print phase for Chromium two-click flow (front -> back).
+    // Relying on afterprint to flip awaitingBackClick is unreliable in Edge/Chrome.
+    var printPhase = 'front'; // 'front' | 'back'
+    var originalPrintBtnHtml = printBtn ? printBtn.innerHTML : '';
+
+    if (isChromium && printFront && printBack && printBtn) {
+        printBtn.textContent = 'Print Front';
+    }
+
+    if (printBtn) printBtn.addEventListener('click', function() {
         var frontOri = (typeof orientation     !== 'undefined') ? orientation     : 'landscape';
         var backOri  = (typeof backOrientation !== 'undefined') ? backOrientation : 'landscape';
 
@@ -95,22 +135,78 @@
             window.print();
         }
 
+        // Chromium: do NOT chain two window.print() calls via afterprint.
+        // window.print() is modal/blocking — after it returns we restore and ask
+        // for a second click for the back side. (Fixes "front prints twice".)
+        if (isChromium && printFront && printBack) {
+            if (printPhase === 'front') {
+                doPrintFront();
+                // After the dialog closes, prepare for back.
+                restoreCard();
+                printPhase = 'back';
+                if (printBtn) {
+                    printBtn.textContent = 'Print Back';
+                }
+                return;
+            }
+
+            // Second click: print back, then mark + return via form POST.
+            doPrintBack();
+            restoreCard();
+            printPhase = 'front';
+            if (printBtn && originalPrintBtnHtml) {
+                printBtn.innerHTML = originalPrintBtnHtml;
+            }
+            window.setTimeout(markWorkflowCardAndReturn, 50);
+            return;
+        }
+
         if (printFront && printBack) {
-            doPrintFront();
-            window.addEventListener('afterprint', function step2() {
-                window.removeEventListener('afterprint', step2);
-                doPrintBack();
-                window.addEventListener('afterprint', function step3() {
-                    window.removeEventListener('afterprint', step3);
+            var frontDone = false;
+            var backDone = false;
+
+            function onAfterPrint() {
+                if (!frontDone && document.body.classList.contains('print-step-front')) {
+                    frontDone = true;
+                    // Defer so Safari finishes exiting the first print dialog.
+                    window.setTimeout(function () {
+                        doPrintBack();
+                    }, 250);
+                    return;
+                }
+
+                if (!backDone && document.body.classList.contains('print-step-back')) {
+                    backDone = true;
+                    window.removeEventListener('afterprint', onAfterPrint);
                     restoreCard();
-                }, { once: true });
-            }, { once: true });
+                    window.setTimeout(markWorkflowCardAndReturn, 100);
+                }
+            }
+
+            window.addEventListener('afterprint', onAfterPrint);
+            doPrintFront();
         } else if (printFront) {
             doPrintFront();
-            window.addEventListener('afterprint', restoreCard, { once: true });
+
+            function onAfterPrintFront() {
+                if (!document.body.classList.contains('print-step-front')) return;
+                window.removeEventListener('afterprint', onAfterPrintFront);
+                restoreCard();
+                window.setTimeout(markWorkflowCardAndReturn, 100);
+            }
+
+            window.addEventListener('afterprint', onAfterPrintFront);
         } else if (printBack) {
             doPrintBack();
-            window.addEventListener('afterprint', restoreCard, { once: true });
+
+            function onAfterPrintBack() {
+                if (!document.body.classList.contains('print-step-back')) return;
+                window.removeEventListener('afterprint', onAfterPrintBack);
+                restoreCard();
+                window.setTimeout(markWorkflowCardAndReturn, 100);
+            }
+
+            window.addEventListener('afterprint', onAfterPrintBack);
         }
     });
 

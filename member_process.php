@@ -744,8 +744,8 @@ if ($fromWizard) {
                             <?php endif; ?>
                         </div>
                         <div class="d-flex flex-wrap gap-2">
-                            <a href="badge_print.php?id=<?= $memberId ?>&from_process=1&year=<?= $workYear ?>"
-                               class="btn btn-sm btn-outline-primary" target="_blank">
+                            <a href="badge_print.php?id=<?= $memberId ?>&from_process=1&year=<?= $workYear ?>&front=1&back=1<?= $fromWizard ? '&wizard=1' : '' ?>"
+                               class="btn btn-sm btn-outline-primary">
                                 Open Print Card →
                             </a>
                             <?php if (!$fulfillment['card_printed_at']): ?>
@@ -792,7 +792,7 @@ if ($fromWizard) {
                         </div>
                         <div class="d-flex flex-wrap gap-2">
                             <a href="member_mailer.php?id=<?= $memberId ?>&year=<?= $workYear ?>"
-                               class="btn btn-sm btn-outline-primary" target="_blank">
+                               class="btn btn-sm btn-outline-primary">
                                 Open Mailing Packet →
                             </a>
                             <?php if (!$fulfillment['mailer_printed_at']): ?>

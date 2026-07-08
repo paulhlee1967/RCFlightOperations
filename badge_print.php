@@ -19,6 +19,7 @@ if (!canEditMembers() && !canProcessMemberships()) {
 
 // Detect calling context so the back-link is contextually correct
 $fromProcess = !empty($_GET['from_process']);
+$fromWizard  = !empty($_GET['wizard']);
 $workYear    = isset($_GET['year']) ? (int) $_GET['year'] : (int) date('Y');
 $memberId    = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 $membershipTypeLabels = enabledMembershipTypeLabels($pdo);
@@ -60,6 +61,12 @@ if (!$printFront && !$printBack) {
 }
 $pageTitle = 'Print card: ' . $memberData['full_name'];
 $noNav = true;
+
+// Used by js/badge_print.js to optionally mark the workflow checklist item and return.
+$returnTo = $fromProcess
+    ? ('member_process.php?id=' . $memberId . '&year=' . $workYear . ($fromWizard ? '&wizard=1' : '') . '#fulfill')
+    : ('member_edit.php?id=' . $memberId);
+
 require_once __DIR__ . '/includes/header.php';
 ?>
 
@@ -67,7 +74,7 @@ require_once __DIR__ . '/includes/header.php';
 
 <?php /* Context-aware back link */ ?>
 <?php if ($fromProcess): ?>
-<a href="member_process.php?id=<?= $memberId ?>&year=<?= $workYear ?>#fulfill"
+<a href="member_process.php?id=<?= $memberId ?>&year=<?= $workYear ?><?= $fromWizard ? '&wizard=1' : '' ?>#fulfill"
    class="btn btn-outline-secondary btn-sm">← Back to Workflow</a>
 <?php else: ?>
 <a href="member_edit.php?id=<?= $memberId ?>"
@@ -81,6 +88,9 @@ require_once __DIR__ . '/includes/header.php';
     <?php if ($fromProcess): ?>
         <input type="hidden" name="from_process" value="1">
         <input type="hidden" name="year" value="<?= $workYear ?>">
+        <?php if ($fromWizard): ?>
+        <input type="hidden" name="wizard" value="1">
+        <?php endif; ?>
     <?php endif; ?>
     <input type="hidden" name="front" value="<?= $printFront ? '1' : '0' ?>">
     <input type="hidden" name="back" value="<?= $printBack ? '1' : '0' ?>">
@@ -115,27 +125,20 @@ require_once __DIR__ . '/includes/header.php';
     Print Card
 </button>
 
-<?php /* Mark-as-printed form — unchanged logic */ ?>
+<?php /* Mark-as-printed — from workflow: updates checklist + redirects to #fulfill */ ?>
 <form method="post" class="d-inline" id="mark-printed-form">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="mark_printed">
     <input type="hidden" name="member_id" value="<?= $memberId ?>">
+    <?php if ($fromProcess): ?>
+    <input type="hidden" name="from_process" value="1">
+    <input type="hidden" name="year" value="<?= $workYear ?>">
+    <?php if ($fromWizard): ?>
+    <input type="hidden" name="wizard" value="1">
+    <?php endif; ?>
+    <?php endif; ?>
     <button type="submit" class="btn btn-outline-success btn-sm">Mark as printed</button>
 </form>
-
-<?php /* Envelope shortcut — one click from the badge print page */ ?>
-<div class="vr d-none d-sm-block mx-1"></div>
-<a href="member_envelope.php?id=<?= $memberId ?>&from=<?= $fromProcess ? 'process' : 'edit' ?><?= $fromProcess ? '&year=' . $workYear : '' ?>"
-   class="btn btn-outline-secondary btn-sm" target="_blank" title="Print a mailing envelope for this member">
-    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor"
-         class="me-1" viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1
-                 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1zm13 2.383-4.708 2.825L15
-                 11.105zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2
-                 13h12a1 1 0 0 0 .966-.741M1 11.105l4.708-2.897L1 5.383z"/>
-    </svg>
-    Print Envelope
-</a>
 
 <?php if ($printed): ?>
 <span class="text-success small ms-2">✓ Recorded as printed.</span>
@@ -326,6 +329,10 @@ require_once __DIR__ . '/includes/header.php';
 window.FLIGHTOPS_BADGE_PRINT = <?= json_encode([
     'memberData'          => $memberData,
     'templateData'        => $templateData,
+    'autoMarkCard'       => $fromProcess,
+    'returnTo'           => $returnTo,
+    'memberId'           => $memberId,
+    'workYear'          => $workYear,
     'cardWidthLandscape'  => $cardWidthLandscape,
     'cardHeightLandscape' => $cardHeightLandscape,
     'cardWidthPortrait'   => $cardWidthPortrait,
