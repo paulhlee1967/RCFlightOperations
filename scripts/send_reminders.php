@@ -40,9 +40,8 @@
  * Requires config.php and optional email config (smtp or mail).
  * Templates in templates/email/.
  *
- * Each reminder is sent with a separate send_mail() call (no bulk API). For a
- * typical club this is fine; if your host SMTP throttles connections, insert a
- * short usleep() between sends or lower cron frequency.
+ * Each reminder uses send_mail() (SMTP) or Sender.net when configured. SMTP
+ * sends reuse one connection per run via send_mail_batch_begin/end().
  */
 
 require_once __DIR__ . '/../includes/cli_only_script.php';
@@ -570,6 +569,11 @@ function send_staff_digest(
 if (!$staffDigest && !$isTest && (int) date('N') === 1) {
     $staffDigest = true;
 }
+
+send_mail_batch_begin($mailCfg);
+register_shutdown_function(static function (): void {
+    send_mail_batch_end();
+});
 
 // ── Weekly staff digest ───────────────────────────────────────────────────────
 if ($staffDigest) {

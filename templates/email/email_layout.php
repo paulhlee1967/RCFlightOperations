@@ -23,6 +23,18 @@
  */
 function emailTheme(array $vars, ?PDO $pdo = null): array
 {
+    static $cache = [];
+
+    $cacheKey = md5(json_encode([
+        $vars['club_name'] ?? '',
+        !empty($vars['use_sender_api']),
+        isset($vars['app_config']) ? 1 : 0,
+        $pdo !== null,
+    ]));
+    if (isset($cache[$cacheKey])) {
+        return $cache[$cacheKey];
+    }
+
     $clubName = htmlspecialchars($vars['club_name'] ?? 'RC Flight Operations');
 
     // ── Fetch club theme ──────────────────────────────────────────────────
@@ -94,7 +106,7 @@ function emailTheme(array $vars, ?PDO $pdo = null): array
         return $lum >= 0.45 ? '#252018' : '#ffffff';
     };
 
-    return [
+    return $cache[$cacheKey] = [
         'club_name'          => $clubName,
         'color_primary'      => $colorPrimary,
         'color_primary_dark' => $colorPrimaryDark,
@@ -142,7 +154,9 @@ function emailWrapVarsFromTemplate(array $vars): array
 
 function emailWrap(string $content, array $vars, ?PDO $pdo = null): string
 {
-    $theme = emailTheme($vars, $pdo);
+    $theme = (isset($vars['precomputed_theme']) && is_array($vars['precomputed_theme']))
+        ? $vars['precomputed_theme']
+        : emailTheme($vars, $pdo);
     $clubName = $theme['club_name'];
     $colorPrimary = $theme['color_primary'];
     $colorPrimaryDark = $theme['color_primary_dark'];

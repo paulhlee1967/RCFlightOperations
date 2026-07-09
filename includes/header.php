@@ -360,6 +360,30 @@ $_headerBaseHref = '';
             --bs-pagination-active-border-color: var(--club-primary);
         }
 
+        /* ── Report tables (reports.php) ─────────────────────────────── */
+        .report-table {
+            width: 100%;
+            table-layout: auto;
+        }
+        .report-table th,
+        .report-table td {
+            padding: 0.35rem 0.65rem;
+            vertical-align: middle;
+        }
+        .report-table thead th {
+            white-space: nowrap;
+        }
+        /* Shrink compact columns; names absorb the remaining width. */
+        .report-table .col-num,
+        .report-table .col-date,
+        .report-table .col-id {
+            width: 1%;
+            white-space: nowrap;
+        }
+        .report-table .col-name {
+            min-width: 6.5rem;
+        }
+
         /* ── Stat cards (dashboard + reports) ───────────────────────── */
         .stat-card {
             border: 1px solid var(--club-border);

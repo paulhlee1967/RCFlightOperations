@@ -54,6 +54,63 @@ function renewedMemberIdsForYear(PDO $pdo, int $year): array
 }
 
 /**
+ * Whether a member has any recorded membership activity before a given year.
+ * Used to detect applicants who claim "renewal" but have no club history on file.
+ */
+function member_has_prior_membership(PDO $pdo, int $memberId, ?int $beforeYear = null): bool
+{
+    if ($beforeYear !== null && $beforeYear > 0) {
+        $stmt = $pdo->prepare('
+            SELECT 1 FROM payments
+            WHERE member_id = ? AND year < ?
+            LIMIT 1
+        ');
+        $stmt->execute([$memberId, $beforeYear]);
+        if ($stmt->fetchColumn()) {
+            return true;
+        }
+
+        $stmt = $pdo->prepare('
+            SELECT 1 FROM member_fulfillments
+            WHERE member_id = ? AND year < ? AND processed_at IS NOT NULL
+            LIMIT 1
+        ');
+        $stmt->execute([$memberId, $beforeYear]);
+        if ($stmt->fetchColumn()) {
+            return true;
+        }
+
+        $stmt = $pdo->prepare('
+            SELECT 1 FROM member_membership_years
+            WHERE member_id = ? AND year < ?
+            LIMIT 1
+        ');
+        $stmt->execute([$memberId, $beforeYear]);
+        return (bool) $stmt->fetchColumn();
+    }
+
+    $stmt = $pdo->prepare('SELECT 1 FROM payments WHERE member_id = ? LIMIT 1');
+    $stmt->execute([$memberId]);
+    if ($stmt->fetchColumn()) {
+        return true;
+    }
+
+    $stmt = $pdo->prepare('
+        SELECT 1 FROM member_fulfillments
+        WHERE member_id = ? AND processed_at IS NOT NULL
+        LIMIT 1
+    ');
+    $stmt->execute([$memberId]);
+    if ($stmt->fetchColumn()) {
+        return true;
+    }
+
+    $stmt = $pdo->prepare('SELECT 1 FROM member_membership_years WHERE member_id = ? LIMIT 1');
+    $stmt->execute([$memberId]);
+    return (bool) $stmt->fetchColumn();
+}
+
+/**
  * Column prefix for members table SQL (empty alias = unqualified columns).
  */
 function memberSqlPrefix(string $alias): string

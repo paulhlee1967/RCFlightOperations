@@ -80,6 +80,17 @@ function report_email_parse_addresses(string $raw): array
     return array_keys($out);
 }
 
+function report_email_column_style(array $col, string $align): string
+{
+    $style = 'text-align:' . $align;
+    $compact = reportColumnClass($col);
+    if (in_array($compact, ['col-num', 'col-date', 'col-id'], true)) {
+        $style .= ';white-space:nowrap;width:1%';
+    }
+
+    return $style;
+}
+
 /**
  * Inline-styled HTML table for an emailed report (no <style> dependency).
  * Colors come from the club theme so the table matches the branded wrapper.
@@ -87,13 +98,15 @@ function report_email_parse_addresses(string $raw): array
 function report_email_table_html(array $report, string $primary, string $primaryDark, string $onPrimary): string
 {
     $th = 'style="text-align:%s;padding:8px 10px;background:' . $primary . ';color:' . $onPrimary
-        . ';font-size:11px;text-transform:uppercase;letter-spacing:.03em;"';
-    $td = 'style="text-align:%s;padding:7px 10px;border-bottom:1px solid #e3e0d7;font-size:13px;"';
+        . ';font-size:11px;text-transform:uppercase;letter-spacing:.03em;%s"';
+    $td = 'style="text-align:%s;padding:7px 10px;border-bottom:1px solid #e3e0d7;font-size:13px;%s"';
 
     $head = '';
     foreach ($report['columns'] as $col) {
         $align = ($col['align'] ?? 'start') === 'end' ? 'right' : 'left';
-        $head .= '<th ' . sprintf($th, $align) . '>' . h($col['label']) . '</th>';
+        $extra = report_email_column_style($col, $align);
+        $extra = str_replace('text-align:' . $align . ';', '', $extra);
+        $head .= '<th ' . sprintf($th, $align, $extra) . '>' . h($col['label']) . '</th>';
     }
 
     $body = '';
@@ -103,8 +116,10 @@ function report_email_table_html(array $report, string $primary, string $primary
         $body .= '<tr>';
         foreach ($report['columns'] as $col) {
             $align = ($col['align'] ?? 'start') === 'end' ? 'right' : 'left';
+            $extra = report_email_column_style($col, $align);
+            $extra = str_replace('text-align:' . $align . ';', '', $extra);
             $cell  = reportFormatCell($row[$col['key']] ?? null, $col['format'], false);
-            $body .= '<td style="text-align:' . $align . ';padding:7px 10px;border-bottom:1px solid #e3e0d7;font-size:13px;' . $bg . '">' . h($cell) . '</td>';
+            $body .= '<td style="text-align:' . $align . ';padding:7px 10px;border-bottom:1px solid #e3e0d7;font-size:13px;' . $extra . $bg . '">' . h($cell) . '</td>';
         }
         $body .= '</tr>';
     }
@@ -118,8 +133,10 @@ function report_email_table_html(array $report, string $primary, string $primary
         $foot .= '<tr>';
         foreach ($report['columns'] as $col) {
             $align = ($col['align'] ?? 'start') === 'end' ? 'right' : 'left';
+            $extra = report_email_column_style($col, $align);
+            $extra = str_replace('text-align:' . $align . ';', '', $extra);
             $cell  = reportFormatCell($report['totals'][$col['key']] ?? null, $col['format'], false);
-            $foot .= '<td style="text-align:' . $align . ';padding:8px 10px;border-top:2px solid ' . $primaryDark . ';font-weight:bold;font-size:13px;color:' . $primaryDark . ';">' . h($cell) . '</td>';
+            $foot .= '<td style="text-align:' . $align . ';padding:8px 10px;border-top:2px solid ' . $primaryDark . ';font-weight:bold;font-size:13px;color:' . $primaryDark . ';' . $extra . '">' . h($cell) . '</td>';
         }
         $foot .= '</tr>';
     }
@@ -157,20 +174,19 @@ if ($action === 'snapshot') {
             : '');
 
     $html = emailWrap($content, [
-        'club_name'   => $clubName,
-        'eyebrow'     => 'Club Reports',
-        'footer_note' => 'This is an internal club report. '
+        'club_name'          => $clubName,
+        'eyebrow'            => 'Club Reports',
+        'footer_note'        => 'This is an internal club report. '
             . 'Generated ' . h(date('M j, Y')) . ' from ' . h($clubName) . '.',
+        'precomputed_theme'  => $theme,
     ], $pdo);
 
     $sent = 0;
     $failed = 0;
-    foreach ($addresses as $addr) {
-        if (send_mail($addr, $subject, $html, null, $mailCfg)) {
-            $sent++;
-        } else {
-            $failed++;
-        }
+    if (send_mail_to_many($addresses, $subject, $html, null, $mailCfg)) {
+        $sent = count($addresses);
+    } else {
+        $failed = count($addresses);
     }
 
     if ($sent > 0 && $failed === 0) {
@@ -216,25 +232,31 @@ if ($action === 'members') {
 
     $sent = 0;
     $failed = 0;
-    foreach ($recipients as $r) {
-        $tokens = [
-            '{first_name}' => $r['first_name'],
-            '{last_name}'  => $r['last_name'],
-            '{club_name}'  => $clubName,
-        ];
-        $subject = strtr($subjectTpl, $tokens);
-        $bodyText = strtr($bodyTpl, $tokens);
-        $html = emailWrap(
-            '<div style="font-size:14px;line-height:1.7;">' . nl2br(h($bodyText)) . '</div>',
-            ['club_name' => $clubName],
-            $pdo
-        );
+    $wrapVars = ['club_name' => $clubName, 'precomputed_theme' => $theme];
+    send_mail_batch_begin($mailCfg);
+    try {
+        foreach ($recipients as $r) {
+            $tokens = [
+                '{first_name}' => $r['first_name'],
+                '{last_name}'  => $r['last_name'],
+                '{club_name}'  => $clubName,
+            ];
+            $subject = strtr($subjectTpl, $tokens);
+            $bodyText = strtr($bodyTpl, $tokens);
+            $html = emailWrap(
+                '<div style="font-size:14px;line-height:1.7;">' . nl2br(h($bodyText)) . '</div>',
+                $wrapVars,
+                $pdo
+            );
 
-        if (send_mail($r['email'], $subject, $html, $bodyText, $mailCfg)) {
-            $sent++;
-        } else {
-            $failed++;
+            if (send_mail($r['email'], $subject, $html, $bodyText, $mailCfg)) {
+                $sent++;
+            } else {
+                $failed++;
+            }
         }
+    } finally {
+        send_mail_batch_end();
     }
 
     if ($sent > 0 && $failed === 0) {

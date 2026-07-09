@@ -34,40 +34,10 @@ require_once __DIR__ . '/member_match.php';
 function reportRegistry(): array
 {
     return [
-        'membership_by_year' => [
-            'label'       => 'Membership by year',
-            'description' => 'Current members per calendar year, with year-over-year change.',
-            'year'        => false,
-        ],
-        'incidents_by_year_type' => [
-            'label'       => 'Incidents by year/type',
-            'description' => 'Safety incidents grouped by calendar year and incident type.',
-            'year'        => false,
-        ],
-        'retention_churn' => [
-            'label'       => 'Retention & churn',
-            'description' => 'Retained, new, and lapsed members year over year.',
-            'year'        => false,
-        ],
-        'membership_type_mix' => [
-            'label'       => 'Membership type mix',
-            'description' => 'Members by membership type for a selected year.',
-            'year'        => true,
-        ],
-        'not_yet_renewed' => [
-            'label'       => 'Not yet renewed',
-            'description' => "Members who were current the prior year but haven't renewed for the selected year.",
-            'year'        => true,
-            'cohort'      => true,
-        ],
-        'revenue_by_year' => [
-            'label'       => 'Revenue by year',
-            'description' => 'Dues, initiation, and late fees collected per membership year.',
-            'year'        => false,
-        ],
+        // ── Current roster & day-to-day operations ────────────────────────
         'current_members' => [
             'label'       => 'Current members',
-            'description' => 'All current members with contact info and renewal date — handy for field verification.',
+            'description' => 'All current members with renewal year, AMA/FAA credentials, and gate key — handy for field verification.',
             'year'        => false,
         ],
         'compliance' => [
@@ -80,6 +50,12 @@ function reportRegistry(): array
             'description' => 'Current members with a birthday in the current calendar week.',
             'year'        => false,
         ],
+        'not_yet_renewed' => [
+            'label'       => 'Not yet renewed',
+            'description' => "Members who were current the prior year but haven't renewed for the selected year.",
+            'year'        => true,
+            'cohort'      => true,
+        ],
         'data_completeness' => [
             'label'       => 'Missing member data',
             'description' => 'Current members with incomplete contact, emergency, compliance, or membership fields.',
@@ -91,6 +67,37 @@ function reportRegistry(): array
             'description' => 'Member groups that match on AMA number, name/email, or name alone (same tiers as import matching).',
             'year'        => false,
             'manager_only' => true,
+        ],
+
+        // ── Membership trends & composition ───────────────────────────────
+        'membership_by_year' => [
+            'label'       => 'Membership by year',
+            'description' => 'Current members per calendar year, with year-over-year change.',
+            'year'        => false,
+        ],
+        'retention_churn' => [
+            'label'       => 'Retention & churn',
+            'description' => 'Retained, new, and lapsed members year over year.',
+            'year'        => false,
+        ],
+        'membership_type_mix' => [
+            'label'       => 'Membership type mix',
+            'description' => 'Members by membership type for a selected year.',
+            'year'        => true,
+        ],
+
+        // ── Revenue ─────────────────────────────────────────────────────
+        'revenue_by_year' => [
+            'label'       => 'Revenue by year',
+            'description' => 'Dues, initiation, and late fees collected per membership year.',
+            'year'        => false,
+        ],
+
+        // ── Safety ──────────────────────────────────────────────────────
+        'incidents_by_year_type' => [
+            'label'       => 'Incidents by year/type',
+            'description' => 'Safety incidents grouped by calendar year and incident type.',
+            'year'        => false,
         ],
     ];
 }
@@ -581,6 +588,35 @@ function reportRevenueByYear(PDO $pdo): array
 }
 
 /**
+ * Optional CSS class for a report column to keep compact fields from stretching.
+ * Reports may also set an explicit 'class' on a column definition.
+ */
+function reportColumnClass(array $col): string
+{
+    if (!empty($col['class'])) {
+        return (string) $col['class'];
+    }
+
+    $key = (string) ($col['key'] ?? '');
+    $fmt = (string) ($col['format'] ?? 'text');
+
+    if ($fmt === 'int' || $key === 'number') {
+        return 'col-num';
+    }
+    if ($fmt === 'date' || $fmt === 'year') {
+        return 'col-date';
+    }
+    if (in_array($key, ['ama_number', 'faa_number', 'gate_key_number', 'expires'], true)) {
+        return 'col-id';
+    }
+    if (in_array($key, ['last_name', 'first_name'], true)) {
+        return 'col-name';
+    }
+
+    return '';
+}
+
+/**
  * Format a single cell value for display (HTML) or CSV (plain text).
  *
  * @param  mixed  $value
@@ -778,7 +814,7 @@ function reportNotYetRenewed(PDO $pdo, int $year): array
 }
 
 /**
- * All current members with name, phone, and payment/renewal date for field verification.
+ * All current members with renewal year, AMA/FAA credentials, and gate key for field verification.
  *
  * @return array<string, mixed>
  */
@@ -788,36 +824,30 @@ function reportCurrentMembers(PDO $pdo): array
     $current = membershipStatusYear();
     $where   = currentMemberWhereSql('m', $current);
 
-    $sql = "SELECT m.last_name, m.first_name, m.phone, m.life_member, m.free_membership,
-                   (SELECT MAX(p.paid_at) FROM payments p
-                    WHERE p.member_id = m.id AND p.year = ?) AS paid_at,
-                   (SELECT MAX(f.processed_at) FROM member_fulfillments f
-                    WHERE f.member_id = m.id AND f.year = ?) AS fulfilled_at
+    $sql = "SELECT m.last_name, m.first_name, m.membership_renewal_year,
+                   m.ama_number, m.ama_expiration, m.faa_number, m.faa_expiration,
+                   m.gate_key_number
             FROM members m
             WHERE {$where}
             ORDER BY m.last_name, m.first_name";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_merge(currentMemberWhereParams($current), [$current, $current]));
+    $stmt->execute(currentMemberWhereParams($current));
 
     $rows = [];
+    $num  = 0;
     while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $paidAt = (string) ($r['paid_at'] ?? '');
-        if ($paidAt === '') {
-            $paidAt = (string) ($r['fulfilled_at'] ?? '');
-        }
-        $status = '';
-        if (!empty($r['life_member'])) {
-            $status = 'Life member';
-        } elseif (!empty($r['free_membership'])) {
-            $status = 'Complimentary';
-        }
-
+        $num++;
+        $renewalYear = $r['membership_renewal_year'] ?? null;
         $rows[] = [
-            'last_name'  => $r['last_name'],
-            'first_name' => $r['first_name'],
-            'phone'      => $r['phone'],
-            'paid_at'    => $paidAt !== '' ? $paidAt : null,
-            'status'     => $status,
+            'number'          => $num,
+            'last_name'       => $r['last_name'],
+            'first_name'      => $r['first_name'],
+            'expires'         => $renewalYear !== null && $renewalYear !== '' ? (int) $renewalYear : null,
+            'ama_number'      => $r['ama_number'],
+            'ama_expiration'  => $r['ama_expiration'] ?: null,
+            'faa_number'      => $r['faa_number'],
+            'faa_expiration'  => $r['faa_expiration'] ?: null,
+            'gate_key_number' => $r['gate_key_number'],
         ];
     }
 
@@ -826,15 +856,19 @@ function reportCurrentMembers(PDO $pdo): array
         'title'       => $meta['label'] . ' — ' . $current,
         'description' => $meta['description'],
         'columns'     => [
-            ['key' => 'last_name',  'label' => 'Last name',  'format' => 'text', 'align' => 'start'],
-            ['key' => 'first_name', 'label' => 'First name', 'format' => 'text', 'align' => 'start'],
-            ['key' => 'phone',      'label' => 'Phone',      'format' => 'text', 'align' => 'start'],
-            ['key' => 'paid_at',    'label' => 'Date paid',  'format' => 'date', 'align' => 'end'],
-            ['key' => 'status',     'label' => 'Status',     'format' => 'text', 'align' => 'end'],
+            ['key' => 'number',          'label' => 'Number',         'format' => 'int',  'align' => 'end'],
+            ['key' => 'last_name',       'label' => 'Last name',      'format' => 'text', 'align' => 'start'],
+            ['key' => 'first_name',      'label' => 'First name',     'format' => 'text', 'align' => 'start'],
+            ['key' => 'expires',         'label' => 'Expires',        'format' => 'year', 'align' => 'end'],
+            ['key' => 'ama_number',      'label' => 'AMA #',          'format' => 'text', 'align' => 'start'],
+            ['key' => 'ama_expiration',  'label' => 'AMA Expiry',     'format' => 'date', 'align' => 'end'],
+            ['key' => 'faa_number',      'label' => 'FAA #',          'format' => 'text', 'align' => 'start'],
+            ['key' => 'faa_expiration',  'label' => 'FAA Expiry',     'format' => 'date', 'align' => 'end'],
+            ['key' => 'gate_key_number', 'label' => 'Gate key #',     'format' => 'text', 'align' => 'start'],
         ],
         'rows'   => $rows,
         'totals' => null,
-        'note'   => 'Current members for ' . $current . '. Date paid is the most recent payment or fulfillment for this year; life and complimentary members may have no payment date.',
+        'note'   => 'Current members for ' . $current . '. ' . $num . ' member' . ($num === 1 ? '' : 's') . '. Expires is the membership renewal year on file.',
     ];
 }
 

@@ -403,4 +403,61 @@ final class WpformsApplicationTest extends TestCase
     {
         $this->assertSame('jane@example.com', normalize_email('  Jane@Example.COM  '));
     }
+
+    public function test_match_is_weak_for_renewal(): void
+    {
+        $this->assertTrue(application_match_is_weak_for_renewal(null));
+        $this->assertTrue(application_match_is_weak_for_renewal('none'));
+        $this->assertTrue(application_match_is_weak_for_renewal('name_only'));
+        $this->assertTrue(application_match_is_weak_for_renewal('ambiguous'));
+        $this->assertFalse(application_match_is_weak_for_renewal('probable'));
+        $this->assertFalse(application_match_is_weak_for_renewal('exact'));
+    }
+
+    public function test_renewal_verification_skips_non_renewal_applications(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        $result = application_renewal_verification($pdo, ['application_kind' => 'new']);
+        $this->assertSame('verified', $result['status']);
+        $this->assertSame([], $result['warnings']);
+        $this->assertNull($result['adjusted_renewal_type']);
+    }
+
+    public function test_renewal_verification_flags_renewal_without_member_match(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        $result = application_renewal_verification($pdo, [
+            'application_kind'    => 'renewal',
+            'matched_member_id'   => null,
+            'match_confidence'    => null,
+            'suggested_renewal_year' => 2027,
+        ]);
+        $this->assertSame('no_match', $result['status']);
+        $this->assertSame('late', $result['adjusted_renewal_type']);
+        $this->assertNotEmpty($result['warnings']);
+    }
+
+    public function test_renewal_verification_flags_matched_member_without_history(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        $stmt = $this->createMock(PDOStatement::class);
+        $stmt->method('execute')->willReturn(true);
+        $stmt->method('fetchColumn')->willReturn(false);
+        $pdo->method('prepare')->willReturn($stmt);
+
+        $result = application_renewal_verification($pdo, [
+            'application_kind'       => 'renewal',
+            'matched_member_id'      => 42,
+            'match_confidence'       => 'exact',
+            'suggested_renewal_year' => 2027,
+        ]);
+        $this->assertSame('no_history', $result['status']);
+        $this->assertSame('late', $result['adjusted_renewal_type']);
+    }
+
+    public function test_renewal_verification_label(): void
+    {
+        $this->assertSame('Renewal claimed — no member match', application_renewal_verification_label('no_match'));
+        $this->assertSame('', application_renewal_verification_label('verified'));
+    }
 }

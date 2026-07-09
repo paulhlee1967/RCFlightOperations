@@ -86,7 +86,12 @@ function reportPdfHtml(array $report, array $club, ?int $year): string
     $head = '';
     foreach ($report['columns'] as $col) {
         $align = ($col['align'] ?? 'start') === 'end' ? 'right' : 'left';
-        $head .= '<th style="text-align:' . $align . '">' . h($col['label']) . '</th>';
+        $style = 'text-align:' . $align;
+        $compact = reportColumnClass($col);
+        if (in_array($compact, ['col-num', 'col-date', 'col-id'], true)) {
+            $style .= ';white-space:nowrap;width:1%';
+        }
+        $head .= '<th style="' . $style . '">' . h($col['label']) . '</th>';
     }
 
     $body = '';
@@ -96,8 +101,13 @@ function reportPdfHtml(array $report, array $club, ?int $year): string
         $body .= '<tr' . $stripe . '>';
         foreach ($report['columns'] as $col) {
             $align = ($col['align'] ?? 'start') === 'end' ? 'right' : 'left';
+            $style = 'text-align:' . $align;
+            $compact = reportColumnClass($col);
+            if (in_array($compact, ['col-num', 'col-date', 'col-id'], true)) {
+                $style .= ';white-space:nowrap;width:1%';
+            }
             $cell  = reportFormatCell($row[$col['key']] ?? null, $col['format'], false);
-            $body .= '<td style="text-align:' . $align . '">' . h($cell) . '</td>';
+            $body .= '<td style="' . $style . '">' . h($cell) . '</td>';
         }
         $body .= '</tr>';
     }
@@ -111,8 +121,13 @@ function reportPdfHtml(array $report, array $club, ?int $year): string
         $foot .= '<tr class="totals">';
         foreach ($report['columns'] as $col) {
             $align = ($col['align'] ?? 'start') === 'end' ? 'right' : 'left';
+            $style = 'text-align:' . $align;
+            $compact = reportColumnClass($col);
+            if (in_array($compact, ['col-num', 'col-date', 'col-id'], true)) {
+                $style .= ';white-space:nowrap;width:1%';
+            }
             $cell  = reportFormatCell($report['totals'][$col['key']] ?? null, $col['format'], false);
-            $foot .= '<td style="text-align:' . $align . '">' . h($cell) . '</td>';
+            $foot .= '<td style="' . $style . '">' . h($cell) . '</td>';
         }
         $foot .= '</tr>';
     }

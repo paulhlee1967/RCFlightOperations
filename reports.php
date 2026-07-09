@@ -115,6 +115,11 @@ require_once __DIR__ . '/includes/header.php';
 
 /** Map a column alignment keyword to a Bootstrap text utility. */
 $alignClass = static fn(string $a): string => $a === 'end' ? 'text-end' : 'text-start';
+
+$canEmailReport  = !empty($report['rows']);
+$canEmailMembers = $canEmailReport
+    && reportSupportsCohortEmail($slug)
+    && (canEditMembers() || canProcessMemberships());
 ?>
 
 <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
@@ -132,14 +137,26 @@ $alignClass = static fn(string $a): string => $a === 'end' ? 'text-end' : 'text-
         </form>
         <?php endif; ?>
         <?php $yearQs = $needsYear ? '&amp;year=' . (int) $year : ''; ?>
-        <a class="btn btn-outline-secondary btn-sm"
+        <a class="btn btn-outline-primary btn-sm"
            href="reports.php?report=<?= h($slug) ?><?= $yearQs ?>&amp;export=csv">
             Download CSV
         </a>
-        <a class="btn btn-outline-secondary btn-sm"
+        <a class="btn btn-outline-primary btn-sm"
            href="reports.php?report=<?= h($slug) ?><?= $yearQs ?>&amp;export=pdf">
             Download PDF
         </a>
+        <?php if ($canEmailReport): ?>
+        <button type="button" class="btn btn-outline-primary btn-sm"
+                data-bs-toggle="modal" data-bs-target="#reportEmailModal">
+            Email report
+        </button>
+        <?php endif; ?>
+        <?php if ($canEmailMembers): ?>
+        <button type="button" class="btn btn-outline-primary btn-sm"
+                data-bs-toggle="modal" data-bs-target="#reportMembersEmailModal">
+            Email members
+        </button>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -182,11 +199,13 @@ $alignClass = static fn(string $a): string => $a === 'end' ? 'text-end' : 'text-
                 <p class="text-muted m-3 mb-0">No data available for this report yet.</p>
                 <?php else: ?>
                 <div class="table-responsive">
-                    <table class="table table-sm table-hover mb-0">
+                    <table class="table table-sm table-hover mb-0 report-table">
                         <thead class="table-light">
                             <tr>
-                                <?php foreach ($report['columns'] as $col): ?>
-                                <th class="<?= $alignClass($col['align'] ?? 'start') ?>"><?= h($col['label']) ?></th>
+                                <?php foreach ($report['columns'] as $col):
+                                    $colClass = reportColumnClass($col);
+                                ?>
+                                <th class="<?= $alignClass($col['align'] ?? 'start') ?><?= $colClass !== '' ? ' ' . $colClass : '' ?>"><?= h($col['label']) ?></th>
                                 <?php endforeach; ?>
                             </tr>
                         </thead>
@@ -198,6 +217,10 @@ $alignClass = static fn(string $a): string => $a === 'end' ? 'text-end' : 'text-
                                     $fmt   = $col['format'];
                                     $raw   = $row[$key] ?? null;
                                     $cls   = $alignClass($col['align'] ?? 'start');
+                                    $colClass = reportColumnClass($col);
+                                    if ($colClass !== '') {
+                                        $cls .= ' ' . $colClass;
+                                    }
                                     if ($fmt === 'signed' && $raw !== null && $raw !== '') {
                                         $n   = (int) $raw;
                                         $cls .= $n > 0 ? ' text-success' : ($n < 0 ? ' text-danger' : ' text-muted');
@@ -228,8 +251,14 @@ $alignClass = static fn(string $a): string => $a === 'end' ? 'text-end' : 'text-
                         <?php if (!empty($report['totals'])): ?>
                         <tfoot>
                             <tr class="fw-semibold border-top">
-                                <?php foreach ($report['columns'] as $col): ?>
-                                <td class="<?= $alignClass($col['align'] ?? 'start') ?>">
+                                <?php foreach ($report['columns'] as $col):
+                                    $colClass = reportColumnClass($col);
+                                    $footCls  = $alignClass($col['align'] ?? 'start');
+                                    if ($colClass !== '') {
+                                        $footCls .= ' ' . $colClass;
+                                    }
+                                ?>
+                                <td class="<?= $footCls ?>">
                                     <?= h(reportFormatCell($report['totals'][$col['key']] ?? null, $col['format'], false)) ?>
                                 </td>
                                 <?php endforeach; ?>
@@ -244,71 +273,93 @@ $alignClass = static fn(string $a): string => $a === 'end' ? 'text-end' : 'text-
             <div class="card-footer text-muted small py-2"><?= h($report['note']) ?></div>
             <?php endif; ?>
         </div>
+    </div>
+</div>
 
-        <!-- Email this report (snapshot to an address) -->
-        <?php if (!empty($report['rows'])): ?>
-        <div class="card mt-3">
-            <div class="card-header py-2"><span class="fw-semibold">Email this report</span></div>
-            <div class="card-body">
-                <form method="post" action="report_email.php" class="row g-2 align-items-end"
-                      data-confirm-submit="Email this report now?">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="snapshot">
-                    <input type="hidden" name="report" value="<?= h($slug) ?>">
-                    <?php if ($needsYear): ?><input type="hidden" name="year" value="<?= (int) $year ?>"><?php endif; ?>
-                    <div class="col-12 col-md-5">
-                        <label class="form-label small mb-1">Send to (comma-separated)</label>
-                        <input type="text" name="to" class="form-control form-control-sm"
-                               placeholder="board@club.org, treasurer@club.org" required>
+<?php if ($canEmailReport): ?>
+<div class="modal fade" id="reportEmailModal" tabindex="-1" aria-labelledby="reportEmailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="post" action="report_email.php"
+                  data-email-sending data-email-sending-title="Emailing report">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="snapshot">
+                <input type="hidden" name="report" value="<?= h($slug) ?>">
+                <?php if ($needsYear): ?><input type="hidden" name="year" value="<?= (int) $year ?>"><?php endif; ?>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="reportEmailModalLabel">Email this report</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">
+                        Sends <strong><?= h($report['title']) ?></strong> as an HTML table.
+                        Multiple addresses receive one message (all on the To line).
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label" for="reportEmailTo">Send to</label>
+                        <input type="text" id="reportEmailTo" name="to" class="form-control"
+                               placeholder="board@club.org, treasurer@club.org" required
+                               autocomplete="email" autofocus>
+                        <div class="form-text">Comma- or semicolon-separated addresses.</div>
                     </div>
-                    <div class="col-12 col-md-5">
-                        <label class="form-label small mb-1">Note (optional)</label>
-                        <input type="text" name="note" class="form-control form-control-sm"
-                               placeholder="Short message to include above the table">
+                    <div class="mb-0">
+                        <label class="form-label" for="reportEmailNote">Note <span class="text-muted fw-normal">(optional)</span></label>
+                        <textarea id="reportEmailNote" name="note" class="form-control" rows="3"
+                                  placeholder="Short message to include above the table"></textarea>
                     </div>
-                    <div class="col-12 col-md-2">
-                        <button type="submit" class="btn btn-primary btn-sm w-100">Send</button>
-                    </div>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Send email</button>
+                </div>
+            </form>
         </div>
-        <?php endif; ?>
+    </div>
+</div>
+<?php endif; ?>
 
-        <!-- Email these members (cohort) -->
-        <?php if (reportSupportsCohortEmail($slug) && !empty($report['rows']) && (canEditMembers() || canProcessMemberships())): ?>
-        <div class="card mt-3">
-            <div class="card-header py-2"><span class="fw-semibold">Email these members</span></div>
-            <div class="card-body">
-                <p class="small text-muted mb-2">
-                    Sends one message to each member in this list who has email turned on.
-                    Tokens: <code>{first_name}</code>, <code>{last_name}</code>, <code>{club_name}</code>.
-                </p>
-                <form method="post" action="report_email.php"
-                      data-confirm-submit="Send an email to every member in this list (with email enabled)?">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="action" value="members">
-                    <input type="hidden" name="report" value="<?= h($slug) ?>">
-                    <?php if ($needsYear): ?><input type="hidden" name="year" value="<?= (int) $year ?>"><?php endif; ?>
-                    <div class="mb-2">
-                        <label class="form-label small mb-1">Subject</label>
-                        <input type="text" name="subject" class="form-control form-control-sm"
+<?php if ($canEmailMembers): ?>
+<div class="modal fade" id="reportMembersEmailModal" tabindex="-1" aria-labelledby="reportMembersEmailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <form method="post" action="report_email.php"
+                  data-email-sending data-email-sending-title="Emailing members">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="members">
+                <input type="hidden" name="report" value="<?= h($slug) ?>">
+                <?php if ($needsYear): ?><input type="hidden" name="year" value="<?= (int) $year ?>"><?php endif; ?>
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="reportMembersEmailModalLabel">Email these members</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-3">
+                        Sends one personalized message to each member in this report who has email turned on.
+                        Tokens: <code>{first_name}</code>, <code>{last_name}</code>, <code>{club_name}</code>.
+                    </p>
+                    <div class="mb-3">
+                        <label class="form-label" for="reportMembersSubject">Subject</label>
+                        <input type="text" id="reportMembersSubject" name="subject" class="form-control"
                                value="<?= h('Membership renewal reminder') ?>" required>
                     </div>
-                    <div class="mb-2">
-                        <label class="form-label small mb-1">Message</label>
-                        <textarea name="message" rows="5" class="form-control form-control-sm" required>Hi {first_name},
+                    <div class="mb-0">
+                        <label class="form-label" for="reportMembersMessage">Message</label>
+                        <textarea id="reportMembersMessage" name="message" rows="8" class="form-control" required>Hi {first_name},
 
 Our records show you haven't renewed your {club_name} membership yet. We'd love to have you back for another season — please renew at your convenience.
 
 Thank you!</textarea>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-sm">Send to members</button>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Send to members</button>
+                </div>
+            </form>
         </div>
-        <?php endif; ?>
     </div>
 </div>
+<?php endif; ?>
 
 <?php if ($needsYear): ?>
 <script<?= csp_nonce_attr() ?>>

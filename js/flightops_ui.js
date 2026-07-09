@@ -17,6 +17,7 @@
 
     function bindConfirmSubmits() {
         document.querySelectorAll('form[data-confirm-submit]').forEach(function (form) {
+            if (form.hasAttribute('data-email-sending')) return;
             var msg = form.getAttribute('data-confirm-submit');
             if (!msg) return;
             form.addEventListener('submit', function (ev) {
@@ -87,9 +88,115 @@
         });
     }
 
+    var EMAIL_WAIT_MESSAGES = [
+        'Preparing for departure…',
+        'Clearing the runway…',
+        'Contacting the tower (mail server)…',
+        'Taxiing to the outbox…',
+        'Wheels up — your message is on its way…',
+        'Cruising altitude — almost there…',
+        'On final approach to the inbox…'
+    ];
+
+    var emailWaitOverlay = null;
+    var emailWaitStatusEl = null;
+    var emailWaitRotateTimer = null;
+    var emailWaitMsgIndex = 0;
+
+    function ensureEmailWaitOverlay() {
+        if (!emailWaitOverlay) {
+            emailWaitOverlay = document.getElementById('fo-email-wait');
+            emailWaitStatusEl = document.getElementById('fo-email-wait-status');
+        }
+        return emailWaitOverlay;
+    }
+
+    function rotateEmailWaitMessage() {
+        if (!emailWaitStatusEl) return;
+        emailWaitStatusEl.style.opacity = '0';
+        window.setTimeout(function () {
+            emailWaitMsgIndex = (emailWaitMsgIndex + 1) % EMAIL_WAIT_MESSAGES.length;
+            emailWaitStatusEl.textContent = EMAIL_WAIT_MESSAGES[emailWaitMsgIndex];
+            emailWaitStatusEl.style.opacity = '1';
+        }, 200);
+    }
+
+    function showEmailWait(form) {
+        var overlay = ensureEmailWaitOverlay();
+        if (!overlay) return;
+
+        var title = form.getAttribute('data-email-sending-title') || 'Sending email';
+        var titleEl = document.getElementById('fo-email-wait-title');
+        if (titleEl) titleEl.textContent = title;
+
+        emailWaitMsgIndex = 0;
+        if (emailWaitStatusEl) {
+            emailWaitStatusEl.textContent = EMAIL_WAIT_MESSAGES[0];
+            emailWaitStatusEl.style.opacity = '1';
+        }
+
+        overlay.hidden = false;
+        document.body.style.overflow = 'hidden';
+
+        if (emailWaitRotateTimer) window.clearInterval(emailWaitRotateTimer);
+        emailWaitRotateTimer = window.setInterval(rotateEmailWaitMessage, 2800);
+
+        form.querySelectorAll('button[type="submit"], input[type="submit"]').forEach(function (btn) {
+            btn.disabled = true;
+            btn.setAttribute('aria-disabled', 'true');
+        });
+    }
+
+    /**
+     * Pause navigation briefly so the browser can paint the overlay before the
+     * synchronous POST unloads the page.
+     */
+    function submitFormAfterPaint(form) {
+        window.requestAnimationFrame(function () {
+            window.requestAnimationFrame(function () {
+                window.setTimeout(function () {
+                    form.submit();
+                }, 40);
+            });
+        });
+    }
+
+    function bindEmailSendingForms() {
+        document.querySelectorAll('form[data-email-sending]').forEach(function (form) {
+            form.addEventListener('submit', function (ev) {
+                if (form.getAttribute('data-fo-email-pending') === '1') return;
+
+                var confirmMsg = form.getAttribute('data-confirm-submit');
+                if (confirmMsg && !confirm(confirmMsg)) {
+                    ev.preventDefault();
+                    return;
+                }
+
+                ev.preventDefault();
+                form.setAttribute('data-fo-email-pending', '1');
+                showEmailWait(form);
+                submitFormAfterPaint(form);
+            });
+        });
+    }
+
+    function bindFlashToasts() {
+        document.querySelectorAll('#flashToastContainer .toast.bg-success').forEach(function (el) {
+            window.setTimeout(function () {
+                if (typeof bootstrap !== 'undefined' && bootstrap.Toast) {
+                    bootstrap.Toast.getOrCreateInstance(el).hide();
+                } else {
+                    el.classList.remove('show');
+                }
+            }, 3000);
+        });
+    }
+
     function init() {
         bindConfirmClicks();
         bindConfirmSubmits();
+        bindEmailSendingForms();
+        bindFlashToasts();
         bindPrintButtons();
         bindSubmitOnChangeSelects();
         if (document.querySelector('.js-color-sync')) {

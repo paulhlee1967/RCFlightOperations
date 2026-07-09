@@ -11,6 +11,8 @@ require_once __DIR__ . '/member_match.php';
 require_once __DIR__ . '/validation.php';
 require_once __DIR__ . '/ama_verify.php';
 require_once __DIR__ . '/helpers.php';
+require_once __DIR__ . '/membership_status.php';
+require_once __DIR__ . '/dues_helpers.php';
 require_once __DIR__ . '/installation_config.php';
 require_once __DIR__ . '/mail.php';
 
@@ -491,6 +493,10 @@ function application_reparse_stored_fields(PDO $pdo, int $applicationId): array
     }
 
     $parsed = wpforms_application_parse_payload($pdo, $decoded);
+    $verification = application_renewal_verification($pdo, array_merge($app, $parsed));
+    if ($verification['adjusted_renewal_type'] !== null) {
+        $parsed['suggested_renewal_type'] = $verification['adjusted_renewal_type'];
+    }
     $stmt = $pdo->prepare('
         UPDATE member_applications SET
             application_kind = ?,
@@ -524,6 +530,194 @@ function wpforms_application_suggested_renewal_type(string $kind, ?string $seaso
         return 'late';
     }
     return null;
+}
+
+/**
+ * Match tiers that are not strong enough to trust a self-reported website renewal.
+ */
+function application_match_is_weak_for_renewal(?string $confidence): bool
+{
+    $confidence = strtolower(trim((string) $confidence));
+
+    return in_array($confidence, ['', 'none', 'name_only', 'ambiguous'], true);
+}
+
+/**
+ * Cross-check a self-reported website renewal against club membership records.
+ *
+ * @return array{
+ *   status: string,
+ *   warnings: list<string>,
+ *   adjusted_renewal_type: ?string,
+ *   member_id: ?int
+ * }
+ */
+function application_renewal_verification(PDO $pdo, array $application, ?int $overrideMemberId = null): array
+{
+    $warnings = [];
+    $adjustedType = null;
+    $status = 'verified';
+
+    if (($application['application_kind'] ?? '') !== 'renewal') {
+        return [
+            'status'                => 'verified',
+            'warnings'              => [],
+            'adjusted_renewal_type' => null,
+            'member_id'             => null,
+        ];
+    }
+
+    $confidence = (string) ($application['match_confidence'] ?? '');
+    $memberId = $overrideMemberId;
+    if ($memberId === null && !empty($application['matched_member_id'])) {
+        $memberId = (int) $application['matched_member_id'];
+    }
+
+    $renewalYear = (int) ($application['suggested_renewal_year'] ?? 0);
+    $beforeYear = $renewalYear > 0 ? $renewalYear : null;
+
+    if ($memberId === null) {
+        $status = 'no_match';
+        $warnings[] = 'Applicant selected Renewal on the website but no matching member was found. They may be a new member avoiding the initiation fee.';
+        $adjustedType = 'late';
+    } elseif ($confidence === 'ambiguous') {
+        $status = 'ambiguous_match';
+        $warnings[] = 'Applicant selected Renewal but multiple members match this name. Confirm the correct member before treating this as a renewal.';
+        $adjustedType = 'late';
+    } elseif ($confidence === 'name_only') {
+        $warnings[] = 'Member match is based on name only (' . member_match_confidence_label($confidence) . '). Verify identity before approving as a renewal.';
+        if (!member_has_prior_membership($pdo, $memberId, $beforeYear)) {
+            $status = 'no_history';
+            $warnings[] = 'Matched member has no prior membership payments or renewals on file. This may be a new member who selected Renewal to skip the initiation fee.';
+            $adjustedType = 'late';
+        } else {
+            $status = 'weak_match';
+        }
+    } elseif (!member_has_prior_membership($pdo, $memberId, $beforeYear)) {
+        $status = 'no_history';
+        $warnings[] = 'Matched member has no prior membership payments or renewals on file. This may be a new member who selected Renewal to skip the initiation fee.';
+        $adjustedType = 'late';
+    }
+
+    return [
+        'status'                => $status,
+        'warnings'              => $warnings,
+        'adjusted_renewal_type' => $adjustedType,
+        'member_id'             => $memberId,
+    ];
+}
+
+/**
+ * Compare website payment to what a new/late member should have paid.
+ *
+ * @param array{status:string,warnings:list<string>,adjusted_renewal_type:?string,member_id:?int} $verification
+ * @return array{
+ *   underpaid: bool,
+ *   shortfall: ?float,
+ *   expected_subtotal: ?float,
+ *   warnings: list<string>
+ * }
+ */
+function application_payment_underpaid_check(PDO $pdo, array $application, array $verification): array
+{
+    $warnings = [];
+
+    if (($application['application_kind'] ?? '') !== 'renewal') {
+        return [
+            'underpaid'         => false,
+            'shortfall'         => null,
+            'expected_subtotal' => null,
+            'warnings'          => [],
+        ];
+    }
+
+    if ($verification['adjusted_renewal_type'] !== 'late') {
+        return [
+            'underpaid'         => false,
+            'shortfall'         => null,
+            'expected_subtotal' => null,
+            'warnings'          => [],
+        ];
+    }
+
+    $slot = application_resolve_membership_type_slot($application, $pdo);
+    if ($slot === null || $slot < 1) {
+        return [
+            'underpaid'         => false,
+            'shortfall'         => null,
+            'expected_subtotal' => null,
+            'warnings'          => [],
+        ];
+    }
+
+    $payment = application_payment_breakdown($application, $pdo);
+    $lateCalc = calculateDues($pdo, $slot, 'late');
+    $processing = $payment['processing'] ?? 0.0;
+    $expectedParts = array_values(array_filter([
+        $lateCalc['dues'] > 0 ? round($lateCalc['dues'], 2) : null,
+        $lateCalc['init'] > 0 ? round($lateCalc['init'], 2) : null,
+        $processing !== null && $processing > 0 ? round((float) $processing, 2) : null,
+    ], static fn ($v) => $v !== null));
+    $expectedSubtotal = count($expectedParts) >= 2
+        ? round(array_sum($expectedParts), 2)
+        : null;
+
+    $totalPaid = $payment['total_paid'];
+    $initiation = $payment['initiation'];
+    $underpaid = false;
+    $shortfall = null;
+
+    if ($initiation === null || $initiation <= 0.0) {
+        $warnings[] = 'No initiation fee was collected on the website. New and late members normally pay an initiation fee.';
+    }
+
+    if ($expectedSubtotal !== null && $totalPaid !== null && !($payment['coupon_applied'] ?? false)) {
+        if ($totalPaid + 0.009 < $expectedSubtotal) {
+            $underpaid = true;
+            $shortfall = round($expectedSubtotal - $totalPaid, 2);
+            $warnings[] = 'Total paid (' . formatMoney($totalPaid) . ') is less than the expected new/late amount ('
+                . formatMoney($expectedSubtotal) . '). Collect the balance before recording.';
+        }
+    }
+
+    return [
+        'underpaid'         => $underpaid,
+        'shortfall'         => $shortfall,
+        'expected_subtotal' => $expectedSubtotal,
+        'warnings'          => $warnings,
+    ];
+}
+
+/**
+ * Renewal type staff should default to after verification (may override stored suggestion).
+ */
+function application_effective_renewal_type(PDO $pdo, array $application, ?int $overrideMemberId = null): string
+{
+    $base = (string) ($application['suggested_renewal_type'] ?? 'new');
+    if (!in_array($base, ['new', 'on_time', 'late'], true)) {
+        $base = 'new';
+    }
+
+    $verification = application_renewal_verification($pdo, $application, $overrideMemberId);
+    if ($verification['adjusted_renewal_type'] !== null) {
+        return $verification['adjusted_renewal_type'];
+    }
+
+    return $base;
+}
+
+/**
+ * Human-readable label for renewal verification status.
+ */
+function application_renewal_verification_label(string $status): string
+{
+    return match ($status) {
+        'no_match'        => 'Renewal claimed — no member match',
+        'ambiguous_match' => 'Renewal claimed — ambiguous match',
+        'no_history'      => 'Renewal claimed — no prior history',
+        'weak_match'      => 'Renewal claimed — weak match',
+        default           => '',
+    };
 }
 
 function wpforms_application_suggested_renewal_year(PDO $pdo, ?string $submittedAt): int
@@ -704,6 +898,15 @@ function application_receive_webhook(PDO $pdo, array $payload): array
         $parsed['email'],
         $parsed['birthday']
     );
+
+    $applicationRow = array_merge($parsed, [
+        'matched_member_id' => $match['member_id'],
+        'match_confidence'  => $match['confidence'] !== 'none' ? $match['confidence'] : null,
+    ]);
+    $verification = application_renewal_verification($pdo, $applicationRow);
+    if ($verification['adjusted_renewal_type'] !== null) {
+        $parsed['suggested_renewal_type'] = $verification['adjusted_renewal_type'];
+    }
 
     $submittedAt = $parsed['submitted_at'];
     if ($submittedAt !== null) {

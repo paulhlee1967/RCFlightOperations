@@ -157,6 +157,7 @@ $prefetchedRules = duesRules($pdo);
 
 // Which year are we working on?
 $workYear = isset($_GET['year']) ? (int) $_GET['year'] : defaultRenewalYear($pdo);
+$hasPriorMembership = member_has_prior_membership($pdo, $memberId, $workYear);
 
 // ---------------------------------------------------------------------------
 // POST: Record renewal
@@ -621,6 +622,12 @@ if ($fromWizard) {
         <?php if (!canProcessMemberships()): ?>
         <p class="text-muted">You do not have permission to record renewals.</p>
         <?php else: ?>
+        <?php if (!$hasPriorMembership): ?>
+        <div class="alert alert-warning py-2 small mb-3">
+            This member has <strong>no prior membership payments or renewals</strong> on file before <?= (int) $workYear ?>.
+            If they are a new member, use <strong>New / Late Renewal</strong> (includes initiation fee), not on-time renewal.
+        </div>
+        <?php endif; ?>
         <form method="post" action="member_process.php?id=<?= $memberId ?><?= $fromWizard ? '&wizard=1' : '' ?>" id="record-renewal-form">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="record_renewal">
@@ -872,6 +879,29 @@ if ($fromWizard) {
     // Init
     if (compWrap) compWrap.style.display = 'none';
     updatePreview();
+
+    // ── On-time renewal guard for members with no prior history ───────────────
+    var recordForm = document.getElementById('record-renewal-form');
+    var hasPriorMembership = <?= $hasPriorMembership ? 'true' : 'false' ?>;
+
+    if (recordForm && typeSelect) {
+        recordForm.addEventListener('submit', function (e) {
+            if (hasPriorMembership) {
+                return;
+            }
+            var comp = compCheckbox && compCheckbox.checked;
+            if (comp || typeSelect.value !== 'on_time') {
+                return;
+            }
+            var ok = window.confirm(
+                'This member has no prior membership history on file. On-time renewal does not include an initiation fee.\n\n'
+                + 'Are you sure you want to record an on-time renewal instead of New / Late Renewal?'
+            );
+            if (!ok) {
+                e.preventDefault();
+            }
+        });
+    }
 })();
 </script>
 

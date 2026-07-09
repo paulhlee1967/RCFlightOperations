@@ -25,6 +25,118 @@ $emailConfig = $config['email'] ?? null;
 $mailFromAddress = $emailConfig['from_address'] ?? 'noreply@localhost';
 $mailFromName    = $emailConfig['from_name'] ?? 'RC Flight Operations';
 
+/** @var array{mail: PHPMailer, config_key: string}|null */
+$_smtp_batch = null;
+
+/**
+ * Stable key for matching batch SMTP sessions to a mail config array.
+ */
+function mail_config_batch_key(array $emailConfig): string
+{
+    $smtp = $emailConfig['smtp'] ?? [];
+
+    return hash('sha256', json_encode([
+        $emailConfig['from_address'] ?? '',
+        $emailConfig['from_name'] ?? '',
+        $smtp['host'] ?? '',
+        $smtp['port'] ?? '',
+        $smtp['encryption'] ?? '',
+        $smtp['username'] ?? '',
+        $smtp['password'] ?? '',
+    ], JSON_THROW_ON_ERROR));
+}
+
+/**
+ * Begin reusing one SMTP connection for multiple send_mail() calls in this request.
+ * No-op when the config does not use SMTP. Pair with send_mail_batch_end().
+ */
+function send_mail_batch_begin(array $emailConfig): bool
+{
+    global $_smtp_batch;
+
+    send_mail_batch_end();
+
+    $driver = $emailConfig['driver'] ?? 'mail';
+    $smtp   = $emailConfig['smtp'] ?? [];
+    if ($driver !== 'smtp' || empty($smtp['host']) || empty($smtp['username'])) {
+        return false;
+    }
+
+    try {
+        $mail = new PHPMailer(true);
+        mail_configure_smtp($mail, $emailConfig, true);
+        $_smtp_batch = [
+            'mail'        => $mail,
+            'config_key'  => mail_config_batch_key($emailConfig),
+        ];
+
+        return true;
+    } catch (PHPMailerException $e) {
+        mail_last_error($e->getMessage());
+        error_log('SMTP batch begin failed: ' . $e->getMessage());
+
+        return false;
+    }
+}
+
+/**
+ * Close a batched SMTP session opened by send_mail_batch_begin().
+ */
+function send_mail_batch_end(): void
+{
+    global $_smtp_batch;
+
+    if ($_smtp_batch === null) {
+        return;
+    }
+
+    try {
+        $_smtp_batch['mail']->smtpClose();
+    } catch (Throwable $e) {
+        // Connection may already be closed.
+    }
+
+    $_smtp_batch = null;
+}
+
+/**
+ * @return PHPMailer|null Active batched mailer when config matches, else null.
+ */
+function mail_batch_smtp_mailer(array $emailConfig): ?PHPMailer
+{
+    global $_smtp_batch;
+
+    if ($_smtp_batch === null) {
+        return null;
+    }
+    if ($_smtp_batch['config_key'] !== mail_config_batch_key($emailConfig)) {
+        return null;
+    }
+
+    return $_smtp_batch['mail'];
+}
+
+/**
+ * Apply SMTP settings to a PHPMailer instance.
+ */
+function mail_configure_smtp(PHPMailer $mail, array $emailConfig, bool $keepAlive): void
+{
+    $smtp = $emailConfig['smtp'] ?? [];
+
+    $mail->isSMTP();
+    $mail->Host         = $smtp['host'];
+    $mail->Port         = (int) ($smtp['port'] ?? 587);
+    $mail->SMTPAuth     = true;
+    $mail->Username     = $smtp['username'];
+    $mail->Password     = $smtp['password'];
+    $mail->SMTPSecure   = ($smtp['encryption'] ?? 'tls') === 'ssl'
+        ? PHPMailer::ENCRYPTION_SMTPS
+        : PHPMailer::ENCRYPTION_STARTTLS;
+    $mail->CharSet      = PHPMailer::CHARSET_UTF8;
+    $mail->SMTPKeepAlive = $keepAlive;
+    $mail->Timeout      = 30;
+}
+
 /**
  * Send an email. Uses SMTP if config has driver=smtp and smtp settings; otherwise PHP mail().
  *
@@ -38,10 +150,28 @@ $mailFromName    = $emailConfig['from_name'] ?? 'RC Flight Operations';
  */
 function send_mail(string $to, string $subject, string $bodyHtml, ?string $bodyText = null, ?array $emailConfig = null, ?array $options = null): bool
 {
+    return send_mail_to_many([$to], $subject, $bodyHtml, $bodyText, $emailConfig, $options);
+}
+
+/**
+ * Send one message to multiple recipients (all addresses on the To line).
+ *
+ * @param  string[]    $to
+ * @return bool
+ */
+function send_mail_to_many(array $to, string $subject, string $bodyHtml, ?string $bodyText = null, ?array $emailConfig = null, ?array $options = null): bool
+{
     global $config, $mailFromAddress, $mailFromName;
 
-    $to = trim($to);
-    if ($to === '') {
+    $recipients = [];
+    foreach ($to as $addr) {
+        $addr = trim((string) $addr);
+        if ($addr !== '' && filter_var($addr, FILTER_VALIDATE_EMAIL)) {
+            $recipients[$addr] = true;
+        }
+    }
+    $recipients = array_keys($recipients);
+    if ($recipients === []) {
         return false;
     }
 
@@ -56,16 +186,16 @@ function send_mail(string $to, string $subject, string $bodyHtml, ?string $bodyT
     $fromName = $email['from_name'] ?? $mailFromName;
 
     if ($driver === 'smtp' && !empty($smtp['host']) && !empty($smtp['username'])) {
-        return send_mail_via_smtp($to, $subject, $bodyHtml, $bodyText, $email, $options);
+        return send_mail_via_smtp($recipients, $subject, $bodyHtml, $bodyText, $email, $options);
     }
 
-    return send_mail_via_php($to, $subject, $bodyHtml, $bodyText, $fromAddress, $fromName, $options);
+    return send_mail_via_php($recipients, $subject, $bodyHtml, $bodyText, $fromAddress, $fromName, $options);
 }
 
 /**
  * Send using PHPMailer and SMTP config.
  *
- * @param string      $to          Recipient email.
+ * @param  string|string[] $to         One recipient or a list (all on the To line).
  * @param string      $subject     Subject line.
  * @param string      $bodyHtml    HTML body.
  * @param string|null $bodyText    Plain-text alternative (or null to derive from HTML).
@@ -73,22 +203,23 @@ function send_mail(string $to, string $subject, string $bodyHtml, ?string $bodyT
  * @param array|null  $options     Optional send options (list_unsubscribe_url).
  * @return bool True on success, false on PHPMailer exception.
  */
-function send_mail_via_smtp(string $to, string $subject, string $bodyHtml, ?string $bodyText, array $emailConfig, ?array $options = null): bool
+function send_mail_via_smtp(string|array $to, string $subject, string $bodyHtml, ?string $bodyText, array $emailConfig, ?array $options = null): bool
 {
     $fromAddress = $emailConfig['from_address'] ?? 'noreply@localhost';
     $fromName    = $emailConfig['from_name'] ?? 'RC Flight Operations';
-    $smtp        = $emailConfig['smtp'] ?? [];
+    $recipients  = is_array($to) ? $to : [trim($to)];
 
     try {
-        $mail = new PHPMailer(true);
-        $mail->isSMTP();
-        $mail->Host       = $smtp['host'];
-        $mail->Port       = (int) ($smtp['port'] ?? 587);
-        $mail->SMTPAuth   = true;
-        $mail->Username   = $smtp['username'];
-        $mail->Password   = $smtp['password'];
-        $mail->SMTPSecure = ($smtp['encryption'] ?? 'tls') === 'ssl' ? PHPMailer::ENCRYPTION_SMTPS : PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->CharSet    = PHPMailer::CHARSET_UTF8;
+        $batchMail = mail_batch_smtp_mailer($emailConfig);
+        if ($batchMail !== null) {
+            $mail = $batchMail;
+            $mail->clearAllRecipients();
+            $mail->clearReplyTos();
+            $mail->clearCustomHeaders();
+        } else {
+            $mail = new PHPMailer(true);
+            mail_configure_smtp($mail, $emailConfig, false);
+        }
 
         $listUnsub = trim((string) ($options['list_unsubscribe_url'] ?? ''));
         if ($listUnsub !== '') {
@@ -96,17 +227,21 @@ function send_mail_via_smtp(string $to, string $subject, string $bodyHtml, ?stri
         }
 
         $mail->setFrom($fromAddress, $fromName);
-        $mail->addAddress($to);
+        foreach ($recipients as $addr) {
+            $mail->addAddress($addr);
+        }
         $mail->Subject = $subject;
         $mail->isHTML(true);
         $mail->Body    = $bodyHtml;
         $mail->AltBody = $bodyText !== null && $bodyText !== '' ? $bodyText : strip_tags($bodyHtml);
 
         $mail->send();
+
         return true;
     } catch (PHPMailerException $e) {
         mail_last_error($e->getMessage());
         error_log('SMTP send failed: ' . $e->getMessage());
+
         return false;
     }
 }
@@ -134,7 +269,7 @@ function mail_last_error(string $msg): void {
 /**
  * Send using PHP mail() with multipart/alternative (plain + HTML).
  *
- * @param string      $to          Recipient email.
+ * @param  string|string[] $to          One recipient or a list (comma-separated To header).
  * @param string      $subject     Subject line.
  * @param string      $bodyHtml    HTML body.
  * @param string|null $bodyText    Plain text (or null to strip HTML).
@@ -143,8 +278,11 @@ function mail_last_error(string $msg): void {
  * @param array|null  $options     Optional send options (list_unsubscribe_url).
  * @return bool True if mail() returned true.
  */
-function send_mail_via_php(string $to, string $subject, string $bodyHtml, ?string $bodyText, string $fromAddress, string $fromName, ?array $options = null): bool
+function send_mail_via_php(string|array $to, string $subject, string $bodyHtml, ?string $bodyText, string $fromAddress, string $fromName, ?array $options = null): bool
 {
+    $recipients = is_array($to) ? $to : [trim($to)];
+    $toHeader   = implode(', ', $recipients);
+
     $encodeHeader = static function (string $value): string {
         $value = trim($value);
         if ($value === '') {
@@ -178,5 +316,5 @@ function send_mail_via_php(string $to, string $subject, string $bodyHtml, ?strin
         . "--{$boundary}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n{$bodyHtml}\r\n"
         . "--{$boundary}--";
 
-    return @mail($to, $encodedSubject, $body, implode("\r\n", $headers));
+    return @mail($toHeader, $encodedSubject, $body, implode("\r\n", $headers));
 }

@@ -60,11 +60,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $recipients = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
             $mailCfg = installation_mail_config($pdo, $configRows);
             $sent = $fails = 0;
-            foreach ($recipients as $r) {
-                $msg = str_replace(['{{name}}', '{{club_name}}'], [$r['name'], $clubName], $body);
-                $bodyHtml = nl2br(htmlspecialchars($msg));
-                $ok  = send_mail($r['email'], $subject, $bodyHtml, $msg, $mailCfg);
-                $ok ? $sent++ : $fails++;
+            send_mail_batch_begin($mailCfg);
+            try {
+                foreach ($recipients as $r) {
+                    $msg = str_replace(['{{name}}', '{{club_name}}'], [$r['name'], $clubName], $body);
+                    $bodyHtml = nl2br(htmlspecialchars($msg));
+                    $ok  = send_mail($r['email'], $subject, $bodyHtml, $msg, $mailCfg);
+                    $ok ? $sent++ : $fails++;
+                }
+            } finally {
+                send_mail_batch_end();
             }
             try {
                 $pdo->prepare('INSERT INTO operator_messages (subject, body, sent_to_count, target, sent_at) VALUES (?, ?, ?, ?, NOW())')
@@ -339,7 +344,8 @@ require_once __DIR__ . '/includes/header.php';
 <div class="card mb-4 mt-4">
     <div class="card-header fw-semibold">Send test email</div>
     <div class="card-body">
-        <form method="post" action="installation.php" class="row g-3 align-items-end">
+        <form method="post" action="installation.php" class="row g-3 align-items-end"
+              data-email-sending data-email-sending-title="Sending test email">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="send_test_email">
             <div class="col-md-8">
@@ -358,7 +364,9 @@ require_once __DIR__ . '/includes/header.php';
     <div class="card-header fw-semibold">Message all admin users</div>
     <div class="card-body">
         <p class="text-muted small">Sends to every active user with role <strong>admin</strong>. Use <code>{{name}}</code> and <code>{{club_name}}</code>.</p>
-        <form method="post" action="installation.php">
+        <form method="post" action="installation.php"
+              data-email-sending data-email-sending-title="Broadcasting to admins"
+              data-confirm-submit="Send this message to every active admin user?">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="broadcast_admins">
             <div class="mb-3">

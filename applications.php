@@ -254,7 +254,12 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="list-group-item text-muted">No applications in this view.</div>
                 <?php else: ?>
                 <?php foreach ($applications as $row): ?>
-                <?php $rowPayment = application_payment_breakdown($row, $pdo); ?>
+                <?php
+                $rowPayment = application_payment_breakdown($row, $pdo);
+                $rowVerification = application_renewal_verification($pdo, $row);
+                $rowRenewalWarning = ($row['application_kind'] ?? '') === 'renewal'
+                    && $rowVerification['status'] !== 'verified';
+                ?>
                 <a href="<?= h(application_list_page_url($statusFilter, $yearFilter, $searchQ, $defaultRenewalYear, array_merge($listPageExtra, ['id' => (int) $row['id']]))) ?>"
                    class="list-group-item list-group-item-action<?= $viewId === (int) $row['id'] ? ' active' : '' ?>">
                     <div class="d-flex justify-content-between align-items-start gap-2">
@@ -263,6 +268,9 @@ require_once __DIR__ . '/includes/header.php';
                             <div class="small opacity-75">
                                 <?= h(application_kind_label($row['application_kind'])) ?>
                                 · <?= h(application_season_label($row['form_season'])) ?>
+                                <?php if ($rowRenewalWarning): ?>
+                                · <span class="text-warning" title="<?= h(implode(' ', $rowVerification['warnings'])) ?>">⚠ Verify renewal</span>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="text-end small">
@@ -383,6 +391,32 @@ require_once __DIR__ . '/includes/header.php';
                 </p>
                 <?php endif; ?>
 
+                <?php
+                $renewalVerification = application_renewal_verification($pdo, $application);
+                $paymentUnderpaid = application_payment_underpaid_check($pdo, $application, $renewalVerification);
+                $effectiveRenewalType = application_effective_renewal_type($pdo, $application);
+                $allVerificationWarnings = array_merge(
+                    $renewalVerification['warnings'],
+                    $paymentUnderpaid['warnings']
+                );
+                ?>
+                <?php if ($allVerificationWarnings !== []): ?>
+                <div class="alert alert-warning py-2 small mb-3">
+                    <strong>Renewal verification</strong>
+                    <?php if (application_renewal_verification_label($renewalVerification['status']) !== ''): ?>
+                    — <?= h(application_renewal_verification_label($renewalVerification['status'])) ?>
+                    <?php endif; ?>
+                    <ul class="mb-0 mt-1">
+                        <?php foreach ($allVerificationWarnings as $warn): ?>
+                        <li><?= h($warn) ?></li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php if ($renewalVerification['adjusted_renewal_type'] === 'late'): ?>
+                    <p class="mb-0 mt-2"><strong>Suggested action:</strong> Use renewal type <em>Late / new with initiation</em> and collect any balance before recording.</p>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+
                 <h2 class="h6">Payment (from website)</h2>
                 <?php $payment = application_payment_breakdown($application, $pdo); ?>
                 <dl class="row small mb-3">
@@ -401,6 +435,14 @@ require_once __DIR__ . '/includes/header.php';
                     <?php if ($payment['subtotal'] !== null): ?>
                     <dt class="col-sm-4">Subtotal</dt>
                     <dd class="col-sm-8"><?= h(formatMoney($payment['subtotal'])) ?></dd>
+                    <?php endif; ?>
+                    <?php if ($paymentUnderpaid['expected_subtotal'] !== null): ?>
+                    <dt class="col-sm-4">Expected (new/late)</dt>
+                    <dd class="col-sm-8"><?= h(formatMoney($paymentUnderpaid['expected_subtotal'])) ?></dd>
+                    <?php endif; ?>
+                    <?php if ($paymentUnderpaid['underpaid'] && $paymentUnderpaid['shortfall'] !== null): ?>
+                    <dt class="col-sm-4">Shortfall</dt>
+                    <dd class="col-sm-8 text-danger"><strong><?= h(formatMoney($paymentUnderpaid['shortfall'])) ?></strong></dd>
                     <?php endif; ?>
                     <?php if ($payment['special_code'] !== null): ?>
                     <dt class="col-sm-4">Special code</dt>
@@ -486,7 +528,7 @@ require_once __DIR__ . '/includes/header.php';
                             <label class="form-label" for="renewal_type">Renewal type</label>
                             <select class="form-select" id="renewal_type" name="renewal_type">
                                 <?php foreach (['new' => 'New', 'on_time' => 'On-time renewal', 'late' => 'Late / new with initiation'] as $val => $label): ?>
-                                <option value="<?= h($val) ?>"<?= ($application['suggested_renewal_type'] ?? '') === $val ? ' selected' : '' ?>><?= h($label) ?></option>
+                                <option value="<?= h($val) ?>"<?= $effectiveRenewalType === $val ? ' selected' : '' ?>><?= h($label) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
