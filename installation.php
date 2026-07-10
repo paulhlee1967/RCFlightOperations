@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo->beginTransaction();
-            $keys = ['app_name','support_email','renewal_prebook_start_month','renewal_prebook_start_day','reports_accurate_from_year','application_webhook_secret','stripe_publishable_key','stripe_secret_key','stripe_webhook_secret','stripe_test_mode','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','sender_api_token','sender_group_id','maintenance_mode'];
+            $keys = ['app_name','support_email','membership_email','renewal_prebook_start_month','renewal_prebook_start_day','reports_accurate_from_year','application_webhook_secret','stripe_publishable_key','stripe_secret_key','stripe_webhook_secret','stripe_test_mode','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','sender_api_token','sender_group_id','maintenance_mode'];
             foreach ($keys as $key) {
                 $val = match ($key) {
                     'smtp_port'        => (string) $smtpPort,
@@ -188,6 +188,7 @@ require_once __DIR__ . '/includes/header.php';
                     <label class="form-label" for="support_email">Support email</label>
                     <input type="email" class="form-control" id="support_email" name="support_email"
                            value="<?= h($configRows['support_email'] ?? '') ?>">
+                    <div class="form-text">General club support contact.</div>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label" for="renewal_prebook_start_month">Renewal year default — pre-book starts</label>
@@ -218,6 +219,12 @@ require_once __DIR__ . '/includes/header.php';
                         On/after this day, the app’s default “renewal year” is the <strong>next</strong> calendar year
                         (e.g. October 15 → next year). Earlier dates use the current year. Default: October 15.
                     </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="membership_email">Membership email</label>
+                    <input type="email" class="form-control" id="membership_email" name="membership_email"
+                           value="<?= h($configRows['membership_email'] ?? '') ?>">
+                    <div class="form-text">New application notifications are sent here. If blank, support email is used.</div>
                 </div>
                 <div class="col-md-6">
                     <label class="form-label" for="reports_accurate_from_year">Reports — complete data starting year</label>

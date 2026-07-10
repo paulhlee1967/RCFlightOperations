@@ -1075,7 +1075,7 @@ function application_notify_new_submission(PDO $pdo, int $applicationId): void
     }
 
     $config = installation_load_system_config($pdo);
-    $to = trim((string) ($config['support_email'] ?? ''));
+    $to = application_notify_recipient_email($config);
     if ($to === '') {
         return;
     }

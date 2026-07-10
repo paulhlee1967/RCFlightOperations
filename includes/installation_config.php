@@ -87,6 +87,20 @@ function reports_accurate_from_year(PDO $pdo): int {
 }
 
 /**
+ * Inbox for new membership application staff notifications.
+ * Uses membership_email when set; otherwise falls back to support_email.
+ */
+function application_notify_recipient_email(array $sysConfig): string
+{
+    $membership = trim((string) ($sysConfig['membership_email'] ?? ''));
+    if ($membership !== '') {
+        return $membership;
+    }
+
+    return trim((string) ($sysConfig['support_email'] ?? ''));
+}
+
+/**
  * Effective outbound mail settings: DB system_config overrides config.php email block.
  */
 function installation_mail_config(PDO $pdo, ?array $sysConfig = null): array {

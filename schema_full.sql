@@ -355,6 +355,7 @@ CREATE TABLE IF NOT EXISTS `system_config` (
 INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
   ('app_name',        'RC Flight Operations'),
   ('support_email',   ''),
+  ('membership_email', ''),
   ('smtp_host',       ''),
   ('smtp_port',       '587'),
   ('smtp_encryption', 'tls'),
