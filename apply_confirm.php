@@ -219,7 +219,12 @@ $hasClubLogo = !empty($theme['logo_path'])
                                 <div class="col-5 text-end"><?= htmlspecialchars(formatMoney($payment['subtotal'])) ?></div>
                             </div>
                             <?php endif; ?>
-                            <?php if ($payment['coupon_applied'] && $payment['special_code'] !== null): ?>
+                            <?php if (!empty($payment['complimentary_label'])): ?>
+                            <div class="row text-success">
+                                <div class="col-7">Complimentary — <?= htmlspecialchars($payment['complimentary_label']) ?></div>
+                                <div class="col-5 text-end">Payment waived</div>
+                            </div>
+                            <?php elseif ($payment['coupon_applied'] && $payment['special_code'] !== null): ?>
                             <div class="row text-success">
                                 <div class="col-7">Coupon <code><?= htmlspecialchars($payment['special_code']) ?></code></div>
                                 <div class="col-5 text-end">Payment waived</div>

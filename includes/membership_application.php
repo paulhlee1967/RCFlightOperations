@@ -194,6 +194,9 @@ function membership_application_ama_set_session(array $data): void
         'renewal_eligible'           => (bool) ($data['renewal_eligible'] ?? false),
         'renewal_eligible_message'   => (string) ($data['renewal_eligible_message'] ?? ''),
         'renewal_member_id'          => isset($data['renewal_member_id']) ? (int) $data['renewal_member_id'] : null,
+        'complimentary_member'       => (bool) ($data['complimentary_member'] ?? false),
+        'complimentary_member_detail'  => (string) ($data['complimentary_member_detail'] ?? ''),
+        'complimentary_member_id'    => isset($data['complimentary_member_id']) ? (int) $data['complimentary_member_id'] : null,
         'verified_at'                => time(),
         'token'                      => bin2hex(random_bytes(16)),
     ];
@@ -297,6 +300,21 @@ function membership_application_ama_verify_for_apply(PDO $pdo, string $amaNumber
     $sessionData['renewal_eligible'] = $renewalEligibility['eligible'];
     $sessionData['renewal_eligible_message'] = $renewalEligibility['message'];
     $sessionData['renewal_member_id'] = $renewalEligibility['member_id'];
+
+    $clubMember = $amaNumber !== '' ? member_find_by_ama_number($pdo, $amaNumber) : null;
+    $complimentaryLabels = [];
+    if ($clubMember !== null) {
+        if (!empty($clubMember['life_member'])) {
+            $complimentaryLabels[] = 'life member';
+        }
+        if (!empty($clubMember['free_membership'])) {
+            $complimentaryLabels[] = 'free membership';
+        }
+    }
+    $sessionData['complimentary_member'] = $complimentaryLabels !== [];
+    $sessionData['complimentary_member_detail'] = $complimentaryLabels !== [] ? implode(', ', $complimentaryLabels) : '';
+    $sessionData['complimentary_member_id'] = $clubMember !== null ? (int) $clubMember['id'] : null;
+
     membership_application_ama_set_session($sessionData);
 
     return [
@@ -310,6 +328,7 @@ function membership_application_ama_verify_for_apply(PDO $pdo, string $amaNumber
             'life_member'      => $lifeMember,
             'renewal_eligible' => $renewalEligibility['eligible'],
             'renewal_message'  => $renewalEligibility['message'],
+            'complimentary_member' => $sessionData['complimentary_member'],
             'message'          => (string) ($result['message'] ?? 'AMA membership verified.'),
         ],
     ];
@@ -382,6 +401,85 @@ function membership_application_lookup_coupon(?string $code): ?array
     $catalog = membership_application_coupon_catalog();
 
     return $catalog[$code] ?? null;
+}
+
+/**
+ * Whether the applicant qualifies for complimentary (zero-dollar) online payment.
+ *
+ * Priority: club member flag, then staff comp invite, then legacy coupon code.
+ *
+ * @return array{
+ *   waive_payment: bool,
+ *   reason: ?string,
+ *   message: ?string,
+ *   member_id: ?int,
+ *   comp_invite_id: ?int,
+ *   coupon: ?string,
+ *   detail: ?string
+ * }
+ */
+function membership_application_complimentary_status(
+    PDO $pdo,
+    ?string $amaNumber,
+    ?string $email,
+    ?string $couponCode = null,
+    ?DateTimeInterface $now = null
+): array {
+    require_once __DIR__ . '/membership_comp_invites.php';
+
+    $base = [
+        'waive_payment'  => false,
+        'reason'         => null,
+        'message'        => null,
+        'member_id'      => null,
+        'comp_invite_id' => null,
+        'coupon'         => null,
+        'detail'         => null,
+    ];
+
+    $ama = ama_verify_normalize_number((string) $amaNumber);
+    if ($ama !== '') {
+        $member = member_find_by_ama_number($pdo, $ama);
+        if ($member !== null && (!empty($member['free_membership']) || !empty($member['life_member']))) {
+            $labels = [];
+            if (!empty($member['life_member'])) {
+                $labels[] = 'life member';
+            }
+            if (!empty($member['free_membership'])) {
+                $labels[] = 'free membership';
+            }
+            $base['waive_payment'] = true;
+            $base['reason'] = 'member_flag';
+            $base['member_id'] = (int) $member['id'];
+            $base['detail'] = implode(', ', $labels);
+            $base['message'] = 'Complimentary membership (' . $base['detail'] . ') — no online payment required.';
+
+            return $base;
+        }
+    }
+
+    $invite = membership_comp_invite_find_matching($pdo, $ama, (string) $email, $now);
+    if ($invite !== null) {
+        $base['waive_payment'] = true;
+        $base['reason'] = 'comp_invite';
+        $base['comp_invite_id'] = (int) $invite['id'];
+        $typeLabel = membership_comp_invite_type_label($invite['membership_type'] ?? '');
+        $base['detail'] = 'comp invite #' . (int) $invite['id'] . ' (' . $typeLabel . ')';
+        $base['message'] = 'Complimentary membership invite on file (' . $typeLabel . ') — no online payment required.';
+
+        return $base;
+    }
+
+    $coupon = membership_application_lookup_coupon($couponCode);
+    $couponNormalized = membership_application_normalize_coupon($couponCode);
+    if ($coupon !== null && !empty($coupon['waive_payment'])) {
+        $base['waive_payment'] = true;
+        $base['reason'] = 'coupon';
+        $base['coupon'] = $couponNormalized !== '' ? $couponNormalized : null;
+        $base['message'] = 'Coupon applied — no online payment required.';
+    }
+
+    return $base;
 }
 
 /**
@@ -558,6 +656,9 @@ function membership_application_context(PDO $pdo, ?DateTimeInterface $now = null
  *   coupon: ?string,
  *   coupon_applied: bool,
  *   waive_payment: bool,
+ *   complimentary_reason: ?string,
+ *   complimentary_message: ?string,
+ *   comp_invite_id: ?int,
  *   renewal_type: string,
  *   renewal_year: int
  * }
@@ -567,7 +668,8 @@ function membership_application_quote(
     string $kind,
     int $slot,
     ?string $couponCode = null,
-    ?DateTimeInterface $now = null
+    ?DateTimeInterface $now = null,
+    ?array $applicant = null
 ): array {
     $now = $now ?? new DateTimeImmutable('now');
     $kind = strtolower(trim($kind));
@@ -585,26 +687,39 @@ function membership_application_quote(
     $initiation = round($calc['init'], 2);
     $subtotal = round($dues + $initiation, 2);
 
-    $coupon = membership_application_lookup_coupon($couponCode);
-    $couponNormalized = membership_application_normalize_coupon($couponCode);
-    $waive = $coupon !== null && !empty($coupon['waive_payment']);
+    $amaNumber = (string) ($applicant['ama_number'] ?? '');
+    $email = (string) ($applicant['email'] ?? '');
+    if ($amaNumber === '') {
+        $amaSession = membership_application_ama_get_session();
+        if ($amaSession !== null) {
+            $amaNumber = (string) ($amaSession['ama_number'] ?? '');
+        }
+    }
+
+    $complimentary = membership_application_complimentary_status($pdo, $amaNumber, $email, $couponCode, $now);
+    $waive = $complimentary['waive_payment'];
     $processing = $waive ? 0.0 : membership_application_stripe_processing_fee($subtotal);
     $total = $waive ? 0.0 : round($subtotal + $processing, 2);
+    $couponNormalized = membership_application_normalize_coupon($couponCode);
 
     return [
-        'kind'             => $kind,
-        'season'           => $season,
-        'slot'             => $slot,
-        'dues'             => $dues,
-        'initiation'       => $initiation,
-        'processing_fee'   => $processing,
-        'subtotal'         => $subtotal,
-        'total'            => $total,
-        'coupon'           => $couponNormalized !== '' ? $couponNormalized : null,
-        'coupon_applied'   => $waive,
-        'waive_payment'    => $waive,
-        'renewal_type'     => membership_application_suggested_renewal_type($kind, $season) ?? 'new',
-        'renewal_year'     => membership_application_suggested_renewal_year($pdo, $now),
+        'kind'                   => $kind,
+        'season'                 => $season,
+        'slot'                   => $slot,
+        'dues'                   => $dues,
+        'initiation'             => $initiation,
+        'processing_fee'         => $processing,
+        'subtotal'               => $subtotal,
+        'total'                  => $total,
+        'coupon'                 => $complimentary['coupon'] ?? ($couponNormalized !== '' ? $couponNormalized : null),
+        'coupon_applied'         => $waive && ($complimentary['reason'] ?? '') === 'coupon',
+        'waive_payment'          => $waive,
+        'complimentary_reason'   => $complimentary['reason'],
+        'complimentary_message'  => $complimentary['message'],
+        'complimentary_detail'   => $complimentary['detail'],
+        'comp_invite_id'         => $complimentary['comp_invite_id'],
+        'renewal_type'           => membership_application_suggested_renewal_type($kind, $season) ?? 'new',
+        'renewal_year'           => membership_application_suggested_renewal_year($pdo, $now),
     ];
 }
 
@@ -1085,14 +1200,29 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
     $clean = $validated['clean'];
     $kind = (string) $clean['application_kind'];
     $slot = (int) $clean['membership_type_slot'];
-    $quote = membership_application_quote($pdo, $kind, $slot, $clean['coupon_code'], $now);
+    $quote = membership_application_quote($pdo, $kind, $slot, $clean['coupon_code'], $now, [
+        'ama_number' => $clean['ama_number'],
+        'email'      => $clean['email'],
+    ]);
 
     $notes = [];
     if ($clean['middle_name'] !== '') {
         $notes[] = 'Middle name: ' . $clean['middle_name'];
     }
-    if ($quote['coupon'] !== null) {
+    if ($quote['coupon'] !== null && ($quote['complimentary_reason'] ?? '') === 'coupon') {
         $notes[] = 'Coupon code: ' . $quote['coupon'];
+    }
+    if (($quote['complimentary_reason'] ?? '') === 'member_flag') {
+        $detail = trim((string) ($quote['complimentary_detail'] ?? 'complimentary member'));
+        $notes[] = 'Complimentary: ' . $detail . ' (member record)';
+    }
+    if (($quote['complimentary_reason'] ?? '') === 'comp_invite' && !empty($quote['comp_invite_id'])) {
+        $inviteId = (int) $quote['comp_invite_id'];
+        $typeLabel = '';
+        if (preg_match('/\((free membership|life member)\)\s*$/i', (string) ($quote['complimentary_detail'] ?? ''), $m)) {
+            $typeLabel = strtolower($m[1]);
+        }
+        $notes[] = 'Complimentary invite #' . $inviteId . ($typeLabel !== '' ? ' (' . $typeLabel . ')' : '');
     }
 
     $submissionRef = 'native-' . bin2hex(random_bytes(16));
@@ -1253,6 +1383,23 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
     $confirmToken = membership_application_confirmation_token($applicationId, $secret);
 
     if ($quote['waive_payment']) {
+        if (($quote['complimentary_reason'] ?? '') === 'comp_invite' && !empty($quote['comp_invite_id'])) {
+            require_once __DIR__ . '/membership_comp_invites.php';
+            if (!membership_comp_invite_redeem($pdo, (int) $quote['comp_invite_id'], $applicationId)) {
+                $pdo->prepare('DELETE FROM member_applications WHERE id = ?')->execute([$applicationId]);
+
+                return [
+                    'ok'                 => false,
+                    'application_id'     => null,
+                    'client_secret'      => null,
+                    'confirmation_token' => null,
+                    'errors'             => [],
+                    'error'              => 'Your complimentary membership invite is no longer available. Contact the club membership team.',
+                    'waive_payment'      => false,
+                ];
+            }
+        }
+
         membership_application_finalize_submission($pdo, $applicationId, null);
 
         return [

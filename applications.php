@@ -188,10 +188,13 @@ require_once __DIR__ . '/includes/header.php';
         <h1 class="h2 mb-1">Membership applications</h1>
         <p class="text-muted small mb-0">WPForms submissions awaiting review before members are created or updated.</p>
     </div>
-    <?php $pendingCount = application_pending_count($pdo); ?>
-    <?php if ($pendingCount > 0): ?>
-    <span class="badge text-bg-warning"><?= (int) $pendingCount ?> pending</span>
-    <?php endif; ?>
+    <div class="d-flex align-items-center gap-2">
+        <a href="comp_invites.php" class="btn btn-outline-secondary btn-sm">Comp invites</a>
+        <?php $pendingCount = application_pending_count($pdo); ?>
+        <?php if ($pendingCount > 0): ?>
+        <span class="badge text-bg-warning"><?= (int) $pendingCount ?> pending</span>
+        <?php endif; ?>
+    </div>
 </div>
 
 <ul class="nav nav-tabs mb-3">
@@ -477,7 +480,13 @@ require_once __DIR__ . '/includes/header.php';
                     <dt class="col-sm-4">Shortfall</dt>
                     <dd class="col-sm-8 text-danger"><strong><?= h(formatMoney($paymentUnderpaid['shortfall'])) ?></strong></dd>
                     <?php endif; ?>
-                    <?php if ($payment['coupon_applied'] && $payment['special_code'] !== null): ?>
+                    <?php if (!empty($payment['complimentary_label'])): ?>
+                    <dt class="col-sm-4">Complimentary</dt>
+                    <dd class="col-sm-8">
+                        <?= h($payment['complimentary_label']) ?>
+                        <span class="badge bg-success ms-1">Payment waived</span>
+                    </dd>
+                    <?php elseif ($payment['coupon_applied'] && $payment['special_code'] !== null): ?>
                     <dt class="col-sm-4">Coupon</dt>
                     <dd class="col-sm-8">
                         <code><?= h($payment['special_code']) ?></code>

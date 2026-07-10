@@ -269,9 +269,33 @@ function wpforms_application_parse_dues_from_label(?string $value): ?float
  *   subtotal: ?float,
  *   total_paid: ?float,
  *   special_code: ?string,
- *   coupon_applied: bool
+ *   coupon_applied: bool,
+ *   complimentary_label: ?string
  * }
  */
+function application_payment_complimentary_label(?string $notes): ?string
+{
+    if ($notes === null || trim($notes) === '') {
+        return null;
+    }
+    if (preg_match('/Complimentary invite #(\d+)(?:\s*\((free membership|life member)\))?/i', $notes, $m)) {
+        $label = 'Comp invite #' . $m[1];
+        if (!empty($m[2])) {
+            $label .= ' (' . strtolower($m[2]) . ')';
+        }
+
+        return $label;
+    }
+    if (preg_match('/Complimentary:\s*(.+?)\s*\(member record\)/i', $notes, $m)) {
+        return ucfirst(trim($m[1])) . ' (member record)';
+    }
+    if (str_contains($notes, 'Complimentary: free membership member flag')) {
+        return 'Complimentary member (member record)';
+    }
+
+    return null;
+}
+
 function application_payment_breakdown(array $application, ?PDO $pdo = null): array
 {
     $raw = [];
@@ -342,8 +366,9 @@ function application_payment_breakdown(array $application, ?PDO $pdo = null): ar
     }
 
     $specialCode = $pick(['Special Code (If you have one)', 'Coupon code']);
-    if ($specialCode === '' && !empty($application['notes'])) {
-        $notesText = (string) $application['notes'];
+    $notesText = !empty($application['notes']) ? (string) $application['notes'] : '';
+    $complimentaryLabel = application_payment_complimentary_label($notesText !== '' ? $notesText : null);
+    if ($specialCode === '' && $notesText !== '') {
         if (preg_match('/Special code:\s*(.+)$/m', $notesText, $m)) {
             $specialCode = trim($m[1]);
         } elseif (preg_match('/Coupon code:\s*(.+)$/m', $notesText, $m)) {
@@ -354,19 +379,20 @@ function application_payment_breakdown(array $application, ?PDO $pdo = null): ar
     $parts = array_values(array_filter([$membershipDues, $initiation, $processing], static fn ($v) => $v !== null));
     $subtotal = count($parts) === 3 ? round($parts[0] + $parts[1] + $parts[2], 2) : null;
     $paymentStatus = (string) ($application['payment_status'] ?? '');
-    $couponApplied = $specialCode !== '' && (
+    $couponApplied = $complimentaryLabel !== null || ($specialCode !== '' && (
         $paymentStatus === 'waived'
         || ($subtotal !== null && $totalPaid !== null && $totalPaid < $subtotal)
-    );
+    ));
 
     return [
-        'membership_dues' => $membershipDues,
-        'initiation'      => $initiation,
-        'processing'      => $processing,
-        'subtotal'        => $subtotal,
-        'total_paid'      => $totalPaid,
-        'special_code'    => $specialCode !== '' ? $specialCode : null,
-        'coupon_applied'  => $couponApplied,
+        'membership_dues'     => $membershipDues,
+        'initiation'          => $initiation,
+        'processing'          => $processing,
+        'subtotal'            => $subtotal,
+        'total_paid'          => $totalPaid,
+        'special_code'        => $specialCode !== '' ? $specialCode : null,
+        'coupon_applied'      => $couponApplied,
+        'complimentary_label' => $complimentaryLabel,
     ];
 }
 
@@ -1251,6 +1277,9 @@ function application_approve(
         }
         $memberId = (int) $result['member_id'];
     }
+
+    require_once __DIR__ . '/membership_comp_invites.php';
+    membership_comp_invite_apply_to_member($pdo, $applicationId, $memberId);
 
     $photoImported = null;
     $photoError = null;

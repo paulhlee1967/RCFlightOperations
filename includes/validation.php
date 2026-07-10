@@ -286,7 +286,17 @@ function validate_positive_number(mixed $value): array {
 /**
  * Whether another member already uses this AMA number (normalized comparison).
  *
- * @return array{id:int,first_name:string,last_name:string,ama_number:string}|null
+ * @return array{
+ *   id:int,
+ *   first_name:string,
+ *   last_name:string,
+ *   ama_number:string,
+ *   free_membership?:int,
+ *   life_member?:int,
+ *   membership_renewal_year?:int,
+ *   inactive?:int,
+ *   suspended?:int
+ * }|null
  */
 function member_find_by_ama_number(PDO $pdo, ?string $amaNumber, ?int $excludeMemberId = null): ?array
 {
@@ -298,7 +308,8 @@ function member_find_by_ama_number(PDO $pdo, ?string $amaNumber, ?int $excludeMe
     }
 
     $stmt = $pdo->query(
-        "SELECT id, first_name, last_name, ama_number
+        "SELECT id, first_name, last_name, ama_number, free_membership, life_member,
+                membership_renewal_year, inactive, suspended
          FROM members
          WHERE ama_number IS NOT NULL AND TRIM(ama_number) != ''"
     );
@@ -312,10 +323,15 @@ function member_find_by_ama_number(PDO $pdo, ?string $amaNumber, ?int $excludeMe
         }
 
         return [
-            'id'         => (int) $row['id'],
-            'first_name' => (string) $row['first_name'],
-            'last_name'  => (string) $row['last_name'],
-            'ama_number' => (string) $row['ama_number'],
+            'id'                     => (int) $row['id'],
+            'first_name'             => (string) $row['first_name'],
+            'last_name'              => (string) $row['last_name'],
+            'ama_number'             => (string) $row['ama_number'],
+            'free_membership'        => (int) ($row['free_membership'] ?? 0),
+            'life_member'            => (int) ($row['life_member'] ?? 0),
+            'membership_renewal_year'=> isset($row['membership_renewal_year']) ? (int) $row['membership_renewal_year'] : null,
+            'inactive'               => (int) ($row['inactive'] ?? 0),
+            'suspended'              => (int) ($row['suspended'] ?? 0),
         ];
     }
 

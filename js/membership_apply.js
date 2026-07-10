@@ -66,6 +66,12 @@
         data.append('application_kind', getKind());
         data.append('membership_type_slot', form.membership_type_slot.value);
         data.append('coupon_code', form.coupon_code.value);
+        if (form.email && form.email.value) {
+            data.append('email', form.email.value);
+        }
+        if (form.ama_number && form.ama_number.value) {
+            data.append('ama_number', form.ama_number.value);
+        }
         return data;
     }
 
@@ -89,6 +95,16 @@
             document.getElementById('fee-initiation').textContent = money(q.initiation);
             document.getElementById('fee-processing').textContent = money(q.processing_fee);
             document.getElementById('fee-total').textContent = money(q.total);
+            const compEl = document.getElementById('fee-complimentary');
+            if (compEl) {
+                if (q.complimentary_message) {
+                    compEl.textContent = q.complimentary_message;
+                    compEl.classList.remove('d-none');
+                } else {
+                    compEl.textContent = '';
+                    compEl.classList.add('d-none');
+                }
+            }
             feeSummary.classList.remove('d-none');
             quoteWaivesPayment = !!q.waive_payment;
             if (paymentCard) {
@@ -390,6 +406,9 @@
     });
     form.membership_type_slot.addEventListener('change', refreshQuote);
     form.coupon_code.addEventListener('blur', refreshQuote);
+    if (form.email) {
+        form.email.addEventListener('blur', refreshQuote);
+    }
     updateBadgeRequirement();
 
     if (cfg.amaVerified && cfg.renewalOpen) {

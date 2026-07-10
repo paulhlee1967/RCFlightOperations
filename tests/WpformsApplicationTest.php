@@ -196,6 +196,30 @@ final class WpformsApplicationTest extends TestCase
         $this->assertTrue($payment['coupon_applied']);
     }
 
+    public function test_payment_breakdown_for_comp_invite_note(): void
+    {
+        $application = [
+            'payment_total' => 0.0,
+            'payment_status' => 'waived',
+            'notes' => 'Complimentary invite #12 (free membership)',
+        ];
+        $payment = application_payment_breakdown($application);
+        $this->assertSame('Comp invite #12 (free membership)', $payment['complimentary_label']);
+        $this->assertTrue($payment['coupon_applied']);
+    }
+
+    public function test_payment_breakdown_for_member_flag_note(): void
+    {
+        $application = [
+            'payment_total' => 0.0,
+            'payment_status' => 'waived',
+            'notes' => 'Complimentary: life member (member record)',
+        ];
+        $payment = application_payment_breakdown($application);
+        $this->assertSame('Life member (member record)', $payment['complimentary_label']);
+        $this->assertTrue($payment['coupon_applied']);
+    }
+
     public function test_payment_breakdown_for_native_coupon_notes(): void
     {
         $application = [

@@ -35,6 +35,8 @@ if (session_status() === PHP_SESSION_NONE) {
 $kind = (string) ($_POST['application_kind'] ?? 'new');
 $slot = (int) ($_POST['membership_type_slot'] ?? 0);
 $coupon = (string) ($_POST['coupon_code'] ?? '');
+$email = trim((string) ($_POST['email'] ?? ''));
+$amaNumber = trim((string) ($_POST['ama_number'] ?? ''));
 
 if ($slot < 1 || $slot > 4) {
     membership_quote_json(['ok' => false, 'error' => 'Select a membership type.'], 422);
@@ -60,7 +62,17 @@ if ($kind === 'renewal') {
     }
 }
 
-$quote = membership_application_quote($pdo, $kind, $slot, $coupon);
+if ($amaNumber === '') {
+    $amaSession = membership_application_ama_get_session();
+    if ($amaSession !== null) {
+        $amaNumber = (string) ($amaSession['ama_number'] ?? '');
+    }
+}
+
+$quote = membership_application_quote($pdo, $kind, $slot, $coupon, null, [
+    'ama_number' => $amaNumber,
+    'email'      => $email,
+]);
 
 membership_quote_json([
     'ok'    => true,

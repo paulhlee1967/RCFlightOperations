@@ -44,6 +44,8 @@ $amaPrefill = [
 ];
 $renewalEligible = $amaVerified && !empty($amaSession['renewal_eligible']);
 $renewalEligibleMessage = (string) ($amaSession['renewal_eligible_message'] ?? '');
+$complimentaryMember = $amaVerified && !empty($amaSession['complimentary_member']);
+$complimentaryMemberDetail = (string) ($amaSession['complimentary_member_detail'] ?? '');
 
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/csp_nonce.php';
@@ -93,7 +95,11 @@ require_once __DIR__ . '/includes/csp_nonce.php';
         </div>
 
         <?php if (!$stripeConfigured): ?>
-        <div class="alert alert-warning">Online payment is not configured yet. Submissions with a valid coupon code may still work.</div>
+        <div class="alert alert-warning">Online payment is not configured yet. Complimentary members and valid coupon codes may still apply without payment.</div>
+        <?php endif; ?>
+
+        <?php if ($complimentaryMember): ?>
+        <div class="alert alert-success">Our records show complimentary membership<?= $complimentaryMemberDetail !== '' ? ' (' . h($complimentaryMemberDetail) . ')' : '' ?> — no online payment will be required.</div>
         <?php endif; ?>
 
         <form id="membership-apply-form" enctype="multipart/form-data" novalidate>
@@ -306,6 +312,7 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                     </div>
 
                     <div id="fee-summary" class="border rounded p-3 bg-light d-none">
+                        <div id="fee-complimentary" class="alert alert-success py-2 small d-none mb-2"></div>
                         <div class="d-flex justify-content-between"><span>Membership dues</span><span id="fee-dues">—</span></div>
                         <div class="d-flex justify-content-between"><span>Initiation fee</span><span id="fee-initiation">—</span></div>
                         <div class="d-flex justify-content-between"><span>Processing fee</span><span id="fee-processing">—</span></div>

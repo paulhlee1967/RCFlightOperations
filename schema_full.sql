@@ -335,6 +335,24 @@ CREATE TABLE IF NOT EXISTS `member_applications` (
   CONSTRAINT `member_applications_approved_member` FOREIGN KEY (`approved_member_id`) REFERENCES `members` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS `membership_comp_invites` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `email` varchar(255) DEFAULT NULL,
+  `ama_number` varchar(32) DEFAULT NULL,
+  `membership_type` varchar(32) NOT NULL DEFAULT 'free_membership',
+  `notes` text DEFAULT NULL,
+  `created_by` int unsigned DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `expires_at` datetime DEFAULT NULL,
+  `redeemed_at` datetime DEFAULT NULL,
+  `redeemed_application_id` int unsigned DEFAULT NULL,
+  `cancelled_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_comp_invites_email` (`email`),
+  KEY `idx_comp_invites_ama` (`ama_number`),
+  KEY `idx_comp_invites_active` (`redeemed_at`, `cancelled_at`, `expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- -----------------------------------------------------------------------------
 -- End: embedded base schema
 -- -----------------------------------------------------------------------------
