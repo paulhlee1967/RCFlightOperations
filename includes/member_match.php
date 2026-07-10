@@ -2,7 +2,7 @@
 /**
  * includes/member_match.php
  *
- * Duplicate member detection for imports and WPForms applications.
+ * Duplicate member detection for imports and membership applications.
  */
 
 require_once __DIR__ . '/validation.php';

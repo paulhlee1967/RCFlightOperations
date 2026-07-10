@@ -1,6 +1,6 @@
 <?php
 /**
- * apply.php — Public PVMAC membership application (replaces WPForms).
+ * apply.php — Public membership application form (Stripe + AMA verification).
  */
 
 require_once __DIR__ . '/includes/db.php';

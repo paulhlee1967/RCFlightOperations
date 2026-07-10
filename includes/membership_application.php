@@ -2,7 +2,7 @@
 /**
  * Native membership application: season context, fee quotes, validation, and storage.
  *
- * Replaces WPForms conditional fields with server-side logic driven by dues_rules
+ * Replaces external form conditional fields with server-side logic driven by dues_rules
  * and installation renewal-prebook settings.
  */
 
@@ -398,7 +398,7 @@ function membership_application_ama_assert_verified(array $clean): ?string
 }
 
 /**
- * Coupon codes that waive online payment (mirrors legacy WPForms form).
+ * Coupon codes that waive online payment.
  *
  * @return array<string, array{waive_payment:bool,label?:string}>
  */
@@ -595,7 +595,7 @@ function membership_application_dues_renewal_type(string $kind, string $season):
 }
 
 /**
- * Suggested staff renewal type after approval (matches legacy WPForms mapping).
+ * Suggested staff renewal type after approval.
  */
 function membership_application_suggested_renewal_type(string $kind, string $season): ?string
 {
@@ -768,26 +768,13 @@ function membership_application_verify_confirmation_token(int $applicationId, st
 }
 
 /**
- * Signing secret for confirmation URLs (falls back to webhook secret or app key).
+ * Signing secret for confirmation URLs and signed tokens.
  */
 function membership_application_signing_secret(PDO $pdo): string
 {
-    require_once __DIR__ . '/application_webhook_config.php';
-    $fromWebhook = application_webhook_secret($pdo);
-    if ($fromWebhook !== '') {
-        return $fromWebhook;
-    }
+    require_once __DIR__ . '/app_signing_secret.php';
 
-    $configFile = dirname(__DIR__) . '/config.php';
-    if (is_file($configFile)) {
-        $config = require $configFile;
-        $key = trim((string) ($config['app_secret'] ?? $config['application_webhook_secret'] ?? ''));
-        if ($key !== '') {
-            return $key;
-        }
-    }
-
-    return 'membership-apply-fallback-' . md5(__DIR__);
+    return app_signing_secret($pdo);
 }
 
 /**
@@ -1063,7 +1050,7 @@ function application_file_href(array $application, string $kind): string
  */
 function application_file_resolve(PDO $pdo, int $applicationId, string $kind): array
 {
-    require_once __DIR__ . '/wpforms_application.php';
+    require_once __DIR__ . '/member_applications.php';
 
     $app = application_fetch($pdo, $applicationId);
     if ($app === null) {
@@ -1213,7 +1200,7 @@ function membership_application_store_files(PDO $pdo, int $applicationId, array 
 function membership_application_submit(PDO $pdo, array $post, array $files, ?DateTimeInterface $now = null): array
 {
     membership_application_ensure_schema($pdo);
-    require_once __DIR__ . '/wpforms_application.php';
+    require_once __DIR__ . '/member_applications.php';
     require_once __DIR__ . '/member_match.php';
     require_once __DIR__ . '/stripe_config.php';
 
@@ -1537,7 +1524,7 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
  */
 function membership_application_finalize_submission(PDO $pdo, int $applicationId, ?string $paymentIntentId): bool
 {
-    require_once __DIR__ . '/wpforms_application.php';
+    require_once __DIR__ . '/member_applications.php';
     require_once __DIR__ . '/mail.php';
     require_once __DIR__ . '/installation_config.php';
 
@@ -1572,7 +1559,7 @@ function membership_application_finalize_submission(PDO $pdo, int $applicationId
 
 function membership_application_send_applicant_confirmation(PDO $pdo, int $applicationId): void
 {
-    require_once __DIR__ . '/wpforms_application.php';
+    require_once __DIR__ . '/member_applications.php';
     require_once __DIR__ . '/mail.php';
     require_once __DIR__ . '/installation_config.php';
 
@@ -1607,7 +1594,7 @@ function membership_application_send_applicant_confirmation(PDO $pdo, int $appli
  */
 function membership_application_try_finalize_from_stripe(PDO $pdo, int $applicationId): void
 {
-    require_once __DIR__ . '/wpforms_application.php';
+    require_once __DIR__ . '/member_applications.php';
     require_once __DIR__ . '/stripe_config.php';
 
     $app = application_fetch($pdo, $applicationId);

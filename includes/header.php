@@ -585,7 +585,7 @@ $_headerBaseHref = $baseHref ?? '';
                 $_navPendingApps = 0;
                 if (isset($pdo)) {
                     try {
-                        require_once __DIR__ . '/wpforms_application.php';
+                        require_once __DIR__ . '/member_applications.php';
                         $_navPendingApps = application_pending_count($pdo);
                     } catch (Throwable $e) {
                     }

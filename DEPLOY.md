@@ -89,7 +89,7 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_applications.sql
 | `migrate_single_phone.sql` | Adds `members.phone`, copies one number per member from `member_phones` (Cell → Home → Work → Other), drops `member_phones` |
 | `migrate_single_address.sql` | Adds `address_*` columns on `members`, copies Home address from `member_addresses`, drops `member_addresses` |
 | `migrate_drop_comm_prefs.sql` | Drops `allow_email` and `allow_postal` (opt-out lives in Sender.net or similar) |
-| `migrate_member_applications.sql` | Creates `member_applications` queue table + empty `application_webhook_secret` config row |
+| `migrate_member_applications.sql` | Creates `member_applications` queue table |
 
 **Note:** If a member had multiple phones or addresses, only the preferred one is kept (same rules as local dev). Extra rows in the old tables are discarded when those tables are dropped — back up before migrating if you need to audit them.
 
@@ -101,16 +101,16 @@ php scripts/verify_db.php
 
 Expected output: `Database OK: all expected tables and columns present.`
 
-### 6. WPForms webhook (if using website applications)
+### 6. Online applications (optional)
 
-1. **Administration → Installation → WPForms integration** — set a long random **Webhook secret** and save.
-2. In Uncanny Automator, point the webhook at `https://your-domain/api_webhook_application.php` with header `X-Webhook-Secret` or `Authorization: Bearer …`.
-3. Field map: [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md).
+1. **Administration → Installation → Membership application (Stripe)** — publishable/secret keys, Stripe webhook secret, and **Application signing secret**.
+2. Point Stripe `payment_intent.succeeded` webhooks at `https://your-domain/api_stripe_webhook.php`.
+3. Link members to `https://your-domain/apply.php` from your club website.
 
 ### 7. Smoke test
 
 - Open **Members** — edit a member; confirm single phone and mailing address fields.
-- Open **Applications** (if WPForms is wired); approve a test submission with a badge photo and confirm **Print card** shows the imported image (requires **cURL** on the server and HTTPS access to your WordPress upload URLs).
+- Open **Applications**; submit a test via `/apply.php` and approve it — badge photo and FAA card should copy to the member record for printing.
 - Spot-check a badge print / envelope (address still renders).
 - Turn off maintenance mode.
 

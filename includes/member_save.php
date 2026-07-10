@@ -25,7 +25,7 @@ function member_faa_card_allowed_mimes(): array
 }
 
 /**
- * When Automator sends multiple file URLs, use the first non-empty value.
+ * When Automator or legacy imports send multiple file URLs, use the first non-empty value.
  */
 function member_photo_pick_first_url(string $raw): string
 {
@@ -60,9 +60,9 @@ function member_photo_import_allowed_hosts(): array
     $configPath = dirname(__DIR__) . '/config.php';
     if (is_file($configPath)) {
         $config = require $configPath;
-        if (!empty($config['wpforms_media_hosts']) && is_array($config['wpforms_media_hosts'])) {
+        if (!empty($config['external_media_hosts']) && is_array($config['external_media_hosts'])) {
             $hosts = [];
-            foreach ($config['wpforms_media_hosts'] as $host) {
+            foreach ($config['external_media_hosts'] as $host) {
                 $host = strtolower(trim((string) $host));
                 if ($host !== '') {
                     $hosts[] = $host;
@@ -149,7 +149,7 @@ function member_save_photo_from_local_file(PDO $pdo, int $memberId, string $loca
 }
 
 /**
- * Download a WPForms media URL to a temp file (host allowlist, size cap).
+ * Download an external media URL to a temp file (host allowlist, size cap).
  *
  * @return array{ok:bool, error:?string, local_path:?string}
  */
@@ -221,7 +221,7 @@ function member_download_media_url_to_temp_file(
 }
 
 /**
- * Download a WPForms badge photo URL and save it on the member record.
+ * Download an external badge photo URL and save it on the member record.
  *
  * @return array{ok:bool, error:?string, photo_path:?string}
  */
@@ -291,7 +291,7 @@ function member_save_faa_card_from_local_file(PDO $pdo, int $memberId, string $l
 }
 
 /**
- * Download a WPForms FAA registration URL and save it on the member record.
+ * Download an external FAA registration URL and save it on the member record.
  *
  * @return array{ok:bool, error:?string, faa_card_path:?string}
  */

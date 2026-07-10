@@ -4,7 +4,7 @@
  */
 
 require_once __DIR__ . '/includes/db.php';
-require_once __DIR__ . '/includes/wpforms_application.php';
+require_once __DIR__ . '/includes/member_applications.php';
 require_once __DIR__ . '/includes/membership_application.php';
 require_once __DIR__ . '/includes/csp_nonce.php';
 

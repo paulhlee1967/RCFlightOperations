@@ -7,7 +7,7 @@
 
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/wpforms_application.php';
+require_once __DIR__ . '/includes/member_applications.php';
 require_once __DIR__ . '/includes/member_completeness.php';
 
 if (empty($_SESSION['user_id'])) {

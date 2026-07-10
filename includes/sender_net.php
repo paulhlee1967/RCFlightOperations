@@ -485,10 +485,10 @@ function sender_net_liquid_variables(
  */
 function sender_net_unsubscribe_signing_secret(PDO $pdo, array $config): string
 {
-    require_once __DIR__ . '/application_webhook_config.php';
-    $webhook = application_webhook_secret($pdo);
-    if ($webhook !== '') {
-        return $webhook;
+    require_once __DIR__ . '/app_signing_secret.php';
+    $secret = app_signing_secret($pdo);
+    if ($secret !== '' && !str_starts_with($secret, 'flightops-app-fallback-')) {
+        return $secret;
     }
 
     return trim((string) ($config['api_token'] ?? ''));

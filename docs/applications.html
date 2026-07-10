@@ -54,7 +54,7 @@
 
     <h1>Membership applications</h1>
     <p class="page-lead">
-      When your club collects membership applications on its website (via WPForms), submissions
+      When applicants use your club’s online form at <strong>/apply.php</strong>, submissions
       land in <strong>Applications</strong> for staff review before anyone is added or updated
       in the member roster.
     </p>
@@ -62,11 +62,10 @@
     <div class="callout callout-info">
       <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
       <div class="callout-body">
-        <strong>Payments stay on the website</strong>
-        RC Flight Operations shows what the applicant paid on the form for review. It does
-        <em>not</em> charge cards or auto-post website payments to the ledger. After approval,
-        use <a href="renewals.html#record">Process Signup / Renewal</a> to record dues the
-        same way you would for any other member.
+        <strong>Stripe payments on apply.php</strong>
+        Paid applications show Stripe totals for review. After approval,
+        use <a href="renewals.html#record">Process Signup / Renewal</a> to record fulfillment
+        the same way you would for any other member (complimentary and coupon waivers are flagged automatically).
       </div>
     </div>
 
@@ -98,7 +97,7 @@
       <li>Check the suggested member match and any <strong>Changes vs matched member</strong> table.</li>
       <li>Review payment info and uploaded file links (badge photo is copied to the member record on approve).</li>
       <li>Adjust <strong>Renewal type</strong> and <strong>Renewal year</strong> if needed.</li>
-      <li>Click <strong>Approve &amp; continue to recording</strong> or <strong>Reject</strong>.</li>
+      <li>Click <strong>Approve &amp; process</strong> or <strong>Reject</strong>.</li>
     </ol>
     <p>
       Approval redirects to <strong>Process Signup / Renewal</strong> for the member so you
@@ -126,7 +125,7 @@
           </tr>
           <tr>
             <td><strong>Search</strong></td>
-            <td>Name, email, or WPForms entry number</td>
+            <td>Name, email, or submission reference</td>
           </tr>
           <tr>
             <td><strong>Reset</strong></td>
@@ -148,19 +147,15 @@
 
     <h2 id="payment">Payment display</h2>
     <p>
-      The <strong>Payment (from website)</strong> section summarizes what WPForms collected:
+      The payment section summarizes what the applicant paid on <code>apply.php</code>:
     </p>
     <ul>
-      <li><strong>Membership dues</strong> — from the membership type label (e.g. <code>Adult - $80.00</code>)</li>
-      <li><strong>Initiation</strong> and <strong>Processing fee</strong></li>
-      <li><strong>Subtotal</strong> — when dues, initiation, and processing are all present</li>
-      <li><strong>Special code</strong> — coupon or promo code; shows “(coupon applied)” when total paid is below subtotal</li>
-      <li><strong>Total paid</strong> — from <code>Total (Membership + Fees)</code> on the form</li>
+      <li><strong>Membership dues</strong> — calculated from membership type and renewal season</li>
+      <li><strong>Initiation</strong> and <strong>Processing fee</strong> (Stripe)</li>
+      <li><strong>Subtotal</strong> — when all line items are present</li>
+      <li><strong>Coupon / complimentary</strong> — from notes or waived payment status</li>
+      <li><strong>Total paid</strong> — Stripe charge when payment was required</li>
     </ul>
-    <p>
-      Gateway and transaction fields appear when your automation sends them; many clubs only
-      send fee line items and total.
-    </p>
 
     <h2 id="approve">Approve &amp; reject</h2>
     <h3>Approve</h3>
@@ -176,40 +171,34 @@
       with an optional reason. Rejected rows remain in the database for reference.
     </p>
 
-    <h2 id="badge-photo">Badge photo</h2>
+    <h2 id="badge-photo">Uploaded files</h2>
     <p>
-      When an applicant uploads a badge photo on the website (JPEG or PNG recommended), approving
-      the application <strong>downloads that image</strong> from your WordPress site and saves it
-      as the member's photo — the same file used for badge printing. You do not need to upload it
-      again on the member record unless import failed.
+      Applicants upload a badge photo and FAA registration on <code>apply.php</code>. Approving
+      the application copies those files onto the member record for badge printing and the
+      Compliance tab.
     </p>
     <ul>
-      <li><strong>Supported formats:</strong> JPEG and PNG from WPForms (GIF also accepted for badge photos).</li>
-      <li><strong>FAA registration card</strong> — JPEG or PNG from WPForms; copied to the member Compliance tab on approve (same as badge photo).</li>
-      <li><strong>Failed import</strong> — approval still succeeds; a yellow warning asks you to upload the file on the member record.</li>
+      <li><strong>Badge photo:</strong> JPEG or PNG (GIF also accepted).</li>
+      <li><strong>FAA registration:</strong> PDF, JPEG, or PNG.</li>
+      <li><strong>Failed copy</strong> — approval still succeeds; upload manually on the member record if needed.</li>
     </ul>
-    <p>
-      Ask applicants to use <strong>Take photo</strong> on the form (especially on phones) and
-      limit the WPForms field to <code>.jpg</code>, <code>.jpeg</code>, and <code>.png</code> for
-      the smoothest experience.
-    </p>
 
     <div class="callout callout-tip">
       <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
       <div class="callout-body">
         <strong>Test submissions</strong>
         There is no delete button in the app yet. To fully remove a test application (for example
-        so the same WPForms entry can be sent again), an admin must delete the row from the
+        so the same submission reference cannot be reused), an admin must delete the row from the
         <code>member_applications</code> table in the database. Rejecting alone does not remove it.
       </div>
     </div>
 
-    <h2 id="setup">Website setup</h2>
+    <h2 id="setup">Public form setup</h2>
     <p>
-      Connecting WPForms to RC Flight Operations requires a webhook secret in
-      <strong>Administration → Installation</strong> and an Uncanny Automator recipe on your
-      WordPress site. Full field mapping and curl test examples are in the repo guide
-      <a href="../WPFORMS_INTEGRATION.md">WPFORMS_INTEGRATION.md</a> (for club webmasters).
+      Configure Stripe keys and the <strong>Application signing secret</strong> under
+      <strong>Administration → Installation</strong>. Link your club website to
+      <code>/apply.php</code> on this server. Stripe webhooks should target
+      <code>api_stripe_webhook.php</code>.
     </p>
 
   </main>

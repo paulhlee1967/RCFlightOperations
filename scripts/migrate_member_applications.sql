@@ -1,4 +1,4 @@
--- WPForms membership application queue (member_applications table).
+-- Online membership application queue (member_applications table).
 -- Safe to re-run: CREATE TABLE IF NOT EXISTS.
 
 CREATE TABLE IF NOT EXISTS `member_applications` (

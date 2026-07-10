@@ -43,11 +43,9 @@ return [
     // Optional: full public URL when cron builds email image links (defaults to https://canonical_host).
     // 'public_base_url' => 'https://rcflightops.pvmac.com',
 
-    // Optional: shared secret for WPForms / Uncanny Automator webhook (overridden by Administration → Installation).
-    // 'application_webhook_secret' => 'generate-a-long-random-string',
-    //
-    // Optional: hostnames allowed when downloading badge photos on application approve (default pvmac.com).
-    // 'wpforms_media_hosts' => ['pvmac.com', 'www.pvmac.com'],
+    // Optional: shared secret for signed application links and reminder unsubscribe URLs
+    // (overridden by Administration → Installation).
+    // 'app_secret' => 'generate-a-long-random-string',
 
     // Optional: Sender.net API for reminder opt-out checks (overridden by Administration → Installation).
     // 'sender' => [

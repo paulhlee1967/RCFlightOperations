@@ -1,13 +1,13 @@
 <?php
 /**
- * applications.php — Review WPForms membership applications (pending queue).
+ * applications.php — Review membership applications (pending queue).
  */
 
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/flash.php';
-require_once __DIR__ . '/includes/wpforms_application.php';
+require_once __DIR__ . '/includes/member_applications.php';
 require_once __DIR__ . '/includes/membership_application.php';
 require_once __DIR__ . '/includes/dues_helpers.php';
 
@@ -196,7 +196,7 @@ require_once __DIR__ . '/includes/header.php';
 
 render_page_header([
     'title'    => 'Membership applications',
-    'subtitle' => 'WPForms submissions awaiting review before members are created or updated.',
+    'subtitle' => 'Online applications from apply.php awaiting review before members are created or updated.',
     'actions'  => $applicationsHeaderActions,
 ]);
 ?>
@@ -303,7 +303,7 @@ render_page_header([
                         </div>
                     </div>
                     <div class="small mt-1 opacity-75">
-                        Entry #<?= h((string) $row['wpforms_entry_id']) ?>
+                        Ref <?= h((string) $row['wpforms_entry_id']) ?>
                         <?php if (!empty($row['submitted_at'])): ?>
                         · <?= h(date('M j, Y', strtotime((string) $row['submitted_at']))) ?>
                         <?php endif; ?>

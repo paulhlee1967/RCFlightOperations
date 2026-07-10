@@ -29,7 +29,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit_log.php';
 require_once __DIR__ . '/includes/member_wizard_nav.php';
-require_once __DIR__ . '/includes/wpforms_application.php';
+require_once __DIR__ . '/includes/member_applications.php';
 
 requireLogin();
 if (!canEditMembers() && !canProcessMemberships()) {

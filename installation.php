@@ -96,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo->beginTransaction();
-            $keys = ['app_name','support_email','membership_email','renewal_prebook_start_month','renewal_prebook_start_day','reports_accurate_from_year','application_webhook_secret','stripe_publishable_key','stripe_secret_key','stripe_webhook_secret','stripe_test_mode','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','sender_api_token','sender_group_id','maintenance_mode'];
+            $keys = ['app_name','support_email','membership_email','renewal_prebook_start_month','renewal_prebook_start_day','reports_accurate_from_year','app_secret','stripe_publishable_key','stripe_secret_key','stripe_webhook_secret','stripe_test_mode','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','sender_api_token','sender_group_id','maintenance_mode'];
             foreach ($keys as $key) {
                 $val = match ($key) {
                     'smtp_port'        => (string) $smtpPort,
@@ -264,36 +264,21 @@ require_once __DIR__ . '/includes/header.php';
                            value="<?= h($configRows['stripe_secret_key'] ?? '') ?>">
                 </div>
                 <div class="col-md-8">
-                    <label class="form-label" for="stripe_webhook_secret">Webhook signing secret</label>
+                    <label class="form-label" for="stripe_webhook_secret">Stripe webhook signing secret</label>
                     <input type="password" class="form-control" id="stripe_webhook_secret" name="stripe_webhook_secret" autocomplete="new-password"
                            value="<?= h($configRows['stripe_webhook_secret'] ?? '') ?>">
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label" for="app_secret">Application signing secret</label>
+                    <input type="password" class="form-control" id="app_secret" name="app_secret" autocomplete="new-password"
+                           value="<?= h($configRows['app_secret'] ?? ($configRows['application_webhook_secret'] ?? '')) ?>">
+                    <div class="form-text">Long random string for signed confirmation links and reminder unsubscribe URLs. Can also be set as <code>app_secret</code> in <code>config.php</code>.</div>
                 </div>
                 <div class="col-md-4 d-flex align-items-end">
                     <div class="form-check form-switch">
                         <input type="checkbox" class="form-check-input" id="stripe_test_mode" name="stripe_test_mode" value="1"
                                <?= !empty($configRows['stripe_test_mode']) && $configRows['stripe_test_mode'] === '1' ? 'checked' : '' ?>>
                         <label class="form-check-label" for="stripe_test_mode">Test mode keys</label>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="card mb-4">
-        <div class="card-header fw-semibold">Legacy WPForms webhook</div>
-        <div class="card-body">
-            <p class="text-muted small">Optional — used only while the WordPress form is still active. New applications use <code>apply.php</code> directly.</p>
-            <div class="row g-3">
-                <div class="col-md-8">
-                    <label class="form-label" for="application_webhook_secret">Webhook secret</label>
-                    <input type="password" class="form-control" id="application_webhook_secret" name="application_webhook_secret" autocomplete="new-password"
-                           value="<?= h($configRows['application_webhook_secret'] ?? '') ?>">
-                    <div class="form-text">Send as header <code>X-Webhook-Secret</code> or <code>Authorization: Bearer …</code>. Leave blank to fall back to <code>application_webhook_secret</code> in <code>config.php</code>.</div>
-                </div>
-                <div class="col-md-4 d-flex align-items-end">
-                    <div class="small text-muted">
-                        Endpoint:<br>
-                        <code><?= h((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'your-domain') . '/api_webhook_application.php') ?></code>
                     </div>
                 </div>
             </div>
