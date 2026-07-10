@@ -341,16 +341,23 @@ function application_payment_breakdown(array $application, ?PDO $pdo = null): ar
                 ? round((float) $application['payment_total'], 2) : null);
     }
 
-    $specialCode = $pick(['Special Code (If you have one)']);
-    if ($specialCode === '' && !empty($application['notes']) && str_contains((string) $application['notes'], 'Special code:')) {
-        if (preg_match('/Special code:\s*(.+)$/m', (string) $application['notes'], $m)) {
+    $specialCode = $pick(['Special Code (If you have one)', 'Coupon code']);
+    if ($specialCode === '' && !empty($application['notes'])) {
+        $notesText = (string) $application['notes'];
+        if (preg_match('/Special code:\s*(.+)$/m', $notesText, $m)) {
+            $specialCode = trim($m[1]);
+        } elseif (preg_match('/Coupon code:\s*(.+)$/m', $notesText, $m)) {
             $specialCode = trim($m[1]);
         }
     }
 
     $parts = array_values(array_filter([$membershipDues, $initiation, $processing], static fn ($v) => $v !== null));
     $subtotal = count($parts) === 3 ? round($parts[0] + $parts[1] + $parts[2], 2) : null;
-    $couponApplied = $specialCode !== '' && $subtotal !== null && $totalPaid !== null && $totalPaid < $subtotal;
+    $paymentStatus = (string) ($application['payment_status'] ?? '');
+    $couponApplied = $specialCode !== '' && (
+        $paymentStatus === 'waived'
+        || ($subtotal !== null && $totalPaid !== null && $totalPaid < $subtotal)
+    );
 
     return [
         'membership_dues' => $membershipDues,
@@ -849,11 +856,78 @@ function wpforms_application_parse_payload(PDO $pdo, array $payload): array
 function application_pending_count(PDO $pdo): int
 {
     try {
-        $stmt = $pdo->query("SELECT COUNT(*) FROM member_applications WHERE status = 'pending'");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM member_applications WHERE status IN ('pending', 'pending_payment')");
         return (int) $stmt->fetchColumn();
     } catch (Throwable $e) {
         return 0;
     }
+}
+
+/**
+ * Ensure review/rejection columns exist on older member_applications tables.
+ */
+function application_ensure_review_schema(PDO $pdo): void
+{
+    try {
+        $columns = [];
+        $stmt = $pdo->query('SHOW COLUMNS FROM member_applications');
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $columns[(string) ($row['Field'] ?? '')] = true;
+        }
+        if (!isset($columns['reviewed_at'])) {
+            $pdo->exec('ALTER TABLE member_applications ADD COLUMN reviewed_at datetime DEFAULT NULL AFTER submitted_at');
+        }
+        if (!isset($columns['reviewed_by'])) {
+            $pdo->exec('ALTER TABLE member_applications ADD COLUMN reviewed_by int unsigned DEFAULT NULL AFTER reviewed_at');
+        }
+        if (!isset($columns['rejection_reason'])) {
+            $pdo->exec('ALTER TABLE member_applications ADD COLUMN rejection_reason text DEFAULT NULL AFTER reviewed_by');
+        }
+    } catch (Throwable $e) {
+    }
+}
+
+function application_is_reviewable_status(?string $status): bool
+{
+    return in_array((string) $status, ['pending', 'pending_payment'], true);
+}
+
+/**
+ * Whether staff may approve an application (payment complete or waived).
+ */
+function application_can_approve(?string $status): bool
+{
+    return (string) $status === 'pending';
+}
+
+/**
+ * Payment context for member_process after approving an online application.
+ *
+ * @return array{
+ *   payment: array<string,mixed>,
+ *   paid_online: bool,
+ *   waived: bool,
+ *   suggest_complementary: bool,
+ *   stripe_id: string,
+ *   gateway: string
+ * }
+ */
+function application_online_payment_context(array $application, ?PDO $pdo = null): array
+{
+    $payment = application_payment_breakdown($application, $pdo);
+    $paymentStatus = (string) ($application['payment_status'] ?? '');
+    $paymentTotal = (float) ($application['payment_total'] ?? 0);
+    $waived = $payment['coupon_applied'] || $paymentStatus === 'waived';
+    $paidOnline = $paymentStatus === 'succeeded' && $paymentTotal > 0;
+
+    return [
+        'payment'               => $payment,
+        'paid_online'           => $paidOnline,
+        'waived'                => $waived,
+        'suggest_complementary' => $waived || $paidOnline,
+        'stripe_id'             => trim((string) ($application['payment_transaction_id'] ?? '')),
+        'gateway'               => trim((string) ($application['payment_gateway'] ?? '')),
+    ];
 }
 
 /**
@@ -1009,11 +1083,11 @@ function application_notify_new_submission(PDO $pdo, int $applicationId): void
     $name = trim($app['first_name'] . ' ' . $app['last_name']);
     $kind = ucfirst((string) $app['application_kind']);
     $subject = 'New membership application: ' . $name;
-    $body = '<p>A new WPForms membership application is ready for review.</p>'
+    $body = '<p>A new membership application is ready for review.</p>'
         . '<ul>'
         . '<li><strong>Applicant:</strong> ' . htmlspecialchars($name) . '</li>'
         . '<li><strong>Type:</strong> ' . htmlspecialchars($kind) . '</li>'
-        . '<li><strong>Entry ID:</strong> ' . htmlspecialchars((string) $app['wpforms_entry_id']) . '</li>'
+        . '<li><strong>Reference:</strong> ' . htmlspecialchars((string) $app['wpforms_entry_id']) . '</li>'
         . '</ul>'
         . '<p>Review it in RC Flight Operations → Applications.</p>';
 
@@ -1059,8 +1133,10 @@ function application_member_post_from_row(array $app): array
 
 /**
  * Partially update an existing member from application data (only non-empty submitted fields).
+ *
+ * @param array<string, 'current'|'incoming'> $fieldChoices  For diff fields, which value to keep.
  */
-function application_update_existing_member(PDO $pdo, int $memberId, array $app): void
+function application_update_existing_member(PDO $pdo, int $memberId, array $app, array $fieldChoices = []): void
 {
     $memberStmt = $pdo->prepare('SELECT * FROM members WHERE id = ? LIMIT 1');
     $memberStmt->execute([$memberId]);
@@ -1095,6 +1171,9 @@ function application_update_existing_member(PDO $pdo, int $memberId, array $app)
     ];
 
     foreach ($map as $col => $field) {
+        if (isset($fieldChoices[$col]) && $fieldChoices[$col] === 'current') {
+            continue;
+        }
         if (!array_key_exists($field, $app)) {
             continue;
         }
@@ -1124,27 +1203,39 @@ function application_approve(
     int $reviewedBy,
     ?int $overrideMemberId = null,
     ?string $renewalType = null,
-    ?int $renewalYear = null
+    ?int $renewalYear = null,
+    array $fieldChoices = []
 ): array {
     $app = application_fetch($pdo, $applicationId);
     if ($app === null) {
         return ['ok' => false, 'member_id' => null, 'error' => 'Application not found.'];
     }
-    if ($app['status'] !== 'pending') {
-        return ['ok' => false, 'member_id' => null, 'error' => 'Application is not pending.'];
+    if (!application_can_approve($app['status'] ?? null)) {
+        if (($app['status'] ?? '') === 'pending_payment') {
+            return ['ok' => false, 'member_id' => null, 'error' => 'Payment has not been completed yet. Wait for Stripe confirmation or reject this submission.'];
+        }
+
+        return ['ok' => false, 'member_id' => null, 'error' => 'Application is not pending review.'];
     }
 
+    $fieldChoices = application_parse_field_choices($fieldChoices);
     $memberId = $overrideMemberId ?: ($app['matched_member_id'] ? (int) $app['matched_member_id'] : null);
 
     if ($memberId !== null) {
-        if ($app['ama_number']) {
-            $conflict = member_find_by_ama_number($pdo, $app['ama_number'], $memberId);
+        $amaForConflict = $app['ama_number'] ?? '';
+        if (isset($fieldChoices['ama_number']) && $fieldChoices['ama_number'] === 'current') {
+            $memberStmt = $pdo->prepare('SELECT ama_number FROM members WHERE id = ? LIMIT 1');
+            $memberStmt->execute([$memberId]);
+            $amaForConflict = (string) ($memberStmt->fetchColumn() ?: '');
+        }
+        if ($amaForConflict) {
+            $conflict = member_find_by_ama_number($pdo, $amaForConflict, $memberId);
             if ($conflict !== null) {
                 return ['ok' => false, 'member_id' => null, 'error' => member_ama_number_conflict_message($conflict)];
             }
         }
         try {
-            application_update_existing_member($pdo, $memberId, $app);
+            application_update_existing_member($pdo, $memberId, $app, $fieldChoices);
         } catch (Throwable $e) {
             return ['ok' => false, 'member_id' => null, 'error' => $e->getMessage()];
         }
@@ -1164,8 +1255,15 @@ function application_approve(
     $photoImported = null;
     $photoError = null;
     if (!empty($app['file_badge_photo_url'])) {
+        require_once __DIR__ . '/membership_application.php';
         require_once __DIR__ . '/member_save.php';
-        $photoResult = member_import_photo_from_url($pdo, $memberId, (string) $app['file_badge_photo_url']);
+        $photoPath = (string) $app['file_badge_photo_url'];
+        if (membership_application_is_local_upload_path($photoPath)) {
+            $abs = membership_application_absolute_upload_path($photoPath);
+            $photoResult = member_save_photo_from_local_file($pdo, $memberId, $abs);
+        } else {
+            $photoResult = member_import_photo_from_url($pdo, $memberId, $photoPath);
+        }
         $photoImported = $photoResult['ok'];
         $photoError = $photoResult['error'];
     }
@@ -1174,7 +1272,13 @@ function application_approve(
     $faaCardError = null;
     if (!empty($app['file_faa_registration_url'])) {
         require_once __DIR__ . '/member_save.php';
-        $faaResult = member_import_faa_card_from_url($pdo, $memberId, (string) $app['file_faa_registration_url']);
+        $faaPath = (string) $app['file_faa_registration_url'];
+        if (membership_application_is_local_upload_path($faaPath)) {
+            $abs = membership_application_absolute_upload_path($faaPath);
+            $faaResult = member_save_faa_card_from_local_file($pdo, $memberId, $abs);
+        } else {
+            $faaResult = member_import_faa_card_from_url($pdo, $memberId, $faaPath);
+        }
         $faaCardImported = $faaResult['ok'];
         $faaCardError = $faaResult['error'];
     }
@@ -1211,12 +1315,14 @@ function application_approve(
  */
 function application_reject(PDO $pdo, int $applicationId, int $reviewedBy, string $reason = ''): array
 {
+    application_ensure_review_schema($pdo);
+
     $app = application_fetch($pdo, $applicationId);
     if ($app === null) {
         return ['ok' => false, 'error' => 'Application not found.'];
     }
-    if ($app['status'] !== 'pending') {
-        return ['ok' => false, 'error' => 'Application is not pending.'];
+    if (!application_is_reviewable_status($app['status'] ?? null)) {
+        return ['ok' => false, 'error' => 'Application is not pending review.'];
     }
 
     $pdo->prepare('
@@ -1229,7 +1335,64 @@ function application_reject(PDO $pdo, int $applicationId, int $reviewedBy, strin
 }
 
 /**
- * @return list<array<string, mixed>>
+ * Member fields compared when reviewing a matched application.
+ *
+ * @return array<string, string>  column => label
+ */
+function application_member_merge_fields(): array
+{
+    return [
+        'first_name'             => 'First name',
+        'last_name'              => 'Last name',
+        'email'                  => 'Email',
+        'birthday'               => 'Birthday',
+        'ama_number'             => 'AMA number',
+        'ama_expiration'         => 'AMA expiration',
+        'faa_number'             => 'FAA number',
+        'faa_expiration'         => 'FAA expiration',
+        'emergency_contact_name' => 'Emergency contact',
+        'emergency_contact_phone'=> 'Emergency phone',
+    ];
+}
+
+function application_member_diff_format_value(string $col, string $value): string
+{
+    if ($value === '') {
+        return '—';
+    }
+    if (in_array($col, ['birthday', 'ama_expiration', 'faa_expiration'], true)) {
+        $formatted = formatDate($value);
+
+        return $formatted !== '' ? $formatted : $value;
+    }
+
+    return $value;
+}
+
+/**
+ * @param array<string, mixed> $raw
+ * @return array<string, 'current'|'incoming'>
+ */
+function application_parse_field_choices(array $raw): array
+{
+    $allowed = application_member_merge_fields();
+    $parsed  = [];
+    foreach ($raw as $key => $choice) {
+        $key = (string) $key;
+        if (!isset($allowed[$key])) {
+            continue;
+        }
+        $choice = (string) $choice;
+        if ($choice === 'current' || $choice === 'incoming') {
+            $parsed[$key] = $choice;
+        }
+    }
+
+    return $parsed;
+}
+
+/**
+ * @return list<array{key:string,field:string,current:string,incoming:string}>
  */
 function application_member_diff(PDO $pdo, array $app): array
 {
@@ -1245,30 +1408,18 @@ function application_member_diff(PDO $pdo, array $app): array
         return [];
     }
 
-    $fields = [
-        'first_name' => 'First name',
-        'last_name'  => 'Last name',
-        'email'      => 'Email',
-        'birthday'   => 'Birthday',
-        'ama_number' => 'AMA number',
-        'ama_expiration' => 'AMA expiration',
-        'faa_number' => 'FAA number',
-        'faa_expiration' => 'FAA expiration',
-        'emergency_contact_name' => 'Emergency contact',
-        'emergency_contact_phone' => 'Emergency phone',
-    ];
-
     $diff = [];
-    foreach ($fields as $col => $label) {
+    foreach (application_member_merge_fields() as $col => $label) {
         $old = trim((string) ($member[$col] ?? ''));
         $new = trim((string) ($app[$col] ?? ''));
         if ($new === '' || $old === $new) {
             continue;
         }
         $diff[] = [
-            'field' => $label,
-            'current' => $old !== '' ? $old : '—',
-            'incoming' => $new,
+            'key'      => $col,
+            'field'    => $label,
+            'current'  => application_member_diff_format_value($col, $old),
+            'incoming' => application_member_diff_format_value($col, $new),
         ];
     }
 
@@ -1373,7 +1524,9 @@ function application_list_where_clause(array $filters): array
     $where  = ['1=1'];
     $params = [];
 
-    if ($filters['status'] !== 'all') {
+    if ($filters['status'] === 'pending') {
+        $where[] = "status IN ('pending', 'pending_payment')";
+    } elseif ($filters['status'] !== 'all') {
         $where[]  = 'status = ?';
         $params[] = $filters['status'];
     }

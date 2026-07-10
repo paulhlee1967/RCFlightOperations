@@ -96,11 +96,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         try {
             $pdo->beginTransaction();
-            $keys = ['app_name','support_email','renewal_prebook_start_month','renewal_prebook_start_day','reports_accurate_from_year','application_webhook_secret','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','sender_api_token','sender_group_id','maintenance_mode'];
+            $keys = ['app_name','support_email','renewal_prebook_start_month','renewal_prebook_start_day','reports_accurate_from_year','application_webhook_secret','stripe_publishable_key','stripe_secret_key','stripe_webhook_secret','stripe_test_mode','smtp_host','smtp_port','smtp_encryption','smtp_username','smtp_password','smtp_from_email','smtp_from_name','sender_api_token','sender_group_id','maintenance_mode'];
             foreach ($keys as $key) {
                 $val = match ($key) {
                     'smtp_port'        => (string) $smtpPort,
                     'maintenance_mode' => empty($_POST['maintenance_mode']) ? '0' : '1',
+                    'stripe_test_mode' => empty($_POST['stripe_test_mode']) ? '0' : '1',
                     'renewal_prebook_start_month' => (string) max(1, min(12, (int) ($_POST['renewal_prebook_start_month'] ?? 10))),
                     'renewal_prebook_start_day'   => (string) max(1, min(31, (int) ($_POST['renewal_prebook_start_day'] ?? 15))),
                     'reports_accurate_from_year'  => (string) max(2000, min(2100, (int) ($_POST['reports_accurate_from_year'] ?? 2027))),
@@ -241,9 +242,40 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 
     <div class="card mb-4">
-        <div class="card-header fw-semibold">WPForms integration</div>
+        <div class="card-header fw-semibold">Membership application (Stripe)</div>
         <div class="card-body">
-            <p class="text-muted small">Membership applications from your website are sent to <code>api_webhook_application.php</code> via Uncanny Automator. Set the same secret in Automator’s webhook headers.</p>
+            <p class="text-muted small">Public form at <code>/apply.php</code>. Create a Stripe webhook for <code>payment_intent.succeeded</code> pointing to <code>api_stripe_webhook.php</code>.</p>
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label" for="stripe_publishable_key">Publishable key</label>
+                    <input type="text" class="form-control" id="stripe_publishable_key" name="stripe_publishable_key" autocomplete="off"
+                           value="<?= h($configRows['stripe_publishable_key'] ?? '') ?>">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label" for="stripe_secret_key">Secret key</label>
+                    <input type="password" class="form-control" id="stripe_secret_key" name="stripe_secret_key" autocomplete="new-password"
+                           value="<?= h($configRows['stripe_secret_key'] ?? '') ?>">
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label" for="stripe_webhook_secret">Webhook signing secret</label>
+                    <input type="password" class="form-control" id="stripe_webhook_secret" name="stripe_webhook_secret" autocomplete="new-password"
+                           value="<?= h($configRows['stripe_webhook_secret'] ?? '') ?>">
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <div class="form-check form-switch">
+                        <input type="checkbox" class="form-check-input" id="stripe_test_mode" name="stripe_test_mode" value="1"
+                               <?= !empty($configRows['stripe_test_mode']) && $configRows['stripe_test_mode'] === '1' ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="stripe_test_mode">Test mode keys</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header fw-semibold">Legacy WPForms webhook</div>
+        <div class="card-body">
+            <p class="text-muted small">Optional — used only while the WordPress form is still active. New applications use <code>apply.php</code> directly.</p>
             <div class="row g-3">
                 <div class="col-md-8">
                     <label class="form-label" for="application_webhook_secret">Webhook secret</label>

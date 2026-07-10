@@ -29,6 +29,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit_log.php';
 require_once __DIR__ . '/includes/member_wizard_nav.php';
+require_once __DIR__ . '/includes/wpforms_application.php';
 
 requireLogin();
 if (!canEditMembers() && !canProcessMemberships()) {
@@ -154,6 +155,18 @@ if (!$member) {
 
 /** Prefetch dues rules once for renewal POST + preview UI. */
 $prefetchedRules = duesRules($pdo);
+
+$sourceApplication = null;
+$sourceApplicationContext = null;
+$sourceApplicationId = isset($_GET['application_id']) ? (int) $_GET['application_id'] : 0;
+if ($sourceApplicationId > 0) {
+    $candidateApp = application_fetch($pdo, $sourceApplicationId);
+    if ($candidateApp !== null && (int) ($candidateApp['approved_member_id'] ?? 0) === $memberId) {
+        $sourceApplication = $candidateApp;
+        $sourceApplicationContext = application_online_payment_context($candidateApp, $pdo);
+    }
+}
+$autoComplementary = !empty($sourceApplicationContext['suggest_complementary']);
 
 // Which year are we working on?
 $workYear = isset($_GET['year']) ? (int) $_GET['year'] : defaultRenewalYear($pdo);
@@ -628,7 +641,60 @@ if ($fromWizard) {
             If they are a new member, use <strong>New / Late Renewal</strong> (includes initiation fee), not on-time renewal.
         </div>
         <?php endif; ?>
-        <form method="post" action="member_process.php?id=<?= $memberId ?><?= $fromWizard ? '&wizard=1' : '' ?>" id="record-renewal-form">
+
+        <?php if ($sourceApplication !== null && $sourceApplicationContext !== null && !$fulfillment['processed_at']): ?>
+        <?php
+        $appPayment = $sourceApplicationContext['payment'];
+        $appTotalPaid = $appPayment['total_paid'];
+        ?>
+        <div class="alert alert-info mb-3" id="application-payment-banner">
+            <div class="fw-semibold mb-1">Online application payment</div>
+            <p class="small mb-2">
+                Application
+                <a href="applications.php?id=<?= (int) $sourceApplication['id'] ?>">#<?= (int) $sourceApplication['id'] ?></a>
+                <?php if ($sourceApplicationContext['paid_online']): ?>
+                — applicant paid
+                <strong><?= h(formatMoney((float) $sourceApplication['payment_total'])) ?></strong>
+                via <?= h($sourceApplicationContext['gateway'] !== '' ? $sourceApplicationContext['gateway'] : 'Stripe') ?>.
+                <?php if ($sourceApplicationContext['stripe_id'] !== ''): ?>
+                Transaction: <code class="small"><?= h($sourceApplicationContext['stripe_id']) ?></code>
+                <?php endif; ?>
+                <?php elseif ($sourceApplicationContext['waived']): ?>
+                — payment was waived<?php if ($appPayment['special_code'] !== null): ?> (coupon <code><?= h($appPayment['special_code']) ?></code>)<?php endif; ?>.
+                <?php endif; ?>
+            </p>
+            <?php if ($appPayment['subtotal'] !== null): ?>
+            <dl class="row small mb-2">
+                <?php if ($appPayment['membership_dues'] !== null): ?>
+                <dt class="col-sm-4">Membership dues</dt>
+                <dd class="col-sm-8"><?= h(formatMoney($appPayment['membership_dues'])) ?></dd>
+                <?php endif; ?>
+                <?php if ($appPayment['initiation'] !== null): ?>
+                <dt class="col-sm-4">Initiation</dt>
+                <dd class="col-sm-8"><?= h(formatMoney($appPayment['initiation'])) ?></dd>
+                <?php endif; ?>
+                <?php if ($appPayment['processing'] !== null): ?>
+                <dt class="col-sm-4">Processing fee</dt>
+                <dd class="col-sm-8"><?= h(formatMoney($appPayment['processing'])) ?></dd>
+                <?php endif; ?>
+                <dt class="col-sm-4">Subtotal</dt>
+                <dd class="col-sm-8"><?= h(formatMoney($appPayment['subtotal'])) ?></dd>
+                <?php if ($appTotalPaid !== null): ?>
+                <dt class="col-sm-4">Total paid online</dt>
+                <dd class="col-sm-8"><strong><?= h(formatMoney($appTotalPaid)) ?></strong></dd>
+                <?php endif; ?>
+            </dl>
+            <?php endif; ?>
+            <?php if ($sourceApplicationContext['suggest_complementary']): ?>
+            <p class="small mb-0">
+                <strong>Record as Complementary</strong> below so you do not charge the member again in club records.
+                Stripe (or a coupon) already handled the website payment.
+            </p>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
+        <form method="post" action="member_process.php?id=<?= $memberId ?><?= $fromWizard ? '&wizard=1' : '' ?><?= $sourceApplicationId > 0 ? '&application_id=' . $sourceApplicationId : '' ?>" id="record-renewal-form">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="record_renewal">
             <?php if ($fromWizard): ?>
@@ -659,7 +725,7 @@ if ($fromWizard) {
                 <div class="col-auto">
                     <label class="form-label mb-1 d-block">&nbsp;</label>
                     <div class="form-check" style="padding-top: 0.375rem; padding-bottom: 0.375rem;">
-                        <input class="form-check-input" type="checkbox" name="complementary" id="complementary" value="1">
+                        <input class="form-check-input" type="checkbox" name="complementary" id="complementary" value="1"<?= $autoComplementary ? ' checked' : '' ?>>
                         <label class="form-check-label" for="complementary">Complementary (no charge)</label>
                     </div>
                 </div>
@@ -877,7 +943,7 @@ if ($fromWizard) {
     }
 
     // Init
-    if (compWrap) compWrap.style.display = 'none';
+    if (compWrap) compWrap.style.display = (compCheckbox && compCheckbox.checked) ? '' : 'none';
     updatePreview();
 
     // ── On-time renewal guard for members with no prior history ───────────────

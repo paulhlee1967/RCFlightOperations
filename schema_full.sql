@@ -366,7 +366,11 @@ INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
   ('renewal_prebook_start_month', '10'),
   ('renewal_prebook_start_day', '15'),
   ('reports_accurate_from_year', '2027'),
-  ('application_webhook_secret', '');
+  ('application_webhook_secret', ''),
+  ('stripe_publishable_key', ''),
+  ('stripe_secret_key', ''),
+  ('stripe_webhook_secret', ''),
+  ('stripe_test_mode', '0');
 
 CREATE TABLE IF NOT EXISTS `operator_messages` (
   `id`              int unsigned  NOT NULL AUTO_INCREMENT,
@@ -748,7 +752,11 @@ CREATE TABLE IF NOT EXISTS `member_applications` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
-  ('application_webhook_secret', '');
+  ('application_webhook_secret', ''),
+  ('stripe_publishable_key', ''),
+  ('stripe_secret_key', ''),
+  ('stripe_webhook_secret', ''),
+  ('stripe_test_mode', '0');
 
 -- -----------------------------------------------------------------------------
 -- Migration: single phone on members (replaces member_phones table)

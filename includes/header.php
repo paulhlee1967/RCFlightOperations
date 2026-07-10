@@ -11,7 +11,8 @@
  */
 
 require_once __DIR__ . '/security_headers.php';
-flightops_send_security_headers();
+$flightopsCspOptions = $flightopsCspOptions ?? [];
+flightops_send_security_headers($flightopsCspOptions);
 
 require_once __DIR__ . '/vendor_assets.php';
 require_once __DIR__ . '/csrf.php';
@@ -79,7 +80,7 @@ if ($_navUserName) {
     );
 }
 
-$_headerBaseHref = '';
+$_headerBaseHref = $baseHref ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -156,11 +157,17 @@ $_headerBaseHref = '';
         .navbar.bg-primary                     { background-color: var(--club-primary) !important; }
         .btn-primary                           { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
         .btn-primary:hover, .btn-primary:focus { background-color: var(--club-primary-dark); border-color: var(--club-primary-dark); color: var(--club-on-primary); }
+        .btn-primary:active,
+        .btn-primary:disabled              { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
+        .btn-primary:disabled              { opacity: 0.65; }
         .btn-outline-primary                   { color: var(--club-primary); border-color: var(--club-primary); }
         .btn-outline-primary:hover             { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
         /* Danger-style buttons use theme (e.g. Delete member) so the app stays on-palette */
         .btn-danger                            { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
         .btn-danger:hover, .btn-danger:focus   { background-color: var(--club-primary-dark); border-color: var(--club-primary-dark); color: var(--club-on-primary); }
+        .btn-danger:active,
+        .btn-danger:disabled                    { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
+        .btn-danger:disabled                    { opacity: 0.65; }
         .btn-outline-danger                    { color: var(--club-primary); border-color: var(--club-primary); }
         .btn-outline-danger:hover              { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
         .btn-outline-secondary                 { color: var(--club-muted); border-color: var(--club-muted); }

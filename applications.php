@@ -8,6 +8,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/flash.php';
 require_once __DIR__ . '/includes/wpforms_application.php';
+require_once __DIR__ . '/includes/membership_application.php';
 require_once __DIR__ . '/includes/dues_helpers.php';
 
 requireLogin();
@@ -42,7 +43,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $renewalType = null;
         }
 
-        $result = application_approve($pdo, $appId, $userId, $overrideMemberId, $renewalType, $renewalYear);
+        $result = application_approve(
+            $pdo,
+            $appId,
+            $userId,
+            $overrideMemberId,
+            $renewalType,
+            $renewalYear,
+            is_array($_POST['field_choice'] ?? null) ? $_POST['field_choice'] : []
+        );
         if (!$result['ok']) {
             flash($result['error'] ?? 'Could not approve application.', 'warning');
             header('Location: applications.php?id=' . $appId);
@@ -59,7 +68,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (array_key_exists('faa_card_imported', $result) && $result['faa_card_imported'] === false) {
             flash('FAA registration card could not be copied from the website — upload it on the member Compliance tab.', 'warning');
         }
-        header('Location: member_process.php?id=' . $memberId . '&year=' . $ryear . '&renewal_type=' . $rtype . '#record');
+        header('Location: member_process.php?id=' . $memberId . '&year=' . $ryear . '&renewal_type=' . $rtype . '&application_id=' . $appId . '#record');
         exit;
     }
 
@@ -71,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             flash('Application rejected.', 'success');
         }
-        header('Location: ' . application_list_page_url($statusFilter, $yearFilter, $searchQ, $defaultRenewalYear));
+        header('Location: ' . application_list_page_url('rejected', $yearFilter, $searchQ, $defaultRenewalYear, ['id' => $appId]));
         exit;
     }
 }
@@ -274,8 +283,8 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
                         <div class="text-end small">
-                            <?php if ($row['status'] === 'pending'): ?>
-                            <span class="badge text-bg-warning">Pending</span>
+                            <?php if ($row['status'] === 'pending' || $row['status'] === 'pending_payment'): ?>
+                            <span class="badge text-bg-warning"><?= $row['status'] === 'pending_payment' ? 'Awaiting payment' : 'Pending' ?></span>
                             <?php elseif ($row['status'] === 'approved'): ?>
                             <span class="badge text-bg-success">Approved</span>
                             <?php else: ?>
@@ -297,6 +306,9 @@ require_once __DIR__ . '/includes/header.php';
                         · <span class="text-warning">Ambiguous match</span>
                         <?php endif; ?>
                     </div>
+                    <?php if ($row['status'] === 'rejected' && !empty($row['rejection_reason'])): ?>
+                    <div class="small mt-1"><em><?= h(mb_strimwidth((string) $row['rejection_reason'], 0, 100, '…')) ?></em></div>
+                    <?php endif; ?>
                 </a>
                 <?php endforeach; ?>
                 <?php endif; ?>
@@ -327,11 +339,32 @@ require_once __DIR__ . '/includes/header.php';
         <div class="card mb-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span>Application #<?= (int) $application['id'] ?></span>
-                <span class="badge text-bg-<?= $application['status'] === 'pending' ? 'warning' : ($application['status'] === 'approved' ? 'success' : 'secondary') ?>">
-                    <?= h(ucfirst((string) $application['status'])) ?>
+                <span class="badge text-bg-<?= $application['status'] === 'pending' || $application['status'] === 'pending_payment' ? 'warning' : ($application['status'] === 'approved' ? 'success' : 'secondary') ?>">
+                    <?= $application['status'] === 'pending_payment' ? 'Awaiting payment' : h(ucfirst((string) $application['status'])) ?>
                 </span>
             </div>
             <div class="card-body">
+                <?php if (($application['status'] ?? '') === 'pending_payment'): ?>
+                <div class="alert alert-warning mb-3 py-2">
+                    <strong>Awaiting payment.</strong> The applicant has not finished Stripe checkout.
+                    Approve is unavailable until payment is confirmed. You can reject this submission to clear the queue.
+                </div>
+                <?php endif; ?>
+                <?php if ($application['status'] === 'rejected'): ?>
+                <div class="alert alert-danger mb-4">
+                    <div class="fw-semibold mb-1">Application rejected</div>
+                    <?php if (!empty($application['rejection_reason'])): ?>
+                    <div class="mb-0"><?= nl2br(h((string) $application['rejection_reason'])) ?></div>
+                    <?php else: ?>
+                    <div class="mb-0">No reason was recorded.</div>
+                    <?php endif; ?>
+                    <?php if (!empty($application['reviewed_at'])): ?>
+                    <div class="small mt-2 mb-0 opacity-75">
+                        Reviewed <?= h(date('M j, Y g:i A', strtotime((string) $application['reviewed_at']))) ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
                 <div class="row g-3 mb-3">
                     <div class="col-sm-6">
                         <div class="text-muted small">Applicant</div>
@@ -444,9 +477,15 @@ require_once __DIR__ . '/includes/header.php';
                     <dt class="col-sm-4">Shortfall</dt>
                     <dd class="col-sm-8 text-danger"><strong><?= h(formatMoney($paymentUnderpaid['shortfall'])) ?></strong></dd>
                     <?php endif; ?>
-                    <?php if ($payment['special_code'] !== null): ?>
+                    <?php if ($payment['coupon_applied'] && $payment['special_code'] !== null): ?>
+                    <dt class="col-sm-4">Coupon</dt>
+                    <dd class="col-sm-8">
+                        <code><?= h($payment['special_code']) ?></code>
+                        <span class="badge bg-success ms-1">Payment waived</span>
+                    </dd>
+                    <?php elseif ($payment['special_code'] !== null): ?>
                     <dt class="col-sm-4">Special code</dt>
-                    <dd class="col-sm-8"><code><?= h($payment['special_code']) ?></code><?php if ($payment['coupon_applied']): ?> <span class="text-success">(coupon applied)</span><?php endif; ?></dd>
+                    <dd class="col-sm-8"><code><?= h($payment['special_code']) ?></code></dd>
                     <?php endif; ?>
                     <dt class="col-sm-4">Total paid</dt>
                     <dd class="col-sm-8"><strong><?= $payment['total_paid'] !== null ? h(formatMoney($payment['total_paid'])) : '—' ?></strong></dd>
@@ -457,20 +496,35 @@ require_once __DIR__ . '/includes/header.php';
                 </dl>
 
                 <?php
-                $uploadedFiles = array_filter([
-                    'Badge photo' => $application['file_badge_photo_url'] ?? '',
-                    'AMA verification' => $application['file_ama_verification_url'] ?? '',
-                    'FAA registration' => $application['file_faa_registration_url'] ?? '',
-                    'Signature' => $application['file_signature_url'] ?? '',
-                ], static fn ($url) => trim((string) $url) !== '');
+                $uploadKinds = [
+                    'Badge photo'      => 'badge',
+                    'AMA verification' => 'ama',
+                    'FAA registration' => 'faa',
+                    'Signature'        => 'signature',
+                ];
+                $uploadedFiles = [];
+                foreach ($uploadKinds as $label => $kind) {
+                    $href = application_file_href($application, $kind);
+                    if ($href !== '') {
+                        $uploadedFiles[$label] = ['href' => $href, 'kind' => $kind];
+                    }
+                }
                 ?>
                 <?php if ($uploadedFiles !== []): ?>
                 <h2 class="h6">Uploaded files</h2>
                 <ul class="small mb-3">
-                    <?php foreach ($uploadedFiles as $label => $url): ?>
-                    <li><a href="<?= h($url) ?>" target="_blank" rel="noopener"><?= h($label) ?></a></li>
+                    <?php foreach ($uploadedFiles as $label => $meta): ?>
+                    <li><a href="<?= h($meta['href']) ?>" target="_blank" rel="noopener"><?= h($label) ?></a></li>
                     <?php endforeach; ?>
                 </ul>
+                <?php
+                $signatureHref = application_file_href($application, 'signature');
+                if ($signatureHref !== ''): ?>
+                <div class="mb-3">
+                    <div class="text-muted small mb-1">Signature on file</div>
+                    <img src="<?= h($signatureHref) ?>" alt="Applicant signature" class="img-fluid border rounded bg-white" style="max-height:120px;">
+                </div>
+                <?php endif; ?>
                 <?php endif; ?>
 
                 <?php if ($application['matched_member_id']): ?>
@@ -483,11 +537,11 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="alert alert-warning small">Multiple members match this name. Choose the correct member below before approving.</div>
                 <?php endif; ?>
 
-                <?php if ($diff !== []): ?>
+                <?php if ($diff !== [] && !application_is_reviewable_status($application['status'] ?? null)): ?>
                 <h2 class="h6">Changes vs matched member</h2>
                 <div class="table-responsive mb-3">
                     <table class="table table-sm table-bordered small mb-0">
-                        <thead><tr><th>Field</th><th>Current</th><th>From form</th></tr></thead>
+                        <thead><tr><th>Field</th><th>Current</th><th>From application</th></tr></thead>
                         <tbody>
                         <?php foreach ($diff as $d): ?>
                         <tr>
@@ -501,10 +555,47 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <?php endif; ?>
 
-                <?php if ($application['status'] === 'pending' && (canEditMembers() || canProcessMemberships())): ?>
+                <?php if (application_is_reviewable_status($application['status'] ?? null) && (canEditMembers() || canProcessMemberships())): ?>
                 <form method="post" class="border-top pt-3">
                     <?= csrf_field() ?>
                     <input type="hidden" name="application_id" value="<?= (int) $application['id'] ?>">
+
+                    <?php if ($diff !== []): ?>
+                    <h2 class="h6">Changes vs matched member</h2>
+                    <p class="small text-muted mb-2">Choose which value to keep on the member record when you approve.</p>
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm table-bordered small mb-0 align-middle">
+                            <thead>
+                                <tr>
+                                    <th style="width:18%">Field</th>
+                                    <th style="width:41%">Keep current member value</th>
+                                    <th style="width:41%">Use application value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            <?php foreach ($diff as $d): ?>
+                            <tr>
+                                <td class="fw-semibold"><?= h($d['field']) ?></td>
+                                <td>
+                                    <label class="d-flex gap-2 mb-0">
+                                        <input class="form-check-input mt-1 flex-shrink-0" type="radio"
+                                               name="field_choice[<?= h($d['key']) ?>]" value="current">
+                                        <span><?= h($d['current']) ?></span>
+                                    </label>
+                                </td>
+                                <td class="table-warning">
+                                    <label class="d-flex gap-2 mb-0">
+                                        <input class="form-check-input mt-1 flex-shrink-0" type="radio"
+                                               name="field_choice[<?= h($d['key']) ?>]" value="incoming" checked>
+                                        <span><?= h($d['incoming']) ?></span>
+                                    </label>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <?php endif; ?>
 
                     <?php if ($candidates !== []): ?>
                     <div class="mb-3">
@@ -540,7 +631,9 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
 
                     <div class="d-flex flex-wrap gap-2">
+                        <?php if (application_can_approve($application['status'] ?? null)): ?>
                         <button type="submit" name="action" value="approve" class="btn btn-primary">Approve &amp; continue to recording</button>
+                        <?php endif; ?>
                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#rejectPanel">Reject</button>
                     </div>
 
@@ -552,8 +645,6 @@ require_once __DIR__ . '/includes/header.php';
                 </form>
                 <?php elseif ($application['status'] === 'approved' && !empty($application['approved_member_id'])): ?>
                 <a href="member_view.php?id=<?= (int) $application['approved_member_id'] ?>" class="btn btn-outline-primary btn-sm">View member #<?= (int) $application['approved_member_id'] ?></a>
-                <?php elseif ($application['status'] === 'rejected' && !empty($application['rejection_reason'])): ?>
-                <p class="small text-muted mb-0">Rejected: <?= h((string) $application['rejection_reason']) ?></p>
                 <?php endif; ?>
             </div>
         </div>

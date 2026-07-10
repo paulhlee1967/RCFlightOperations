@@ -196,6 +196,27 @@ final class WpformsApplicationTest extends TestCase
         $this->assertTrue($payment['coupon_applied']);
     }
 
+    public function test_payment_breakdown_for_native_coupon_notes(): void
+    {
+        $application = [
+            'payment_total' => 0.0,
+            'payment_initiation' => 50.0,
+            'payment_processing_fee' => 0.0,
+            'payment_status' => 'waived',
+            'membership_type_slot' => 1,
+            'application_kind' => 'new',
+            'form_season' => 'prorated_new',
+            'notes' => "Coupon code: PAULTEST",
+            'raw_payload' => json_encode([
+                'source' => 'native_apply',
+            ]),
+        ];
+        $payment = application_payment_breakdown($application);
+        $this->assertSame('PAULTEST', $payment['special_code']);
+        $this->assertTrue($payment['coupon_applied']);
+        $this->assertSame(0.0, $payment['total_paid']);
+    }
+
     public function test_payment_breakdown_without_pdo_skips_numeric_dues_lookup(): void
     {
         $application = [
@@ -291,7 +312,8 @@ final class WpformsApplicationTest extends TestCase
             'search' => '',
         ]);
         $this->assertStringContainsString('suggested_renewal_year', $clause['where']);
-        $this->assertSame(['pending', 2026], $clause['params']);
+        $this->assertStringContainsString("status IN ('pending', 'pending_payment')", $clause['where']);
+        $this->assertSame([2026], $clause['params']);
     }
 
     public function test_list_per_page_is_fifty(): void
@@ -459,5 +481,54 @@ final class WpformsApplicationTest extends TestCase
     {
         $this->assertSame('Renewal claimed — no member match', application_renewal_verification_label('no_match'));
         $this->assertSame('', application_renewal_verification_label('verified'));
+    }
+
+    public function test_parse_field_choices_accepts_known_fields_only(): void
+    {
+        $parsed = application_parse_field_choices([
+            'email' => 'current',
+            'ama_number' => 'incoming',
+            'not_a_field' => 'current',
+            'phone' => 'invalid',
+        ]);
+        $this->assertSame([
+            'email' => 'current',
+            'ama_number' => 'incoming',
+        ], $parsed);
+    }
+
+    public function test_member_diff_format_value_formats_dates(): void
+    {
+        $this->assertSame('Mar 15, 1980', application_member_diff_format_value('birthday', '1980-03-15'));
+        $this->assertSame('—', application_member_diff_format_value('email', ''));
+    }
+
+    public function test_can_approve_only_when_payment_complete(): void
+    {
+        $this->assertTrue(application_can_approve('pending'));
+        $this->assertFalse(application_can_approve('pending_payment'));
+        $this->assertFalse(application_can_approve('approved'));
+    }
+
+    public function test_online_payment_context_detects_stripe_and_coupon(): void
+    {
+        $paid = application_online_payment_context([
+            'payment_status' => 'succeeded',
+            'payment_total' => 130.0,
+            'payment_gateway' => 'Stripe',
+            'payment_transaction_id' => 'pi_test',
+            'raw_payload' => json_encode([]),
+        ]);
+        $this->assertTrue($paid['paid_online']);
+        $this->assertTrue($paid['suggest_complementary']);
+
+        $waived = application_online_payment_context([
+            'payment_status' => 'waived',
+            'payment_total' => 0.0,
+            'notes' => 'Coupon code: PAULTEST',
+            'raw_payload' => json_encode([]),
+        ]);
+        $this->assertTrue($waived['waived']);
+        $this->assertTrue($waived['suggest_complementary']);
     }
 }

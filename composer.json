@@ -5,7 +5,8 @@
     "require": {
         "php": ">=8.2",
         "dompdf/dompdf": "^3.0",
-        "phpmailer/phpmailer": "^7.0"
+        "phpmailer/phpmailer": "^7.0",
+        "stripe/stripe-php": "^16.0"
     },
     "config": {
         "optimize-autoloader": true
