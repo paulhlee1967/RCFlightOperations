@@ -70,7 +70,13 @@ if (!$member) {
 }
 
 $isNew = !$memberId;
-$pageTitle = $isNew ? 'New member' : (htmlspecialchars($member['last_name'] . ', ' . $member['first_name']));
+$memberDisplayName = $isNew ? 'New member' : trim(($member['last_name'] ?? '') . ', ' . ($member['first_name'] ?? ''));
+$pageTitle = $isNew ? 'New member' : htmlspecialchars($member['last_name'] . ', ' . $member['first_name']);
+
+$breadcrumbs = [['label' => 'Members', 'url' => 'members.php']];
+if ($memberId) {
+    $breadcrumbs[] = ['label' => $memberDisplayName, 'url' => ''];
+}
 
 $prevMemberId = null;
 $nextMemberId = null;
@@ -88,8 +94,7 @@ if ($memberId) {
 require_once __DIR__ . '/includes/header.php';
 ?>
 <?php if ($memberId): ?>
-<nav class="d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-3 mb-md-4 pb-2 border-bottom">
-    <a href="members.php" class="btn btn-outline-secondary btn-sm">← Back to Members</a>
+<nav class="d-flex flex-wrap align-items-center gap-2 gap-md-3 mb-3">
     <?php if ($prevMemberId): ?><a href="member_edit.php?id=<?= $prevMemberId ?>" class="btn btn-outline-secondary btn-sm">← Previous</a><?php endif; ?>
     <?php if ($nextMemberId): ?><a href="member_edit.php?id=<?= $nextMemberId ?>" class="btn btn-outline-secondary btn-sm">Next →</a><?php endif; ?>
 </nav>
@@ -103,7 +108,7 @@ require_once __DIR__ . '/includes/header.php';
 
     <?php /* Primary CTA: launches the dedicated workflow page */ ?>
     <a href="member_process.php?id=<?= $memberId ?>"
-       class="btn btn-primary"
+       class="btn btn-primary btn-sm"
        title="Record dues, renewal year, and fulfillment tasks in one place">
         Process Signup / Renewal →
     </a>
@@ -114,7 +119,7 @@ require_once __DIR__ . '/includes/header.php';
     <?php /* ── Print shortcuts (outside workflow) ────────────────────── */ ?>
     <div class="vr d-none d-sm-block mx-1"></div>
     <a href="badge_print.php?id=<?= $memberId ?>"
-       class="btn btn-outline-secondary btn-sm" title="Print this member's ID card">
+       class="btn btn-outline-primary btn-sm" title="Print this member's ID card">
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor"
              class="me-1" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M2.5 8a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1"/>
@@ -127,7 +132,7 @@ require_once __DIR__ . '/includes/header.php';
         Print ID Card
     </a>
     <a href="member_envelope.php?id=<?= $memberId ?>&from=edit"
-       class="btn btn-outline-secondary btn-sm" title="Print a mailing envelope for this member">
+       class="btn btn-outline-primary btn-sm" title="Print a mailing envelope for this member">
         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor"
              class="me-1" viewBox="0 0 16 16" aria-hidden="true">
             <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0
@@ -360,7 +365,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <div class="p-3 border-top bg-light">
             <button type="submit" form="member-form" class="btn btn-primary">Save member</button>
-            <a href="members.php" class="btn btn-secondary">Cancel</a>
+            <a href="members.php" class="btn btn-outline-secondary">Cancel</a>
         </div>
     </div>
 </div>

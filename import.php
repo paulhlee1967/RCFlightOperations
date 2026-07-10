@@ -484,11 +484,19 @@ if (isset($_GET['download']) && $_GET['download'] === 'failed') {
 }
 
 $pageTitle = 'Import members';
+$breadcrumbs = [
+    ['label' => 'Members', 'url' => 'members.php'],
+    ['label' => 'Import', 'url' => ''],
+];
+require_once __DIR__ . '/includes/page_header.php';
 require_once __DIR__ . '/includes/header.php';
-?>
 
-<h1 class="h2 mb-3">Import members</h1>
-<p class="text-muted">Upload a CSV file, map columns to member fields, then import. First name and last name are required. <a href="import.php?download=sample">Download sample CSV</a>.</p>
+render_page_header([
+    'title' => 'Import members',
+    'subtitle' => 'Upload a CSV file, map columns to member fields, then import.',
+]);
+?>
+<p class="text-muted small mb-3"><a href="import.php?download=sample">Download sample CSV</a></p>
 
 <?php if ($message): ?>
 <div class="alert alert-success">
@@ -606,7 +614,5 @@ require_once __DIR__ . '/includes/header.php';
     <a href="import.php" class="btn btn-outline-secondary">Cancel</a>
 </form>
 <?php endif; ?>
-
-<p class="mt-3"><a href="members.php">← Back to Members</a></p>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

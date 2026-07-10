@@ -8,6 +8,7 @@
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/wpforms_application.php';
+require_once __DIR__ . '/includes/member_completeness.php';
 
 if (empty($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -95,36 +96,15 @@ $stmt = $pdo->prepare("
 $stmt->execute(array_merge(currentMemberWhereParams($currentYear), $birthdayWeek['params']));
 $birthdaysThisWeek = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
-// ── Stat: members with no email ──────────────────────────────────────────────
-$stmt = $pdo->prepare("
-    SELECT COUNT(*) AS cnt
-    FROM members m
-    WHERE {$currentWhere}
-      AND (m.email IS NULL OR TRIM(m.email) = '')
-");
-$stmt->execute(currentMemberWhereParams($currentYear));
-$noEmail = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+// ── Stat: incomplete member records (shared rules with data completeness report) ─
+$incompleteRecords = countIncompleteCurrentMembers($pdo, $currentYear);
 
-// ── Stat: current year members missing AMA number ────────────────────────────
-$stmt = $pdo->prepare("
-    SELECT COUNT(*) AS cnt
-    FROM members m
-    WHERE {$currentWhere}
-      AND (m.ama_number IS NULL OR TRIM(m.ama_number) = '')
-      AND (m.ama_life_member IS NULL OR m.ama_life_member = 0)
-");
-$stmt->execute(currentMemberWhereParams($currentYear));
-$missingAma = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+// ── Stat: recorded renewals awaiting fulfillment (card or mailer) ─────────────
+$fulfillmentPending = countRecordedUnfulfilled($pdo, $renewalYear);
 
 $pendingApplications = 0;
 if (canEditMembers() || canProcessMemberships()) {
     $pendingApplications = application_pending_count($pdo);
-}
-
-// ── Nav card counts ──────────────────────────────────────────────────────────
-$totalMembersAll = 0;
-if (canEditMembers() || canProcessMemberships()) {
-    $totalMembersAll = $currentMembers;
 }
 
 $pageTitle = 'Home';
@@ -206,6 +186,25 @@ require_once __DIR__ . '/includes/header.php';
         <?php if (canViewMembers()): ?></a><?php else: ?></div><?php endif; ?>
     </div>
 
+    <?php if (canEditMembers() || canProcessMemberships()): ?>
+    <!-- Pending applications -->
+    <div class="col-6 col-sm-4 col-xl">
+        <a href="applications.php" class="card stat-card text-decoration-none h-100">
+            <div class="card-body p-3">
+                <div class="stat-icon <?= $pendingApplications > 0 ? 'text-warning' : 'text-success' ?>">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M5 0h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2m0 1a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z"/>
+                        <path d="M8.5 5.5a.5.5 0 0 0-1 0v3.362l-1.429 2.38a.5.5 0 1 0 .858.515l1.5-2.5A.5.5 0 0 0 8.5 9zm-1-3a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"/>
+                    </svg>
+                </div>
+                <div class="stat-value <?= $pendingApplications > 0 ? 'text-warning' : 'text-success' ?>"><?= $pendingApplications ?></div>
+                <div class="stat-label">Pending applications</div>
+                <div class="stat-sub text-muted">awaiting review</div>
+            </div>
+        </a>
+    </div>
+    <?php endif; ?>
+
     <!-- AMA/FAA compliance -->
     <div class="col-6 col-sm-4 col-xl">
         <?php if (canViewReports()): ?>
@@ -244,66 +243,71 @@ require_once __DIR__ . '/includes/header.php';
 
 </div><!-- /.row stat cards -->
 
-<!-- ── Needs Attention callout ───────────────────────────────────────────────── -->
+<!-- ── Renewal pipeline (actionable items) ──────────────────────────────────── -->
 <?php
-$attentionItems = [];
+$pipelineItems = [];
 
-if ($notRenewed > 0) {
-    $attentionItems[] = [
-        'icon'  => 'bi-arrow-repeat',
-        'color' => 'warning',
-        'count' => $notRenewed,
-        'label' => 'member' . ($notRenewed !== 1 ? 's' : '') . ' renewed last year but not yet this year',
-    ];
-}
-if ($complianceAlerts > 0) {
-    $attentionItems[] = [
-        'icon'  => 'bi-shield-exclamation',
-        'color' => $expiredCount > 0 ? 'danger' : 'warning',
-        'count' => $complianceAlerts,
-        'label' => 'member' . ($complianceAlerts !== 1 ? 's' : '') . ' with AMA/FAA expiring or expired',
-    ];
-}
-if ($noEmail > 0) {
-    $attentionItems[] = [
-        'icon'  => 'bi-envelope-x',
-        'color' => 'secondary',
-        'count' => $noEmail,
-        'label' => 'current member' . ($noEmail !== 1 ? 's' : '') . ' with no email address on file',
-        'link'  => 'members.php?status=current',
-        'cta'   => 'View members →',
-    ];
-}
-if ($missingAma > 0) {
-    $attentionItems[] = [
-        'icon'  => 'bi-patch-question',
-        'color' => 'secondary',
-        'count' => $missingAma,
-        'label' => $currentYear . ' member' . ($missingAma !== 1 ? 's' : '') . ' with no AMA number on file',
-    ];
-}
-if ($pendingApplications > 0) {
-    $attentionItems[] = [
-        'icon'  => 'bi-inbox',
-        'color' => 'warning',
+if ((canEditMembers() || canProcessMemberships()) && $pendingApplications > 0) {
+    $pipelineItems[] = [
         'count' => $pendingApplications,
         'label' => 'membership application' . ($pendingApplications !== 1 ? 's' : '') . ' awaiting review',
         'link'  => 'applications.php',
         'cta'   => 'Review applications →',
     ];
 }
+if ($notRenewed > 0) {
+    $pipelineItems[] = [
+        'count' => $notRenewed,
+        'label' => 'member' . ($notRenewed !== 1 ? 's' : '') . ' not yet renewed for ' . $renewalYear,
+        'link'  => canViewReports() ? 'reports.php?report=not_yet_renewed&year=' . (int) $renewalYear : null,
+        'cta'   => 'View report →',
+    ];
+}
+if ($unprintedBadges > 0 && canViewMembers()) {
+    $pipelineItems[] = [
+        'count' => $unprintedBadges,
+        'label' => 'current member' . ($unprintedBadges !== 1 ? 's' : '') . ' with badge not printed',
+        'link'  => 'members.php?status=current&badge=unprinted',
+        'cta'   => 'View members →',
+    ];
+}
+if ((canEditMembers() || canProcessMemberships()) && $fulfillmentPending > 0) {
+    $pipelineItems[] = [
+        'count' => $fulfillmentPending,
+        'label' => 'recorded signup/renewal' . ($fulfillmentPending !== 1 ? 's' : '') . ' with fulfillment still open',
+        'link'  => 'members.php?status=current&fulfillment=pending',
+        'cta'   => 'View members →',
+    ];
+}
+if ($complianceAlerts > 0) {
+    $pipelineItems[] = [
+        'count' => $complianceAlerts,
+        'label' => 'member' . ($complianceAlerts !== 1 ? 's' : '') . ' with AMA/FAA expiring or expired',
+        'link'  => canViewReports() ? 'reports.php?report=compliance' : null,
+        'cta'   => 'View report →',
+    ];
+}
+if ($incompleteRecords > 0) {
+    $pipelineItems[] = [
+        'count' => $incompleteRecords,
+        'label' => 'current member' . ($incompleteRecords !== 1 ? 's' : '') . ' with incomplete contact or compliance data',
+        'link'  => canViewReports() ? 'reports.php?report=data_completeness' : (canViewMembers() ? 'members.php?status=current' : null),
+        'cta'   => canViewReports() ? 'View report →' : 'View members →',
+    ];
+}
 ?>
-<?php if (!empty($attentionItems) && (canEditMembers() || canProcessMemberships())): ?>
+<?php if (!empty($pipelineItems) && (canEditMembers() || canProcessMemberships())): ?>
 <div class="card mb-4 card-needs-attention">
     <div class="card-header d-flex align-items-center gap-2 py-2">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="text-primary" viewBox="0 0 16 16">
-            <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
+            <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71z"/>
+            <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0"/>
         </svg>
-        <span class="fw-semibold">Needs attention</span>
-        <span class="badge badge-club ms-1" style="font-size:.72rem;"><?= count($attentionItems) ?></span>
+        <span class="fw-semibold">Renewal pipeline</span>
+        <span class="badge badge-club ms-1" style="font-size:.72rem;"><?= count($pipelineItems) ?></span>
     </div>
     <ul class="list-group list-group-flush">
-        <?php foreach ($attentionItems as $item): ?>
+        <?php foreach ($pipelineItems as $item): ?>
         <li class="list-group-item d-flex align-items-center justify-content-between py-2 px-3">
             <span style="font-size:.875rem;">
                 <strong><?= $item['count'] ?></strong> <?= $item['label'] ?>
@@ -312,124 +316,18 @@ if ($pendingApplications > 0) {
             <a href="<?= h($item['link']) ?>"
                class="btn btn-sm btn-outline-secondary py-0 px-2 ms-3"
                style="font-size:.78rem;white-space:nowrap;">
-                <?= $item['cta'] ?>
+                <?= h($item['cta']) ?>
             </a>
             <?php endif; ?>
         </li>
         <?php endforeach; ?>
     </ul>
 </div>
+<?php elseif (canEditMembers() || canProcessMemberships()): ?>
+<div class="alert alert-success small py-2 mb-4" role="status">
+    Renewal pipeline is clear &mdash; no pending applications, renewals, or fulfillment tasks need attention right now.
+</div>
 <?php endif; ?>
 <?php endif; // canViewReports check ?>
-
-<!-- ── Navigation cards ──────────────────────────────────────────────────────── -->
-<h2 class="h6 text-muted text-uppercase fw-semibold mb-3"
-    style="letter-spacing:.06em;font-size:.75rem;">Quick access</h2>
-<div class="row g-3">
-
-    <?php if (canEditMembers() || canProcessMemberships()): ?>
-    <div class="col-sm-6 col-lg-4">
-        <a href="members.php" class="card nav-card text-decoration-none text-body h-100">
-            <div class="card-body d-flex align-items-start gap-3">
-                <div class="nav-card-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6m-5.784 6A2.24 2.24 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.3 6.3 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1zM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5"/>
-                    </svg>
-                </div>
-                <div>
-                    <h2 class="h6 card-title mb-1">Members</h2>
-                    <p class="card-text text-muted small mb-0"><?= $totalMembersAll ?> current member<?= $totalMembersAll !== 1 ? 's' : '' ?></p>
-                </div>
-            </div>
-        </a>
-    </div>
-    <?php endif; ?>
-
-    <?php if (canEditMembers()): ?>
-    <div class="col-sm-6 col-lg-4">
-        <a href="badge_design.php" class="card nav-card text-decoration-none text-body h-100">
-            <div class="card-body d-flex align-items-start gap-3">
-                <div class="nav-card-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M2 2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2zm6 2.5a2 2 0 1 1 0 4 2 2 0 0 1 0-4M4 11c0-1 .895-1.5 2-1.5h4c1.105 0 2 .5 2 1.5v.5H4z"/>
-                    </svg>
-                </div>
-                <div>
-                    <h2 class="h6 card-title mb-1">Badge design</h2>
-                    <p class="card-text text-muted small mb-0">Design the CR80 member ID card layout</p>
-                </div>
-            </div>
-        </a>
-    </div>
-    <?php endif; ?>
-
-    <?php if (canViewReports() && !canEditMembers() && !canProcessMemberships()): ?>
-    <div class="col-sm-6 col-lg-4">
-        <a href="reports.php" class="card nav-card text-decoration-none text-body h-100">
-            <div class="card-body d-flex align-items-start gap-3">
-                <div class="nav-card-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5zm-3 0A1.5 1.5 0 0 1 11.5 3h-7A1.5 1.5 0 0 0 3 4.5v9A1.5 1.5 0 0 0 4.5 15h7a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 11.5 4.5z"/>
-                    </svg>
-                </div>
-                <div>
-                    <h2 class="h6 card-title mb-1">Reports</h2>
-                    <p class="card-text text-muted small mb-0">Membership, revenue, and compliance reports</p>
-                </div>
-            </div>
-        </a>
-    </div>
-    <div class="col-sm-6 col-lg-4">
-        <a href="incidents.php" class="card nav-card text-decoration-none text-body h-100">
-            <div class="card-body d-flex align-items-start gap-3">
-                <div class="nav-card-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
-                    </svg>
-                </div>
-                <div>
-                    <h2 class="h6 card-title mb-1">Incidents</h2>
-                    <p class="card-text text-muted small mb-0">Safety and field incident log (read-only)</p>
-                </div>
-            </div>
-        </a>
-    </div>
-    <?php endif; ?>
-
-    <?php if (canManageUsers()): ?>
-    <div class="col-sm-6 col-lg-4">
-        <a href="users.php" class="card nav-card text-decoration-none text-body h-100">
-            <div class="card-body d-flex align-items-start gap-3">
-                <div class="nav-card-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/>
-                    </svg>
-                </div>
-                <div>
-                    <h2 class="h6 card-title mb-1">Users</h2>
-                    <p class="card-text text-muted small mb-0">Manage system users &amp; roles</p>
-                </div>
-            </div>
-        </a>
-    </div>
-
-    <div class="col-sm-6 col-lg-4">
-        <a href="config_site.php" class="card nav-card text-decoration-none text-body h-100">
-            <div class="card-body d-flex align-items-start gap-3">
-                <div class="nav-card-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M9.405 1.05c-.413-1.4-2.397-1.4-2.81 0l-.1.34a1.464 1.464 0 0 1-2.105.872l-.31-.17c-1.283-.698-2.686.705-1.987 1.987l.169.311c.446.82.023 1.841-.872 2.105l-.34.1c-1.4.413-1.4 2.397 0 2.81l.34.1a1.464 1.464 0 0 1 .872 2.105l-.17.31c-.698 1.283.705 2.686 1.987 1.987l.311-.169a1.464 1.464 0 0 1 2.105.872l.1.34c.413 1.4 2.397 1.4 2.81 0l.1-.34a1.464 1.464 0 0 1 2.105-.872l.31.17c1.283.698 2.686-.705 1.987-1.987l-.169-.311a1.464 1.464 0 0 1 .872-2.105l.34-.1c1.4-.413 1.4-2.397 0-2.81l-.34-.1a1.464 1.464 0 0 1-.872-2.105l.17-.31c.698-1.283-.705-2.686-1.987-1.987l-.311.169a1.464 1.464 0 0 1-2.105-.872zM8 10.93a2.929 2.929 0 1 1 0-5.86 2.929 2.929 0 0 1 0 5.858z"/>
-                    </svg>
-                </div>
-                <div>
-                    <h2 class="h6 card-title mb-1">Configuration</h2>
-                    <p class="card-text text-muted small mb-0">Club name, logo, colors, dues</p>
-                </div>
-            </div>
-        </a>
-    </div>
-    <?php endif; ?>
-
-</div><!-- /.row nav cards -->
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

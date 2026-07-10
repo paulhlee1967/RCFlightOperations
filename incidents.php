@@ -177,24 +177,30 @@ function incidentsUrl(array $overrides = []): string {
 
 $pageTitle   = 'Incident Log';
 $breadcrumbs = [['label' => 'Incident Log', 'url' => '']];
-require_once __DIR__ . '/includes/header.php';
-?>
+require_once __DIR__ . '/includes/page_header.php';
 
-<!-- ── Page header ──────────────────────────────────────────────────────────── -->
-<div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4 pb-2 border-bottom">
-    <div>
-        <h1 class="h2 mb-1">Incident Log</h1>
-        <p class="text-muted mb-0">Safety incidents and field events. AMA-reportable events are flagged.</p>
-    </div>
-    <?php if (canEditMembers()): ?>
-    <a href="incident_edit.php" class="btn btn-primary">
+ob_start();
+if (canEditMembers()) {
+    ?>
+    <a href="incident_edit.php" class="btn btn-primary btn-sm">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="me-1" viewBox="0 0 16 16">
             <path d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/>
         </svg>
         Log incident
     </a>
-    <?php endif; ?>
-</div>
+    <?php
+}
+$incidentsHeaderActions = ob_get_clean();
+
+require_once __DIR__ . '/includes/header.php';
+
+render_page_header([
+    'title'    => 'Incident Log',
+    'subtitle' => 'Safety incidents and field events. AMA-reportable events are flagged.',
+    'border'   => true,
+    'actions'  => $incidentsHeaderActions,
+]);
+?>
 
 <!-- ── Filter bar ────────────────────────────────────────────────────────────── -->
 <div class="card shadow-sm mb-4">
@@ -250,7 +256,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <div class="col-auto">
-                <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button>
                 <?php if ($filterType || $filterSeverity || $filterStatus || $filterYear || $searchQ): ?>
                 <a href="incidents.php" class="btn btn-outline-secondary btn-sm">Clear</a>
                 <?php endif; ?>

@@ -17,7 +17,45 @@ function membersUrl(array $params, ?int $pg = null): string
         $p['page'] = $pg;
     }
 
+    if (isset($p['flag'])) {
+        $flags = is_array($p['flag']) ? array_values($p['flag']) : [(string) $p['flag']];
+        $flags = array_values(array_filter(array_map('strval', $flags), static fn (string $f) => $f !== ''));
+        if ($flags === []) {
+            unset($p['flag']);
+        } else {
+            $p['flag'] = $flags;
+        }
+    }
+
     return 'members.php' . (count($p) > 0 ? '?' . http_build_query($p) : '');
+}
+
+/**
+ * Build query params with a flag toggled on or off.
+ *
+ * @param  list<string>  $activeFlags
+ * @return array<string, mixed>
+ */
+function members_list_toggle_flag_params(array $queryParams, array $activeFlags, string $flag): array
+{
+    $params = $queryParams;
+    unset($params['page']);
+
+    $flags = $activeFlags;
+    if (in_array($flag, $flags, true)) {
+        $flags = array_values(array_filter($flags, static fn (string $f) => $f !== $flag));
+    } else {
+        $flags[] = $flag;
+    }
+    sort($flags);
+
+    if ($flags === []) {
+        unset($params['flag']);
+    } else {
+        $params['flag'] = $flags;
+    }
+
+    return $params;
 }
 
 /** Return CSS initials-avatar background color deterministically from a name. */

@@ -406,24 +406,19 @@ $wizardNavStep = ($fulfillment['processed_at'] || $justRecorded) ? 'fulfill' : '
 $defaultRenewalType = $wizardRenewalType !== '' ? $wizardRenewalType : 'new';
 
 $pageTitle = $fromWizard ? 'New member: ' . $memberName : 'Process: ' . $memberName;
+$breadcrumbs = [['label' => 'Members', 'url' => 'members.php']];
+if ($fromWizard) {
+    $breadcrumbs[] = ['label' => 'New member wizard', 'url' => 'member_wizard.php?id=' . $memberId];
+    $breadcrumbs[] = ['label' => 'Record signup', 'url' => ''];
+} else {
+    $breadcrumbs[] = ['label' => $memberName, 'url' => 'member_edit.php?id=' . $memberId];
+    $breadcrumbs[] = ['label' => 'Process Signup / Renewal', 'url' => ''];
+}
 require_once __DIR__ . '/includes/header.php';
 if ($fromWizard) {
     require_once __DIR__ . '/includes/member_wizard_styles.php';
 }
 ?>
-
-<?php /* ── Breadcrumb ──────────────────────────────────────────────── */ ?>
-<nav aria-label="breadcrumb" class="mb-3">
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="members.php">Members</a></li>
-        <?php if ($fromWizard): ?>
-        <li class="breadcrumb-item"><a href="member_wizard.php?id=<?= $memberId ?>">New member wizard</a></li>
-        <?php else: ?>
-        <li class="breadcrumb-item"><a href="member_edit.php?id=<?= $memberId ?>"><?= h($memberName) ?></a></li>
-        <?php endif; ?>
-        <li class="breadcrumb-item active"><?= $fromWizard ? 'Record signup' : 'Process Signup / Renewal' ?></li>
-    </ol>
-</nav>
 
 <?php if ($fromWizard): ?>
 <?php render_member_wizard_nav($wizardNavStep); ?>
@@ -904,11 +899,6 @@ if ($fromWizard) {
         <?php endif; /* processed_at check */ ?>
 
     </div><!-- /.card-body -->
-</div>
-
-<div class="mb-5">
-    <a href="<?= h($memberEditUrl) ?>" class="btn btn-outline-secondary">← <?= $fromWizard ? 'Back to wizard' : 'Back to member record' ?></a>
-    <a href="members.php" class="btn btn-outline-secondary ms-2">← Members list</a>
 </div>
 
 <script<?= csp_nonce_attr() ?>>

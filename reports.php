@@ -110,8 +110,8 @@ if (($_GET['export'] ?? '') === 'csv') {
 }
 
 $pageTitle   = 'Reports';
-$breadcrumbs = [['label' => 'Reports', 'url' => 'reports.php']];
-require_once __DIR__ . '/includes/header.php';
+$breadcrumbs = [['label' => 'Reports', 'url' => '']];
+require_once __DIR__ . '/includes/page_header.php';
 
 /** Map a column alignment keyword to a Bootstrap text utility. */
 $alignClass = static fn(string $a): string => $a === 'end' ? 'text-end' : 'text-start';
@@ -120,30 +120,28 @@ $canEmailReport  = !empty($report['rows']);
 $canEmailMembers = $canEmailReport
     && reportSupportsCohortEmail($slug)
     && (canEditMembers() || canProcessMemberships());
-?>
 
-<div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
-    <h1 class="h2 mb-0">Reports</h1>
-    <div class="d-flex align-items-center gap-2 flex-wrap">
+$yearQs = $needsYear ? '&amp;year=' . (int) $year : '';
+ob_start();
+?>
         <?php if ($needsYear): ?>
         <form method="get" action="reports.php" class="d-flex align-items-center gap-1">
             <input type="hidden" name="report" value="<?= h($slug) ?>">
             <label for="reportYear" class="form-label mb-0 small text-muted">Year</label>
-            <select id="reportYear" name="year" class="form-select form-select-sm w-auto">
+            <select id="reportYear" name="year" class="form-select form-select-sm w-auto js-submit-on-change">
                 <?php for ($y = $maxYear; $y >= $minYear; $y--): ?>
                 <option value="<?= $y ?>"<?= $y === $year ? ' selected' : '' ?>><?= $y ?></option>
                 <?php endfor; ?>
             </select>
         </form>
         <?php endif; ?>
-        <?php $yearQs = $needsYear ? '&amp;year=' . (int) $year : ''; ?>
         <a class="btn btn-outline-primary btn-sm"
            href="reports.php?report=<?= h($slug) ?><?= $yearQs ?>&amp;export=csv">
-            Download CSV
+            Export CSV
         </a>
         <a class="btn btn-outline-primary btn-sm"
            href="reports.php?report=<?= h($slug) ?><?= $yearQs ?>&amp;export=pdf">
-            Download PDF
+            Export PDF
         </a>
         <?php if ($canEmailReport): ?>
         <button type="button" class="btn btn-outline-primary btn-sm"
@@ -157,8 +155,16 @@ $canEmailMembers = $canEmailReport
             Email members
         </button>
         <?php endif; ?>
-    </div>
-</div>
+<?php
+$reportsHeaderActions = ob_get_clean();
+
+require_once __DIR__ . '/includes/header.php';
+
+render_page_header([
+    'title'   => 'Reports',
+    'actions' => $reportsHeaderActions,
+]);
+?>
 
 <div class="row g-3">
     <!-- Report picker -->
@@ -359,14 +365,6 @@ Thank you!</textarea>
         </div>
     </div>
 </div>
-<?php endif; ?>
-
-<?php if ($needsYear): ?>
-<script<?= csp_nonce_attr() ?>>
-    document.getElementById('reportYear')?.addEventListener('change', function () {
-        this.form.submit();
-    });
-</script>
 <?php endif; ?>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

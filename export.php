@@ -23,7 +23,7 @@ csrf_validate();
 // $format controls column selection and branching below — never interpolate from raw POST;
 // keep the allowlist above in sync when adding formats.
 $format = isset($_POST['format']) && in_array($_POST['format'], ['full', 'short', 'email'], true) ? $_POST['format'] : 'full';
-$currentYear = (int) date('Y');
+$currentYear = membershipStatusYear();
 
 // Validate filter explicitly (defense-in-depth).
 $allowedFilters = ['all', 'current', 'year', 'not_renewed'];

@@ -41,6 +41,31 @@ function members_list_order_by_map(): array
 }
 
 /**
+ * Parse stackable flag filters from a request.
+ *
+ * @return list<string>
+ */
+function members_list_parse_flag_filters(array $get): array
+{
+    $raw = $get['flag'] ?? [];
+    if (!is_array($raw)) {
+        $raw = trim((string) $raw) === '' ? [] : [trim((string) $raw)];
+    }
+
+    $allowed = array_fill_keys(membersListFlagFilterKeys(), true);
+    $flags   = [];
+    foreach ($raw as $flag) {
+        $flag = trim((string) $flag);
+        if ($flag !== '' && isset($allowed[$flag]) && !in_array($flag, $flags, true)) {
+            $flags[] = $flag;
+        }
+    }
+    sort($flags);
+
+    return $flags;
+}
+
+/**
  * @return array{
  *   searchQ:string,
  *   perPage:int,
@@ -48,6 +73,7 @@ function members_list_order_by_map(): array
  *   memberTypeFilter:string,
  *   memberTypeSlotFilter:?int,
  *   statusFilter:string,
+ *   flagFilters:array<int, string>,
  *   badgeFilter:string,
  *   sort:string
  * }
@@ -77,7 +103,24 @@ function members_list_parse_request(array $get): array
     if ($statusFilter === 'active') {
         $statusFilter = 'current';
     }
-    if (!in_array($statusFilter, ['all', 'current', 'inactive'], true)) {
+
+    $flagFilters = members_list_parse_flag_filters($get);
+
+    // Legacy URLs: status=suspended|free|life → all + flag; status=inactive → all
+    $legacyFlagMap = [
+        'suspended' => 'suspended',
+        'free'      => 'free',
+        'life'      => 'life',
+    ];
+    if (isset($legacyFlagMap[$statusFilter])) {
+        if (!in_array($legacyFlagMap[$statusFilter], $flagFilters, true)) {
+            $flagFilters[] = $legacyFlagMap[$statusFilter];
+        }
+        sort($flagFilters);
+        $statusFilter = 'all';
+    } elseif ($statusFilter === 'inactive') {
+        $statusFilter = 'all';
+    } elseif (!in_array($statusFilter, membersListStatusFilterKeys(), true)) {
         $statusFilter = 'current';
     }
 
@@ -92,6 +135,11 @@ function members_list_parse_request(array $get): array
         $badgeFilter = '';
     }
 
+    $fulfillmentFilter = (string) ($get['fulfillment'] ?? '');
+    if ($fulfillmentFilter !== 'pending') {
+        $fulfillmentFilter = '';
+    }
+
     return [
         'searchQ'              => $searchQ,
         'perPage'              => $perPage,
@@ -99,7 +147,9 @@ function members_list_parse_request(array $get): array
         'memberTypeFilter'     => $memberTypeFilter,
         'memberTypeSlotFilter' => $memberTypeSlotFilter,
         'statusFilter'         => $statusFilter,
+        'flagFilters'          => $flagFilters,
         'badgeFilter'          => $badgeFilter,
+        'fulfillmentFilter'    => $fulfillmentFilter,
         'sort'                 => $sort,
     ];
 }
@@ -110,7 +160,8 @@ function members_list_parse_request(array $get): array
  * @return array{
  *   members: array<int, array>,
  *   totalCount: int,
- *   chipCounts: array{current:int,inactive:int},
+ *   chipCounts: array{all:int,current:int},
+ *   flagChipCounts: array<string, int>,
  *   typeCounts: array<int, int>,
  *   typeCountsByStatus: array,
  *   totalPages: int,
@@ -126,7 +177,9 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
     $page                 = $filters['page'];
     $memberTypeSlotFilter = $filters['memberTypeSlotFilter'];
     $statusFilter         = $filters['statusFilter'];
+    $flagFilters          = $filters['flagFilters'];
     $badgeFilter          = $filters['badgeFilter'];
+    $fulfillmentFilter    = $filters['fulfillmentFilter'];
     $sort                 = $filters['sort'];
 
     $orderByMap    = members_list_order_by_map();
@@ -150,19 +203,21 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
             $countSql .= ' AND membership_type_slot = ?';
             $params[]  = $memberTypeSlotFilter;
         }
-        if ($statusFilter === 'current') {
-            $baseSql  .= ' AND ' . currentMemberWhereSql('', $currentYear);
-            $countSql .= ' AND ' . currentMemberWhereSql('', $currentYear);
-            $params    = array_merge($params, currentMemberWhereParams($currentYear));
-        } elseif ($statusFilter === 'inactive') {
-            $baseSql  .= ' AND NOT ' . currentMemberWhereSql('', $currentYear);
-            $countSql .= ' AND NOT ' . currentMemberWhereSql('', $currentYear);
-            $params    = array_merge($params, currentMemberWhereParams($currentYear));
+        if ($statusFilter !== 'all' || $flagFilters !== []) {
+            $filterWhere = membersListCombinedFilterWhereSql($statusFilter, $flagFilters, $currentYear, '');
+            $baseSql  .= ' AND ' . $filterWhere['sql'];
+            $countSql .= ' AND ' . $filterWhere['sql'];
+            $params    = array_merge($params, $filterWhere['params']);
         }
         if ($badgeFilter === 'unprinted') {
             $baseSql  .= ' AND ' . badgeUnprintedWhereSql('');
             $countSql .= ' AND ' . badgeUnprintedWhereSql('');
             $params    = array_merge($params, badgeUnprintedWhereParams($currentYear));
+        }
+        if ($fulfillmentFilter === 'pending') {
+            $baseSql  .= ' AND ' . fulfillmentPendingWhereSql('');
+            $countSql .= ' AND ' . fulfillmentPendingWhereSql('');
+            $params    = array_merge($params, fulfillmentPendingWhereParams($currentYear));
         }
         $baseSql .= " $orderBy";
     } else {
@@ -197,16 +252,18 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
             $baseSql  .= ' AND m.membership_type_slot = ?';
             $countSql .= ' AND m.membership_type_slot = ?';
         }
-        if ($statusFilter === 'current') {
-            $baseSql  .= ' AND ' . currentMemberWhereSql('m', $currentYear);
-            $countSql .= ' AND ' . currentMemberWhereSql('m', $currentYear);
-        } elseif ($statusFilter === 'inactive') {
-            $baseSql  .= ' AND NOT ' . currentMemberWhereSql('m', $currentYear);
-            $countSql .= ' AND NOT ' . currentMemberWhereSql('m', $currentYear);
+        if ($statusFilter !== 'all' || $flagFilters !== []) {
+            $filterWhere = membersListCombinedFilterWhereSql($statusFilter, $flagFilters, $currentYear, 'm');
+            $baseSql  .= ' AND ' . $filterWhere['sql'];
+            $countSql .= ' AND ' . $filterWhere['sql'];
         }
         if ($badgeFilter === 'unprinted') {
             $baseSql  .= ' AND ' . badgeUnprintedWhereSql('m');
             $countSql .= ' AND ' . badgeUnprintedWhereSql('m');
+        }
+        if ($fulfillmentFilter === 'pending') {
+            $baseSql  .= ' AND ' . fulfillmentPendingWhereSql('m');
+            $countSql .= ' AND ' . fulfillmentPendingWhereSql('m');
         }
         $baseSql .= " $orderBySearch";
 
@@ -220,11 +277,15 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
         if ($memberTypeSlotFilter !== null) {
             $params[] = $memberTypeSlotFilter;
         }
-        if ($statusFilter === 'current' || $statusFilter === 'inactive') {
-            $params = array_merge($params, currentMemberWhereParams($currentYear));
+        if ($statusFilter !== 'all' || $flagFilters !== []) {
+            $filterWhere = membersListCombinedFilterWhereSql($statusFilter, $flagFilters, $currentYear, 'm');
+            $params = array_merge($params, $filterWhere['params']);
         }
         if ($badgeFilter === 'unprinted') {
             $params = array_merge($params, badgeUnprintedWhereParams($currentYear));
+        }
+        if ($fulfillmentFilter === 'pending') {
+            $params = array_merge($params, fulfillmentPendingWhereParams($currentYear));
         }
     }
 
@@ -232,9 +293,12 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
     $stmt->execute($params);
     $totalCount = (int) $stmt->fetchColumn();
 
-    $statusCounts       = membershipStatusCounts($pdo, $currentYear);
-    $typeCountsByStatus = membershipTypeSlotCountsByStatus($pdo, $currentYear);
-    $typeCounts         = $typeCountsByStatus[$statusFilter] ?? [];
+    $typeCountsByStatus = $flagFilters === []
+        ? membershipTypeSlotCountsByStatus($pdo, $currentYear)
+        : [];
+    $typeCounts         = membershipTypeSlotCounts($pdo, $statusFilter, $flagFilters, $currentYear);
+    $chipCounts         = membersListStatusChipCounts($pdo, $currentYear);
+    $flagChipCounts     = membersListFlagChipCounts($pdo, $statusFilter, $flagFilters, $currentYear);
 
     if ($perPage > 0) {
         $offset   = ($page - 1) * $perPage;
@@ -254,17 +318,17 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
         'per'         => $perPage !== 25 ? $perPage : null,
         'member_type' => $filters['memberTypeFilter'] !== '' ? $filters['memberTypeFilter'] : null,
         'status'      => $statusFilter,
+        'flag'        => $flagFilters !== [] ? $flagFilters : null,
         'badge'       => $badgeFilter !== '' ? $badgeFilter : null,
+        'fulfillment' => $fulfillmentFilter !== '' ? $fulfillmentFilter : null,
         'sort'        => $sort !== 'name' ? $sort : null,
-    ], static fn ($v) => $v !== null);
+    ], static fn ($v) => $v !== null && $v !== []);
 
     return [
         'members'            => $members,
         'totalCount'         => $totalCount,
-        'chipCounts'         => [
-            'current'  => $statusCounts['current'],
-            'inactive' => $statusCounts['inactive'],
-        ],
+        'chipCounts'         => $chipCounts,
+        'flagChipCounts'     => $flagChipCounts,
         'typeCounts'         => $typeCounts,
         'typeCountsByStatus' => $typeCountsByStatus,
         'totalPages'         => $totalPages,

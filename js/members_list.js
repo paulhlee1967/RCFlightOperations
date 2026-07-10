@@ -4,6 +4,8 @@
 (function () {
     'use strict';
 
+    const listCfg = window.FLIGHTOPS_MEMBERS_LIST || {};
+
     // ── Bulk select ───────────────────────────────────────────────────────
     const form      = document.getElementById('bulk-form');
     const selectAll = document.getElementById('select-all');
@@ -15,7 +17,6 @@
             const checked = form.querySelectorAll('.row-checkbox:checked').length;
             if (checked <= 0) return;
 
-            // Explicit confirmation for the sensitive destructive action.
             const msg = checked === 1
                 ? 'Are you sure you want to delete 1 member?'
                 : 'Are you sure you want to delete ' + checked + ' members?';
@@ -50,10 +51,11 @@
     }
     updateBulkCount();
 
-    // ── Type chip counts follow URL status (fixes stale counts on back/forward cache) ──
+    // ── Type chip counts follow URL status ──
     function membersPageStatus() {
         const s = new URLSearchParams(window.location.search).get('status');
-        if (s === 'all' || s === 'current' || s === 'inactive') return s;
+        if (s === 'active') return 'current';
+        if (s === 'all' || s === 'current') return s;
         return 'current';
     }
 
@@ -74,73 +76,47 @@
     window.addEventListener('pageshow', refreshTypeChipCounts);
 
     // ── Quick-view offcanvas ──────────────────────────────────────────────
-    // Requires member_detail.php?id=N&format=json endpoint.
-    // Falls back gracefully if that endpoint doesn't exist yet.
     const quickViewBody = document.getElementById('quickViewBody');
+    if (!quickViewBody) return;
 
-    document.querySelectorAll('.quick-view-btn').forEach(btn => {
+    document.querySelectorAll('.quick-view-btn').forEach(function (btn) {
         btn.addEventListener('click', function () {
-            const memberId = this.dataset.memberId;
-            if (!quickViewBody || !memberId) return;
+            const memberId = btn.getAttribute('data-member-id');
+            if (!memberId) return;
 
-            quickViewBody.innerHTML = '<p class="text-muted small">Loading&hellip;</p>';
+            quickViewBody.innerHTML = '<div class="text-center text-muted py-4">Loading…</div>';
 
-            fetch('member_detail.php?id=' + encodeURIComponent(memberId) + '&format=json', {
-                credentials: 'same-origin',
-                headers: { 'Accept': 'application/json' },
-            })
-                .then(async r => {
-                    if (!r.ok) {
-                        const bodyText = await r.text().catch(() => '');
-                        const err = new Error('HTTP ' + r.status);
-                        err.status = r.status;
-                        err.bodyText = bodyText;
-                        throw err;
-                    }
+            fetch('member_detail.php?id=' + encodeURIComponent(memberId) + '&format=json')
+                .then(function (r) {
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
                     return r.json();
                 })
-                .then(data => {
-                    quickViewBody.innerHTML = buildQuickViewHtml(data);
+                .then(function (d) {
+                    quickViewBody.innerHTML = buildQuickViewHtml(d);
                 })
-                .catch(err => {
-                    const status = (err && err.status) ? err.status : 'unknown';
-                    const requiresText =
-                        status === 404
-                            ? '<p class="text-muted small mb-3">Quick-view endpoint missing: <code>member_detail.php</code>.</p>'
-                            : '<p class="text-muted small mb-3">Quick-view failed to load (HTTP ' + status + ').</p>';
-                    quickViewBody.innerHTML =
-                        requiresText +
-                        '<a href="member_edit.php?id=' + encodeURIComponent(memberId) + '" class="btn btn-primary btn-sm">Open full record</a>';
-
-                    // Keep it debuggable without exposing internals to users.
-                    console.error('Quick-view fetch failed', err);
+                .catch(function () {
+                    quickViewBody.innerHTML = '<p class="text-danger small mb-0">Could not load member details.</p>';
                 });
         });
     });
 
-    /**
-     * Render quick-view offcanvas body from the JSON payload returned by
-     * member_detail.php. Expected keys: name, type, renewal_year, ama_number,
-     * faa_number, gate_key, phones (array of {type, number}), email, flags.
-     *
-     * @param {Object} d
-     * @returns {string} HTML string
-     */
     function buildQuickViewHtml(d) {
         const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-        const canEdit = !!(window.FLIGHTOPS_MEMBERS_LIST && window.FLIGHTOPS_MEMBERS_LIST.canEdit);
+        const canEdit = !!listCfg.canEdit;
+        const canProcess = !!listCfg.canProcess;
         const recordUrl = canEdit ? ('member_edit.php?id=' + esc(d.id)) : ('member_view.php?id=' + esc(d.id));
+        const processUrl = 'member_process.php?id=' + esc(d.id);
 
         let html = '<div class="d-flex align-items-center gap-3 mb-3">';
         if (d.photo_url) {
-            html += '<img src="' + esc(d.photo_url) + '" class="member-avatar" style="width:52px;height:52px;" alt="">';
+            html += '<img src="' + esc(d.photo_url) + '" class="member-avatar qv-avatar" alt="">';
         } else {
             const initials = (d.name || '??').split(' ').map(w => w[0]).join('').toUpperCase().slice(0,2);
-            html += '<div class="member-initials member-avatar" style="width:52px;height:52px;font-size:1rem;background:#5b7fa6;">' + esc(initials) + '</div>';
+            html += '<div class="member-initials member-avatar qv-initials">' + esc(initials) + '</div>';
         }
         html += '<div><div class="fw-semibold">' + esc(d.name) + '</div>';
-        if (d.type) html += '<span class="badge bg-secondary" style="font-size:11px;">' + esc(d.type) + '</span> ';
-        if (d.renewal_year) html += '<span class="badge bg-success" style="font-size:11px;">' + esc(d.renewal_year) + '</span>';
+        if (d.type) html += '<span class="badge qv-badge-type">' + esc(d.type) + '</span> ';
+        if (d.renewal_year) html += '<span class="badge qv-badge-year">' + esc(d.renewal_year) + '</span>';
         html += '</div></div>';
 
         const rows = [
@@ -159,7 +135,12 @@
         html += '</dl>';
 
         if (d.id) {
-            html += '<a href="' + recordUrl + '" class="btn btn-outline-primary btn-sm w-100">Open full record →</a>';
+            html += '<div class="d-grid gap-2">';
+            if (canProcess) {
+                html += '<a href="' + processUrl + '" class="btn btn-outline-primary btn-sm">Process →</a>';
+            }
+            html += '<a href="' + recordUrl + '" class="btn btn-outline-secondary btn-sm">Open full record →</a>';
+            html += '</div>';
         }
         return html;
     }

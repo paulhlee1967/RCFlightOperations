@@ -40,6 +40,12 @@ function reportRegistry(): array
             'description' => 'All current members with renewal year, AMA/FAA credentials, and gate key — handy for field verification.',
             'year'        => false,
         ],
+        'complimentary_members' => [
+            'label'       => 'Free & life members',
+            'description' => 'All members with Free membership or Life member status on their record.',
+            'year'        => false,
+            'cohort'      => true,
+        ],
         'compliance' => [
             'label'       => 'AMA/FAA compliance',
             'description' => 'Current members with credentials expired or expiring within 60 days.',
@@ -153,6 +159,30 @@ function reportCohortRecipients(PDO $pdo, string $slug, int $year): array
                 ORDER BY m.last_name, m.first_name";
         $stmt = $pdo->prepare($sql);
         $stmt->execute($filter['params']);
+
+        $out = [];
+        while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $out[] = [
+                'id'         => (int) $r['id'],
+                'first_name' => (string) $r['first_name'],
+                'last_name'  => (string) $r['last_name'],
+                'email'      => (string) $r['email'],
+            ];
+        }
+
+        return $out;
+    }
+
+    if ($slug === 'complimentary_members') {
+        $sql = "SELECT m.id, m.first_name, m.last_name, m.email
+                FROM members m
+                WHERE (m.life_member = 1 OR m.free_membership = 1)
+                  AND m.email IS NOT NULL AND TRIM(m.email) != ''
+                ORDER BY m.last_name, m.first_name";
+        $stmt = $pdo->query($sql);
+        if (!$stmt) {
+            return [];
+        }
 
         $out = [];
         while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -347,6 +377,7 @@ function runReport(PDO $pdo, string $slug, array $params = []): array
         'not_yet_renewed'     => reportNotYetRenewed($pdo, $year),
         'revenue_by_year'     => reportRevenueByYear($pdo),
         'current_members'     => reportCurrentMembers($pdo),
+        'complimentary_members' => reportComplimentaryMembers($pdo),
         'compliance'          => reportCompliance($pdo),
         'birthdays'           => reportBirthdays($pdo),
         'data_completeness'   => reportDataCompleteness($pdo),
@@ -869,6 +900,116 @@ function reportCurrentMembers(PDO $pdo): array
         'rows'   => $rows,
         'totals' => null,
         'note'   => 'Current members for ' . $current . '. ' . $num . ' member' . ($num === 1 ? '' : 's') . '. Expires is the membership renewal year on file.',
+    ];
+}
+
+/**
+ * All members with Free membership and/or Life member flags.
+ *
+ * @return array<string, mixed>
+ */
+function reportComplimentaryMembers(PDO $pdo): array
+{
+    $meta   = reportRegistry()['complimentary_members'];
+    $labels = reportTypeLabels($pdo);
+    $current = membershipStatusYear();
+    $renewedIds = array_fill_keys(renewedMemberIdsForYear($pdo, $current), true);
+
+    $sql = 'SELECT m.id, m.last_name, m.first_name, m.email, m.phone,
+                   m.membership_type_slot, m.membership_renewal_year,
+                   m.life_member, m.free_membership, m.inactive, m.suspended
+            FROM members m
+            WHERE m.life_member = 1 OR m.free_membership = 1
+            ORDER BY m.last_name, m.first_name';
+    $stmt = $pdo->query($sql);
+    $rows = [];
+    $lifeCount = 0;
+    $freeCount = 0;
+    while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $isLife = !empty($r['life_member']);
+        $isFree = !empty($r['free_membership']);
+        if ($isLife) {
+            $lifeCount++;
+        }
+        if ($isFree) {
+            $freeCount++;
+        }
+
+        $statusParts = [];
+        if ($isLife) {
+            $statusParts[] = 'Life member';
+        }
+        if ($isFree) {
+            $statusParts[] = 'Free membership';
+        }
+
+        $memberRow = [
+            'id'                     => (int) $r['id'],
+            'last_name'              => $r['last_name'],
+            'first_name'             => $r['first_name'],
+            'email'                  => $r['email'],
+            'phone'                  => $r['phone'],
+            'membership_renewal_year'=> $r['membership_renewal_year'],
+            'inactive'               => (int) ($r['inactive'] ?? 0),
+            'suspended'              => (int) ($r['suspended'] ?? 0),
+            'life_member'            => $isLife ? 1 : 0,
+            'free_membership'        => $isFree ? 1 : 0,
+        ];
+        $isCurrent = memberIsCurrent($memberRow, $current, $renewedIds);
+
+        $slot = $r['membership_type_slot'] === null ? 0 : (int) $r['membership_type_slot'];
+        $recordStatus = [];
+        if (!empty($r['suspended'])) {
+            $recordStatus[] = 'Suspended';
+        } elseif (!empty($r['inactive'])) {
+            $recordStatus[] = 'Inactive';
+        } elseif ($isCurrent) {
+            $recordStatus[] = 'Current';
+        } else {
+            $recordStatus[] = 'Not current';
+        }
+
+        $rows[] = [
+            'last_name'    => $r['last_name'],
+            'first_name'   => $r['first_name'],
+            'comp_status'  => implode(', ', $statusParts),
+            'type'         => $slot === 0 ? '' : ($labels[$slot] ?? ('Type ' . $slot)),
+            'email'        => $r['email'],
+            'phone'        => $r['phone'],
+            'renewal_year' => $r['membership_renewal_year'],
+            'record_status'=> implode(', ', $recordStatus),
+        ];
+    }
+
+    $total = count($rows);
+
+    return [
+        'slug'        => 'complimentary_members',
+        'title'       => $meta['label'],
+        'description' => $meta['description'],
+        'columns'     => [
+            ['key' => 'last_name',     'label' => 'Last name',      'format' => 'text', 'align' => 'start'],
+            ['key' => 'first_name',    'label' => 'First name',     'format' => 'text', 'align' => 'start'],
+            ['key' => 'comp_status',   'label' => 'Complimentary',  'format' => 'text', 'align' => 'start'],
+            ['key' => 'type',          'label' => 'Membership type','format' => 'text', 'align' => 'start'],
+            ['key' => 'email',         'label' => 'Email',          'format' => 'text', 'align' => 'start'],
+            ['key' => 'phone',         'label' => 'Phone',          'format' => 'text', 'align' => 'start'],
+            ['key' => 'renewal_year',  'label' => 'Renewal year',   'format' => 'year', 'align' => 'end'],
+            ['key' => 'record_status', 'label' => 'Status',         'format' => 'text', 'align' => 'start'],
+        ],
+        'rows'   => $rows,
+        'totals' => $total > 0 ? [
+            'last_name'     => 'Total',
+            'first_name'    => (string) $total,
+            'comp_status'   => $lifeCount . ' life, ' . $freeCount . ' free',
+            'type'          => '',
+            'email'         => '',
+            'phone'         => '',
+            'renewal_year'  => null,
+            'record_status' => '',
+        ] : null,
+        'note'   => 'Includes every member with Life member and/or Free membership checked. '
+            . 'A member may appear with both flags; the club normally uses one or the other.',
     ];
 }
 

@@ -19,6 +19,29 @@ final class MembersListHelpersTest extends TestCase
         $this->assertSame('members.php', membersUrl([]));
     }
 
+    public function testMembersUrlEncodesFlagArray(): void
+    {
+        $url = membersUrl(['status' => 'current', 'flag' => ['free', 'life']]);
+
+        $this->assertStringContainsString('status=current', $url);
+        $this->assertStringContainsString('flag', $url);
+        parse_str(parse_url($url, PHP_URL_QUERY) ?: '', $parsed);
+        $this->assertSame(['free', 'life'], $parsed['flag']);
+    }
+
+    public function testToggleFlagParamsAddsAndRemovesFlags(): void
+    {
+        $base = ['status' => 'current'];
+        $withFree = members_list_toggle_flag_params($base, [], 'free');
+        $this->assertSame(['free'], $withFree['flag']);
+
+        $withBoth = members_list_toggle_flag_params($withFree, ['free'], 'life');
+        $this->assertSame(['free', 'life'], $withBoth['flag']);
+
+        $removed = members_list_toggle_flag_params($withBoth, ['free', 'life'], 'free');
+        $this->assertSame(['life'], $removed['flag']);
+    }
+
     public function testInitialsColorIsDeterministic(): void
     {
         $a = members_initials_color('Jane Pilot');

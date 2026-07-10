@@ -43,6 +43,22 @@
         });
     }
 
+    /** GET filter forms: submit when a checkbox/radio changes (e.g. members flag filters). */
+    function bindAutoSubmitForms() {
+        document.addEventListener('change', function (ev) {
+            var t = ev.target;
+            if (!t || t.tagName !== 'INPUT') return;
+            if (t.type !== 'checkbox' && t.type !== 'radio') return;
+            var form = t.closest('form.js-auto-submit-form');
+            if (!form) return;
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.submit();
+            }
+        });
+    }
+
     /** Color picker ↔ hex text sync (config_site theme tab). */
     function bindColorSyncGroups() {
         document.querySelectorAll('.js-color-sync').forEach(function (group) {
@@ -199,6 +215,7 @@
         bindFlashToasts();
         bindPrintButtons();
         bindSubmitOnChangeSelects();
+        bindAutoSubmitForms();
         if (document.querySelector('.js-color-sync')) {
             bindColorSyncGroups();
         }

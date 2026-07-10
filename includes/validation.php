@@ -313,6 +313,9 @@ function member_find_by_ama_number(PDO $pdo, ?string $amaNumber, ?int $excludeMe
          FROM members
          WHERE ama_number IS NOT NULL AND TRIM(ama_number) != ''"
     );
+    if (!$stmt) {
+        return null;
+    }
 
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         if (ama_verify_normalize_number((string) $row['ama_number']) !== $normalized) {

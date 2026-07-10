@@ -136,6 +136,54 @@ final class MembershipApplicationTest extends TestCase
         membership_application_ama_clear_session();
     }
 
+    public function testFaaCardAllowedMimesIncludePdfForApplyUploads(): void
+    {
+        require_once dirname(__DIR__) . '/includes/member_save.php';
+
+        $mimes = member_faa_card_allowed_mimes();
+        $this->assertArrayHasKey('application/pdf', $mimes);
+        $this->assertSame('pdf', $mimes['application/pdf']);
+    }
+
+    public function testValidateInputFaaCardRequiredMessage(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        membership_application_ama_clear_session();
+        $_SESSION['membership_apply_ama'] = [
+            'verified' => true,
+            'ama_number' => '123456',
+            'last_name' => 'User',
+            'first_name' => 'Test',
+            'ama_expiration' => '2026-12-31',
+        ];
+        $context = membership_application_context($pdo, new DateTimeImmutable('2026-08-01'));
+        $post = [
+            'first_name' => 'Test',
+            'last_name' => 'User',
+            'email' => 'test@example.com',
+            'phone' => '555-0100',
+            'address_street' => '1 Main St',
+            'address_city' => 'Claremont',
+            'address_state' => 'CA',
+            'address_postal_code' => '91711',
+            'birthday' => '03/15/1980',
+            'application_kind' => 'renewal',
+            'membership_type_slot' => '1',
+            'terms' => '1',
+            'ama_number' => '123456',
+            'ama_expiration' => '12/31/2026',
+            'faa_number' => 'FA123',
+            'faa_expiration' => '06/01/2027',
+            'signature_data' => 'data:image/png;base64,aa==',
+        ];
+        $files = [
+            'faa_card' => ['tmp_name' => '', 'size' => 0],
+        ];
+        $result = membership_application_validate_input($pdo, $post, $files, $context);
+        $this->assertSame('FAA registration file is required.', $result['errors']['faa_card'] ?? '');
+        membership_application_ama_clear_session();
+    }
+
     public function testAmaMinimumExpiryBeforePrebook(): void
     {
         $pdo = $this->createMock(PDO::class);
@@ -184,5 +232,17 @@ final class MembershipApplicationTest extends TestCase
         $result = membership_application_renewal_eligibility($pdo, '123456', 'Test', 'User', $now);
         $this->assertFalse($result['eligible']);
         $this->assertStringContainsString('not open', strtolower($result['message']));
+    }
+
+    public function testSuspendedMemberApplyBlockMessage(): void
+    {
+        $this->assertNull(membership_application_club_member_apply_block_message(null));
+        $this->assertNull(membership_application_club_member_apply_block_message(['suspended' => 0, 'inactive' => 0]));
+
+        $suspended = membership_application_club_member_apply_block_message(['suspended' => 1]);
+        $this->assertNotNull($suspended);
+        $this->assertStringContainsString('suspended', strtolower($suspended));
+
+        $this->assertNull(membership_application_club_member_apply_block_message(['inactive' => 1]));
     }
 }

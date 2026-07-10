@@ -353,9 +353,9 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                         <div class="form-text">Full face in color — printed on your membership card. Max 5 MB.</div>
                     </div>
                     <div class="col-md-6">
-                        <label class="form-label">FAA registration (.jpg, .png) <span class="text-danger">*</span></label>
-                        <input type="file" name="faa_card" class="form-control" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
-                        <div class="form-text">Current valid FAA registration. Max 5 MB.</div>
+                        <label class="form-label">FAA registration (PDF, .jpg, .png) <span class="text-danger">*</span></label>
+                        <input type="file" name="faa_card" class="form-control" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
+                        <div class="form-text">Current valid FAA registration. PDF or image. Max 5 MB.</div>
                     </div>
                 </div>
             </div>

@@ -91,13 +91,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $pageTitle = 'Edit user';
+$breadcrumbs = [
+    ['label' => 'Administration', 'url' => 'users.php'],
+    ['label' => 'Users', 'url' => 'users.php'],
+    ['label' => $user['name'] ?: $user['email'], 'url' => ''],
+];
+require_once __DIR__ . '/includes/page_header.php';
 require_once __DIR__ . '/includes/header.php';
-?>
 
-<p class="mb-2"><a href="users.php" class="btn btn-outline-secondary btn-sm">← Back to Users</a></p>
-<h1 class="h2 mb-3">Edit user</h1>
+render_page_header(['title' => 'Edit user', 'class' => 'mb-3']);
 
-<?php if ($error): ?>
+if ($error): ?>
 <div class="alert alert-danger"><?= h($error) ?></div>
 <?php endif; ?>
 <?php if ($saved): ?>
@@ -143,7 +147,7 @@ require_once __DIR__ . '/includes/header.php';
         </div>
     </div>
     <button type="submit" class="btn btn-primary">Save</button>
-    <a href="users.php" class="btn btn-secondary">Cancel</a>
+    <a href="users.php" class="btn btn-outline-secondary">Cancel</a>
 </form>
 <?php require_once __DIR__ . '/includes/password_strength_ui.php'; ?>
 

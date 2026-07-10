@@ -92,10 +92,12 @@ require_once __DIR__ . '/includes/header.php';
             Matching is by email and/or AMA # — no shareable coupon code.
         </p>
     </div>
-    <a href="applications.php" class="btn btn-outline-primary btn-sm">← Applications</a>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        <a href="applications.php" class="btn btn-outline-primary btn-sm">← Applications</a>
+    </div>
 </div>
 
-<ul class="nav nav-tabs mb-3">
+<ul class="nav nav-tabs nav-tabs-club mb-3">
     <?php foreach (['open' => 'Open', 'redeemed' => 'Redeemed', 'expired' => 'Expired', 'cancelled' => 'Cancelled', 'all' => 'All'] as $key => $label): ?>
     <li class="nav-item">
         <a class="nav-link<?= $filter === $key ? ' active' : '' ?>" href="comp_invites.php?filter=<?= urlencode($key) ?>"><?= h($label) ?></a>
@@ -141,8 +143,8 @@ require_once __DIR__ . '/includes/header.php';
                         <label class="form-label" for="notes">Notes (staff only)</label>
                         <textarea class="form-control" id="notes" name="notes" rows="3" placeholder="e.g. 2026 scholarship — board approved"></textarea>
                     </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-outline-primary btn-sm">Create invite</button>
+                    <div>
+                        <button type="submit" class="btn btn-outline-primary w-100">Create invite</button>
                     </div>
                 </form>
             </div>
@@ -193,7 +195,7 @@ require_once __DIR__ . '/includes/header.php';
                             <td><span class="badge <?= h($statusClass) ?>"><?= h($status) ?></span></td>
                             <td class="text-end">
                                 <?php if ($status === 'Open'): ?>
-                                <form method="post" action="comp_invites.php?filter=<?= urlencode($filter) ?>" class="d-inline" onsubmit="return confirm('Cancel this invite?');">
+                                <form method="post" action="comp_invites.php?filter=<?= urlencode($filter) ?>" class="d-inline" data-confirm-submit="Cancel this invite?">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="cancel">
                                     <input type="hidden" name="invite_id" value="<?= (int) $invite['id'] ?>">

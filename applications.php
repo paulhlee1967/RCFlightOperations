@@ -180,24 +180,28 @@ $applications = $listStmt->fetchAll(PDO::FETCH_ASSOC);
 
 $listPageExtra = $page > 1 ? ['page' => $page] : [];
 
-require_once __DIR__ . '/includes/header.php';
-?>
+require_once __DIR__ . '/includes/page_header.php';
 
-<div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-    <div>
-        <h1 class="h2 mb-1">Membership applications</h1>
-        <p class="text-muted small mb-0">WPForms submissions awaiting review before members are created or updated.</p>
-    </div>
-    <div class="d-flex align-items-center gap-2">
-        <a href="comp_invites.php" class="btn btn-outline-secondary btn-sm">Comp invites</a>
+ob_start();
+?>
+        <a href="comp_invites.php" class="btn btn-outline-primary btn-sm">Comp invites</a>
         <?php $pendingCount = application_pending_count($pdo); ?>
         <?php if ($pendingCount > 0): ?>
         <span class="badge text-bg-warning"><?= (int) $pendingCount ?> pending</span>
         <?php endif; ?>
-    </div>
-</div>
+<?php
+$applicationsHeaderActions = ob_get_clean();
 
-<ul class="nav nav-tabs mb-3">
+require_once __DIR__ . '/includes/header.php';
+
+render_page_header([
+    'title'    => 'Membership applications',
+    'subtitle' => 'WPForms submissions awaiting review before members are created or updated.',
+    'actions'  => $applicationsHeaderActions,
+]);
+?>
+
+<ul class="nav nav-tabs nav-tabs-club mb-3">
     <?php foreach (['pending' => 'Pending', 'approved' => 'Approved', 'rejected' => 'Rejected', 'all' => 'All'] as $key => $label): ?>
     <li class="nav-item">
         <a class="nav-link<?= $statusFilter === $key ? ' active' : '' ?>" href="<?= h(application_list_page_url($key, $yearFilter, $searchQ, $defaultRenewalYear)) ?>"><?= h($label) ?></a>
@@ -229,7 +233,7 @@ require_once __DIR__ . '/includes/header.php';
             </div>
 
             <div class="col-auto">
-                <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button>
                 <?php if ($searchQ !== '' || $yearFilter !== $defaultRenewalYear): ?>
                 <a href="<?= h(application_list_page_url($statusFilter, $defaultRenewalYear, '', $defaultRenewalYear)) ?>" class="btn btn-outline-secondary btn-sm">Reset</a>
                 <?php endif; ?>
@@ -641,7 +645,7 @@ require_once __DIR__ . '/includes/header.php';
 
                     <div class="d-flex flex-wrap gap-2">
                         <?php if (application_can_approve($application['status'] ?? null)): ?>
-                        <button type="submit" name="action" value="approve" class="btn btn-primary">Approve &amp; continue to recording</button>
+                        <button type="submit" name="action" value="approve" class="btn btn-primary">Approve &amp; process</button>
                         <?php endif; ?>
                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#rejectPanel">Reject</button>
                     </div>

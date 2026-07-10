@@ -10,6 +10,7 @@
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
+require_once __DIR__ . '/includes/flightops_logo.php';
 
 requireAdmin();
 $clubId = 1;
@@ -164,17 +165,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $pageTitle = 'Configuration';
-require_once __DIR__ . '/includes/header.php';
+$breadcrumbs = [
+    ['label' => 'Administration', 'url' => 'users.php'],
+    ['label' => 'Configuration', 'url' => ''],
+];
+require_once __DIR__ . '/includes/page_header.php';
+
+ob_start();
 ?>
-
-<!-- ── Page header ──────────────────────────────────────────────────────────── -->
-
-<div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4 pb-3 border-bottom">
-    <div>
-        <h1 class="h2 mb-1">Configuration</h1>
-        <p class="text-muted mb-0">Club branding and settings. Changes take effect immediately on save.</p>
-    </div>
-    <div>
         <div class="text-muted mb-1" style="font-size:0.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;text-align:right;">Platform</div>
         <div class="d-flex align-items-center gap-2 rounded px-3 py-2 border bg-light">
             <img src="<?= htmlspecialchars(flightops_logo_asset_src()) ?>"
@@ -188,8 +186,18 @@ require_once __DIR__ . '/includes/header.php';
                 <div style="font-size:0.67rem;color:#868e96;letter-spacing:.06em;line-height:1.2;">Member Management</div>
             </div>
         </div>
-    </div>
-</div>
+<?php
+$configHeaderActions = ob_get_clean();
+
+require_once __DIR__ . '/includes/header.php';
+
+render_page_header([
+    'title'    => 'Configuration',
+    'subtitle' => 'Club branding and settings. Changes take effect immediately on save.',
+    'border'   => true,
+    'actions'  => $configHeaderActions,
+]);
+?>
 
 <?php if ($saved): ?>
 

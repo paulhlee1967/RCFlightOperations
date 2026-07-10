@@ -44,8 +44,7 @@ $breadcrumbs = [
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<nav class="d-flex flex-wrap align-items-center gap-2 mb-3 mb-md-4 pb-2 border-bottom">
-    <a href="members.php" class="btn btn-outline-secondary btn-sm">← Back to Members</a>
+<nav class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <?php if (canEditMembers()): ?>
         <a href="member_edit.php?id=<?= (int) $memberId ?>" class="btn btn-outline-primary btn-sm">Edit member</a>
     <?php endif; ?>

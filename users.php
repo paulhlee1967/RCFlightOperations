@@ -89,6 +89,11 @@ function roleBadge(string $role): array {
 }
 
 $pageTitle = 'System Users';
+$breadcrumbs = [
+    ['label' => 'Administration', 'url' => 'users.php'],
+    ['label' => 'Users', 'url' => ''],
+];
+require_once __DIR__ . '/includes/page_header.php';
 require_once __DIR__ . '/includes/header.php';
 ?>
 
@@ -123,24 +128,15 @@ require_once __DIR__ . '/includes/header.php';
 #addUserCard.open   { display: block; }
 
 .empty-state { text-align: center; padding: 3rem 2rem; color: var(--club-muted); }
-.users-page-header {
-    display: flex; align-items: center; justify-content: space-between;
-    flex-wrap: wrap; gap: 1rem;
-    margin-bottom: 1.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--club-border);
-}
 </style>
 
 <!-- ── Page header ──────────────────────────────────────────────────────────── -->
-<div class="users-page-header">
-    <div>
-        <h1 class="h2 mb-1">System Users</h1>
-        <p class="text-muted mb-0">
-            People who can log in to this app. These are <em>not</em> club members —
-            use the Members section for those.
-        </p>
-    </div>
-    <button class="btn btn-primary" id="addUserToggle" type="button">+ Add user</button>
-</div>
+<?php render_page_header([
+    'title' => 'System Users',
+    'subtitle_html' => 'People who can log in to this app. These are <em>not</em> club members — use the Members section for those.',
+    'border' => true,
+    'actions' => '<button class="btn btn-primary btn-sm" id="addUserToggle" type="button">+ Add user</button>',
+]); ?>
 
 <!-- ── Flash alerts ─────────────────────────────────────────────────────────── -->
 <?php if ($error): ?>
@@ -288,7 +284,6 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <p class="mt-3">
-    <a href="index.php" class="btn btn-outline-secondary btn-sm">← Back to Home</a>
 </p>
 
 <script<?= csp_nonce_attr() ?>>

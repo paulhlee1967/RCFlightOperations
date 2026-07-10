@@ -197,7 +197,7 @@ require_once __DIR__ . '/includes/header.php';
                                         </td>
                                         <td class="text-end">
                                             <form method="post" action="logs_viewer.php" class="d-inline"
-                                                  onsubmit="return confirm('Delete this log file? This cannot be undone.');">
+                                                  data-confirm-submit="Delete this log file? This cannot be undone.">
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="action" value="delete">
                                                 <input type="hidden" name="file" value="<?= h($f['name']) ?>">

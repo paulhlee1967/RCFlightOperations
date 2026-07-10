@@ -67,3 +67,29 @@ function memberCompletenessSelectSql(string $alias = 'm'): string
             {$alias}.emergency_contact_name, {$alias}.emergency_contact_phone,
             {$alias}.address_street, {$alias}.address_city";
 }
+
+/**
+ * Count current members with at least one incomplete field (same rules as the data completeness report).
+ */
+function countIncompleteCurrentMembers(PDO $pdo, ?int $year = null): int
+{
+    require_once __DIR__ . '/membership_status.php';
+
+    $year  = $year ?? membershipStatusYear();
+    $where = currentMemberWhereSql('m', $year);
+
+    $sql = 'SELECT ' . memberCompletenessSelectSql('m') . "
+            FROM members m
+            WHERE {$where}";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(currentMemberWhereParams($year));
+
+    $count = 0;
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        if (memberCompletenessMissingFields($row) !== []) {
+            $count++;
+        }
+    }
+
+    return $count;
+}

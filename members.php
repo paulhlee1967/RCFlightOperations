@@ -19,6 +19,7 @@
 
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/csrf.php';
 
 requireLogin();
 if (!canViewMembers()) {
@@ -42,13 +43,16 @@ $page                 = $filters['page'];
 $memberTypeFilter     = $filters['memberTypeFilter'];
 $memberTypeSlotFilter = $filters['memberTypeSlotFilter'];
 $statusFilter         = $filters['statusFilter'];
+$flagFilters          = $filters['flagFilters'];
 $badgeFilter          = $filters['badgeFilter'];
+$fulfillmentFilter    = $filters['fulfillmentFilter'];
 $sort                 = $filters['sort'];
 
 $list = members_list_fetch($pdo, $filters, $currentYear);
 $members              = $list['members'];
 $totalCount           = $list['totalCount'];
 $chipCounts           = $list['chipCounts'];
+$flagChipCounts       = $list['flagChipCounts'];
 $typeCounts           = $list['typeCounts'];
 $typeCountsByStatus   = $list['typeCountsByStatus'];
 $totalPages           = $list['totalPages'];
@@ -56,52 +60,43 @@ $from                 = $list['from'];
 $to                   = $list['to'];
 $queryParams          = $list['queryParams'];
 
+$flagChipLabels = [
+    'free'      => 'Free',
+    'life'      => 'Life',
+    'suspended' => 'Suspended',
+    'archived'  => 'Archived',
+];
+$hasMembersInDatabase = ($chipCounts['all'] ?? 0) > 0;
+$hasActiveListFilters = $searchQ !== ''
+    || $statusFilter !== 'current'
+    || $flagFilters !== []
+    || $memberTypeFilter !== ''
+    || $badgeFilter !== ''
+    || $fulfillmentFilter !== '';
+
 $pageTitle = 'Members';
-require_once __DIR__ . '/includes/header.php';
-?>
+$breadcrumbs = [['label' => 'Members', 'url' => '']];
+require_once __DIR__ . '/includes/page_header.php';
 
-<?php
-// Legacy success messages: header.php already consumes $_SESSION['flash'] as toasts;
-// here we only handle legacy ?deleted=N and render inline alerts.
-$flashes = $_SESSION['flash'] ?? [];
-unset($_SESSION['flash']);
-if (!empty($_GET['deleted'])) {
-    $n = (int) $_GET['deleted'];
-    $flashes[] = ['type' => 'success', 'msg' => $n === 1 ? 'Member deleted.' : "$n members deleted."];
+$membersSubtitle = $totalCount . ' member' . ($totalCount !== 1 ? 's' : '');
+if ($totalCount > 0 && $perPage > 0 && $totalPages > 1) {
+    $membersSubtitle .= ' — showing ' . $from . '–' . $to;
 }
+
+ob_start();
 ?>
-
-<?php foreach ($flashes as $f): ?>
-<div class="alert alert-<?= htmlspecialchars($f['type'] ?? 'success') ?> alert-dismissible fade show" role="alert">
-    <?= htmlspecialchars($f['msg']) ?>
-    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-</div>
-<?php endforeach; ?>
-
-<!-- ── Page header ──────────────────────────────────────────────────────────── -->
-<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-    <div>
-        <h1 class="h2 mb-0">Members</h1>
-        <p class="text-muted small mb-0">
-            <?= $totalCount ?> member<?= $totalCount !== 1 ? 's' : '' ?>
-            <?php if ($totalCount > 0 && $perPage > 0 && $totalPages > 1): ?>
-                &mdash; showing <?= $from ?>&ndash;<?= $to ?>
-            <?php endif; ?>
-        </p>
-    </div>
-    <div class="d-flex gap-2 flex-wrap">
         <?php if (canEditMembers()): ?>
         <a href="member_wizard.php" class="btn btn-primary btn-sm">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="me-1" viewBox="0 0 16 16">
                 <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
             </svg>New member
         </a>
-        <a href="import.php" class="btn btn-outline-secondary btn-sm">Import</a>
-        <a href="applications.php" class="btn btn-outline-secondary btn-sm">Applications</a>
+        <a href="import.php" class="btn btn-outline-primary btn-sm">Import</a>
+        <a href="applications.php" class="btn btn-outline-primary btn-sm">Applications</a>
         <?php endif; ?>
         <?php if (canEditMembers() || canProcessMemberships()): ?>
         <div class="dropdown">
-            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+            <button class="btn btn-outline-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
                 Export CSV
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
@@ -152,52 +147,97 @@ if (!empty($_GET['deleted'])) {
             </ul>
         </div>
         <?php endif; ?>
-    </div>
-</div>
+<?php
+$membersHeaderActions = ob_get_clean();
+
+require_once __DIR__ . '/includes/header.php';
+render_page_header([
+    'title'    => 'Members',
+    'subtitle' => $membersSubtitle,
+    'actions'  => $membersHeaderActions,
+]);
+?>
 
 <!-- ── Filter chips + search row ────────────────────────────────────────────── -->
 <div class="members-filter-bar mb-3">
 
-    <!-- Status chips -->
+    <!-- Membership + flag chips -->
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
-        <span class="text-muted small me-1">Status:</span>
+        <span class="text-muted small me-1">Membership:</span>
         <?php
-        $statuses = [
-            'all'      => 'All (' . (($chipCounts['current'] ?? 0) + ($chipCounts['inactive'] ?? 0)) . ')',
-            'current'  => 'Current (' . ($chipCounts['current'] ?? 0) . ')',
-            'inactive' => 'Inactive (' . ($chipCounts['inactive'] ?? 0) . ')',
+        $statusChipLabels = [
+            'all'     => 'All',
+            'current' => 'Active',
         ];
-        foreach ($statuses as $val => $label):
+        foreach ($statusChipLabels as $val => $label):
             $isActive = $statusFilter === $val;
             $statusChipParams = array_merge($queryParams, ['status' => $val]);
             unset($statusChipParams['page']);
+            $chipLabel = $label . ' (' . (int) ($chipCounts[$val] ?? 0) . ')';
         ?>
         <a href="<?= htmlspecialchars(membersUrl($statusChipParams)) ?>"
            class="btn btn-sm <?= $isActive ? 'btn-primary' : 'btn-outline-secondary' ?> filter-chip">
-            <?= $label ?>
+            <?= htmlspecialchars($chipLabel) ?>
         </a>
         <?php endforeach; ?>
+    </div>
 
-        <span class="text-muted small ms-2 me-1">Type:</span>
+    <form method="get" action="members.php" id="members-flag-form" class="js-auto-submit-form d-flex flex-wrap gap-3 align-items-center mb-2">
+        <span class="text-muted small me-1">Flags:</span>
         <?php
+        $flagFormParams = $queryParams;
+        unset($flagFormParams['page'], $flagFormParams['flag']);
+        foreach ($flagFormParams as $paramKey => $paramVal):
+            if ($paramVal === null || $paramVal === '') {
+                continue;
+            }
+        ?>
+        <input type="hidden" name="<?= htmlspecialchars((string) $paramKey) ?>" value="<?= htmlspecialchars((string) $paramVal) ?>">
+        <?php endforeach; ?>
+        <?php foreach ($flagChipLabels as $val => $label):
+            $isChecked = in_array($val, $flagFilters, true);
+            $chipLabel = $label . ' (' . (int) ($flagChipCounts[$val] ?? 0) . ')';
+        ?>
+        <div class="form-check form-check-inline mb-0">
+            <input class="form-check-input" type="checkbox"
+                   name="flag[]" value="<?= htmlspecialchars($val) ?>"
+                   id="flag-<?= htmlspecialchars($val) ?>"
+                   <?= $isChecked ? 'checked' : '' ?>>
+            <label class="form-check-label small" for="flag-<?= htmlspecialchars($val) ?>">
+                <?= htmlspecialchars($chipLabel) ?>
+            </label>
+        </div>
+        <?php endforeach; ?>
+    </form>
+
+    <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
+        <span class="text-muted small me-1">Type:</span>
+        <?php
+        $statusKeysForTypes = membersListStatusFilterKeys();
+        $allTypeCounts = [];
+        if ($flagFilters === []) {
+            foreach ($statusKeysForTypes as $sk) {
+                $allTypeCounts[$sk] = array_sum($typeCountsByStatus[$sk] ?? []);
+            }
+        }
         $typeChips = [
             '' => [
                 'label'  => 'All',
-                'counts' => [
-                    'all'      => array_sum($typeCountsByStatus['all']),
-                    'current'  => array_sum($typeCountsByStatus['current']),
-                    'inactive' => array_sum($typeCountsByStatus['inactive']),
-                ],
+                'counts' => $allTypeCounts,
             ],
         ];
         foreach ($membershipTypeLabels as $slot => $label) {
+            if ($flagFilters === []) {
+                $slotCounts = [];
+                foreach ($statusKeysForTypes as $sk) {
+                    $slotCounts[$sk] = $typeCountsByStatus[$sk][(int) $slot] ?? 0;
+                }
+            } else {
+                $slotCounts = [];
+            }
             $typeChips[(string) $slot] = [
                 'label'  => $label,
-                'counts' => [
-                    'all'      => $typeCountsByStatus['all'][(int) $slot] ?? 0,
-                    'current'  => $typeCountsByStatus['current'][(int) $slot] ?? 0,
-                    'inactive' => $typeCountsByStatus['inactive'][(int) $slot] ?? 0,
-                ],
+                'counts' => $slotCounts,
             ];
         }
         foreach ($typeChips as $val => $chip):
@@ -209,13 +249,17 @@ if (!empty($_GET['deleted'])) {
             } else {
                 unset($typeChipParams['member_type']);
             }
-            $chipCount = $chip['counts'][$statusFilter] ?? 0;
-            $countsJson = json_encode($chip['counts'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT);
+            $chipCount = $flagFilters === []
+                ? ($chip['counts'][$statusFilter] ?? 0)
+                : ($val === '' ? array_sum($typeCounts) : ($typeCounts[(int) $val] ?? 0));
+            $countsJson = $flagFilters === []
+                ? json_encode($chip['counts'], JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT)
+                : '';
         ?>
         <a href="<?= htmlspecialchars(membersUrl($typeChipParams)) ?>"
-           class="btn btn-sm <?= $isActive ? 'btn-secondary' : 'btn-outline-secondary' ?> filter-chip js-type-chip"
+           class="btn btn-sm <?= $isActive ? 'btn-secondary' : 'btn-outline-secondary' ?> filter-chip<?= $countsJson !== '' ? ' js-type-chip' : '' ?>"
            data-type-label="<?= htmlspecialchars($chip['label'], ENT_QUOTES, 'UTF-8') ?>"
-           data-type-counts="<?= htmlspecialchars($countsJson, ENT_QUOTES, 'UTF-8') ?>">
+           <?php if ($countsJson !== ''): ?>data-type-counts="<?= htmlspecialchars($countsJson, ENT_QUOTES, 'UTF-8') ?>"<?php endif; ?>>
             <?= htmlspecialchars($chip['label']) ?> (<?= (int) $chipCount ?>)
         </a>
         <?php endforeach; ?>
@@ -225,6 +269,9 @@ if (!empty($_GET['deleted'])) {
     <form method="get" action="members.php" class="row g-2 align-items-end">
         <input type="hidden" name="per" value="<?= (int) $perPage ?>">
         <input type="hidden" name="status" value="<?= htmlspecialchars($statusFilter) ?>">
+        <?php foreach ($flagFilters as $flag): ?>
+        <input type="hidden" name="flag[]" value="<?= htmlspecialchars($flag) ?>">
+        <?php endforeach; ?>
         <?php if ($memberTypeFilter !== ''): ?>
         <input type="hidden" name="member_type" value="<?= htmlspecialchars($memberTypeFilter) ?>">
         <?php endif; ?>
@@ -251,7 +298,7 @@ if (!empty($_GET['deleted'])) {
         </div>
         <div class="col-auto d-flex gap-1">
             <button type="submit" class="btn btn-sm btn-outline-primary">Search</button>
-            <?php if ($searchQ !== '' || $memberTypeFilter !== '' || $statusFilter !== 'current' || $badgeFilter !== '' || $sort !== 'name'): ?>
+            <?php if ($searchQ !== '' || $memberTypeFilter !== '' || $statusFilter !== 'current' || $flagFilters !== [] || $badgeFilter !== '' || $sort !== 'name'): ?>
             <a href="members.php" class="btn btn-sm btn-outline-secondary">Clear</a>
             <?php endif; ?>
         </div>
@@ -262,9 +309,27 @@ if (!empty($_GET['deleted'])) {
         Showing results for &ldquo;<?= htmlspecialchars($searchQ) ?>&rdquo;
     </p>
     <?php endif; ?>
+    <?php if ($flagFilters !== []): ?>
+    <p class="text-muted small mt-1 mb-0">
+        Showing members matching
+        <?= $statusFilter === 'current' ? 'active membership' : 'all memberships' ?>
+        <?php
+        $flagLabels = array_map(
+            static fn (string $f) => strtolower($flagChipLabels[$f] ?? $f),
+            $flagFilters
+        );
+        echo ' with ' . implode(' + ', $flagLabels);
+        ?>.
+    </p>
+    <?php endif; ?>
     <?php if ($badgeFilter === 'unprinted'): ?>
     <p class="text-muted small mt-1 mb-0">
         Showing current members whose badge has not been printed for <?= (int) $currentYear ?>.
+    </p>
+    <?php endif; ?>
+    <?php if ($fulfillmentFilter === 'pending'): ?>
+    <p class="text-muted small mt-1 mb-0">
+        Showing members with a recorded signup/renewal for <?= (int) $currentYear ?> whose card or mailer is not yet complete.
     </p>
     <?php endif; ?>
 </div>
@@ -288,6 +353,10 @@ if (!empty($_GET['deleted'])) {
         <p class="fw-semibold mb-1">No members match &ldquo;<?= htmlspecialchars($searchQ) ?>&rdquo;</p>
         <p class="text-muted small mb-3">Try a different search term or clear the filter.</p>
         <a href="members.php" class="btn btn-outline-secondary btn-sm">Clear search</a>
+        <?php elseif ($hasMembersInDatabase): ?>
+        <p class="fw-semibold mb-1">No members match your filters</p>
+        <p class="text-muted small mb-3">Try changing membership, flags, or type filters.</p>
+        <a href="members.php" class="btn btn-outline-secondary btn-sm">Clear filters</a>
         <?php else: ?>
         <p class="fw-semibold mb-1">No members yet</p>
         <p class="text-muted small mb-3">Add your first member to get started.</p>
@@ -376,7 +445,17 @@ if (!empty($_GET['deleted'])) {
                style="font-size:.75rem;">Edit</a>
             <a href="member_process.php?id=<?= (int) $m['id'] ?>"
                class="btn btn-sm btn-outline-primary py-0 px-2"
-               style="font-size:.75rem;">Renew</a>
+               style="font-size:.75rem;">Process</a>
+        <?php elseif (canProcessMemberships()): ?>
+            <a href="member_process.php?id=<?= (int) $m['id'] ?>"
+               class="btn btn-sm btn-outline-primary py-0 px-2"
+               style="font-size:.75rem;">Process</a>
+        <?php endif; ?>
+        <?php if (canEditMembers() || canProcessMemberships()): ?>
+        <a href="badge_print.php?id=<?= (int) $m['id'] ?>"
+           class="btn btn-sm <?= !empty($m['badge_printed_at']) ? 'btn-outline-success' : 'btn-outline-secondary' ?> py-0 px-2"
+           style="font-size:.75rem;"
+           title="<?= !empty($m['badge_printed_at']) ? 'Badge printed — reprint?' : 'Print badge' ?>">Print</a>
         <?php endif; ?>
     </div>
 </div>
@@ -522,6 +601,15 @@ if (!empty($_GET['deleted'])) {
                                 <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5 0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11z"/>
                             </svg>
                         </a>
+                        <?php endif; ?>
+                        <?php if (canEditMembers() || canProcessMemberships()): ?>
+                        <a href="member_process.php?id=<?= (int) $m['id'] ?>"
+                           class="btn btn-sm btn-outline-primary" title="Process signup / renewal">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71z"/>
+                                <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0"/>
+                            </svg>
+                        </a>
                         <!-- Print badge -->
                         <a href="badge_print.php?id=<?= (int) $m['id'] ?>"
                            class="btn btn-sm <?= $badgePrinted ? 'btn-outline-success' : 'btn-outline-secondary' ?>"
@@ -569,6 +657,12 @@ if (!empty($_GET['deleted'])) {
                 <?php if ($searchQ !== ''):       ?><input type="hidden" name="q"           value="<?= htmlspecialchars($searchQ) ?>"><?php endif; ?>
                 <?php if ($memberTypeFilter !== ''):?><input type="hidden" name="member_type" value="<?= htmlspecialchars($memberTypeFilter) ?>"><?php endif; ?>
                 <input type="hidden" name="status" value="<?= htmlspecialchars($statusFilter) ?>">
+                <?php foreach ($flagFilters as $flag): ?>
+                <input type="hidden" name="flag[]" value="<?= htmlspecialchars($flag) ?>">
+                <?php endforeach; ?>
+                <?php if ($badgeFilter !== ''): ?>
+                <input type="hidden" name="badge" value="<?= htmlspecialchars($badgeFilter) ?>">
+                <?php endif; ?>
                 <?php if ($sort !== 'name'):        ?><input type="hidden" name="sort"        value="<?= htmlspecialchars($sort) ?>"><?php endif; ?>
                 <select name="per" class="form-select form-select-sm js-submit-on-change" style="width:auto">
                     <option value="25"<?=  $perPage === 25  ? ' selected' : '' ?>>25</option>
@@ -695,6 +789,10 @@ if (!empty($_GET['deleted'])) {
     display: flex; flex-direction: column; gap: .3rem;
     flex-shrink: 0; align-items: flex-end;
 }
+.qv-initials { background: var(--club-primary); color: var(--club-on-primary); }
+.qv-avatar { width: 52px; height: 52px; }
+.qv-badge-type { background: color-mix(in srgb, var(--club-muted) 25%, var(--club-bg)); color: var(--club-text); font-size: 11px; }
+.qv-badge-year { background: var(--club-success); color: #fff; font-size: 11px; }
 
 
 
@@ -703,8 +801,11 @@ if (!empty($_GET['deleted'])) {
 
 <!-- ── Scripts ───────────────────────────────────────────────────────────── -->
 <script<?= csp_nonce_attr() ?>>
-window.FLIGHTOPS_MEMBERS_LIST = <?= json_encode(['canEdit' => canEditMembers()], JSON_THROW_ON_ERROR) ?>;
+window.FLIGHTOPS_MEMBERS_LIST = <?= json_encode([
+    'canEdit' => canEditMembers(),
+    'canProcess' => canEditMembers() || canProcessMemberships(),
+], JSON_THROW_ON_ERROR) ?>;
 </script>
-<script src="js/members_list.js"></script>
+<script src="js/members_list.js?v=<?= htmlspecialchars(FLIGHT_OPS_VERSION) ?>"<?= csp_nonce_attr() ?>></script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

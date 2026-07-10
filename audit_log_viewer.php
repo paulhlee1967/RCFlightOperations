@@ -131,28 +131,34 @@ function renderDetail(string|null $detail): string {
     return '<span class="text-muted small">' . $escaped . '</span>';
 }
 
+$pageTitle   = 'Audit log';
+$breadcrumbs = [
+    ['label' => 'Administration', 'url' => 'users.php'],
+    ['label' => 'Audit log', 'url' => ''],
+];
+
+require_once __DIR__ . '/includes/page_header.php';
+
 $hasFilters = $filterAction !== '' || $filterUser !== '' || $filterDateFrom !== '' || $filterDateTo !== '' || $searchQ !== '';
 $totalPages = $perPage > 0 ? max(1, (int) ceil($total / $perPage)) : 1;
 
-$pageTitle   = 'Audit log';
-$breadcrumbs = [['label' => 'Audit log', 'url' => '']];
+ob_start();
+if ($total > 0) {
+    echo 'Showing ' . (int) min($perPage, max(0, $total - $offset)) . ' of ' . (int) $total;
+} else {
+    echo 'No audit entries' . ($hasFilters ? ' match your filters' : ' yet') . '.';
+}
+$auditHeaderMeta = ob_get_clean();
 
 require_once __DIR__ . '/includes/header.php';
-?>
 
-<div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4 pb-2 border-bottom">
-    <div>
-        <h1 class="h2 mb-1">Audit log</h1>
-        <p class="text-muted mb-0">Recent account &amp; data changes for this club. Only Admin users can view this.</p>
-    </div>
-    <div class="text-muted small">
-        <?php if ($total > 0): ?>
-            Showing <?= (int) min($perPage, max(0, $total - $offset)) ?> of <?= (int) $total ?>
-        <?php else: ?>
-            No audit entries<?= $hasFilters ? ' match your filters' : ' yet' ?>.
-        <?php endif; ?>
-    </div>
-</div>
+render_page_header([
+    'title'        => 'Audit log',
+    'subtitle'     => 'Recent account & data changes for this club. Only Admin users can view this.',
+    'border'       => true,
+    'actions'      => '<div class="text-muted small">' . $auditHeaderMeta . '</div>',
+]);
+?>
 
 <div class="card shadow-sm mb-4">
     <div class="card-body py-3">
@@ -193,7 +199,7 @@ require_once __DIR__ . '/includes/header.php';
                 <input type="date" name="date_to" class="form-control form-control-sm" value="<?= h($filterDateTo) ?>">
             </div>
             <div class="col-auto">
-                <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+                <button type="submit" class="btn btn-outline-secondary btn-sm">Filter</button>
                 <?php if ($hasFilters): ?>
                 <a href="audit_log_viewer.php" class="btn btn-outline-secondary btn-sm">Clear</a>
                 <?php endif; ?>

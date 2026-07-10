@@ -115,6 +115,14 @@ function membership_application_renewal_eligibility(
         return $base;
     }
 
+    $blockMessage = membership_application_club_member_apply_block_message($member);
+    if ($blockMessage !== null) {
+        $base['member_id'] = (int) $member['id'];
+        $base['message'] = $blockMessage;
+
+        return $base;
+    }
+
     $priorYear = $renewalYear - 1;
     $renewedIds = renewedMemberIdsForYear($pdo, $priorYear);
     if (!memberIsCurrent($member, $priorYear, $renewedIds)) {
@@ -130,6 +138,21 @@ function membership_application_renewal_eligibility(
     $base['message'] = 'You may renew your membership for ' . $renewalYear . '.';
 
     return $base;
+}
+
+/**
+ * Block online applications when AMA matches a suspended club member.
+ */
+function membership_application_club_member_apply_block_message(?array $member): ?string
+{
+    if ($member === null) {
+        return null;
+    }
+    if (!empty($member['suspended'])) {
+        return 'Your club membership is suspended. Contact the membership team before applying online.';
+    }
+
+    return null;
 }
 
 /**
@@ -302,6 +325,11 @@ function membership_application_ama_verify_for_apply(PDO $pdo, string $amaNumber
     $sessionData['renewal_member_id'] = $renewalEligibility['member_id'];
 
     $clubMember = $amaNumber !== '' ? member_find_by_ama_number($pdo, $amaNumber) : null;
+    $blockMessage = membership_application_club_member_apply_block_message($clubMember);
+    if ($blockMessage !== null) {
+        return ['ok' => false, 'error' => $blockMessage, 'data' => []];
+    }
+
     $complimentaryLabels = [];
     if ($clubMember !== null) {
         if (!empty($clubMember['life_member'])) {
@@ -440,7 +468,8 @@ function membership_application_complimentary_status(
     $ama = ama_verify_normalize_number((string) $amaNumber);
     if ($ama !== '') {
         $member = member_find_by_ama_number($pdo, $ama);
-        if ($member !== null && (!empty($member['free_membership']) || !empty($member['life_member']))) {
+        if ($member !== null && membership_application_club_member_apply_block_message($member) === null
+            && (!empty($member['free_membership']) || !empty($member['life_member']))) {
             $labels = [];
             if (!empty($member['life_member'])) {
                 $labels[] = 'life member';
@@ -825,6 +854,12 @@ function membership_application_validate_input(PDO $pdo, array $post, array $fil
     $clean['ama_number'] = ama_verify_normalize_number(trim((string) ($post['ama_number'] ?? '')));
     if ($clean['ama_number'] === '') {
         $errors['ama_number'] = 'AMA number is required.';
+    } else {
+        $clubMember = member_find_by_ama_number($pdo, $clean['ama_number']);
+        $blockMessage = membership_application_club_member_apply_block_message($clubMember);
+        if ($blockMessage !== null) {
+            $errors['ama_number'] = $blockMessage;
+        }
     }
 
     $rawAmaExp = trim((string) ($post['ama_expiration'] ?? ''));
@@ -892,7 +927,7 @@ function membership_application_validate_input(PDO $pdo, array $post, array $fil
     }
 
     if (empty($files['faa_card']['tmp_name']) || !is_uploaded_file((string) $files['faa_card']['tmp_name'])) {
-        $errors['faa_card'] = 'FAA registration image is required.';
+        $errors['faa_card'] = 'FAA registration file is required.';
     }
 
     $signature = trim((string) ($post['signature_data'] ?? ''));
@@ -1467,7 +1502,7 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
                 'submission_ref' => $submissionRef,
             ],
             'receipt_email'        => $clean['email'],
-            'description'          => 'PVMAC membership application',
+            'description'          => 'Membership Dues',
         ]);
     } catch (Throwable $e) {
         error_log('membership_application_submit stripe error: ' . $e->getMessage());

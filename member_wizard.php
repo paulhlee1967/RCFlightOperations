@@ -83,14 +83,18 @@ $pageTitle = $isResume
     ? 'Continue signup: ' . trim(($member['first_name'] ?? '') . ' ' . ($member['last_name'] ?? ''))
     : 'New member wizard';
 
+$breadcrumbs = [
+    ['label' => 'Members', 'url' => 'members.php'],
+    ['label' => $isResume ? 'Continue signup' : 'New member wizard', 'url' => ''],
+];
+
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/member_wizard_styles.php';
 ?>
 
-<nav class="d-flex flex-wrap align-items-center gap-2 mb-3 pb-2 border-bottom">
-    <a href="members.php" class="btn btn-outline-secondary btn-sm">← Back to Members</a>
+<nav class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <?php if ($isResume): ?>
-    <a href="member_edit.php?id=<?= (int) $memberId ?>" class="btn btn-outline-secondary btn-sm ms-auto">Full edit form</a>
+    <a href="member_edit.php?id=<?= (int) $memberId ?>" class="btn btn-outline-primary btn-sm ms-auto">Full edit form</a>
     <?php endif; ?>
 </nav>
 

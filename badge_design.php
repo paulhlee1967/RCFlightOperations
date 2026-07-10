@@ -36,7 +36,29 @@ require_once __DIR__ . '/includes/badge_design_api.php';
 
 // ── Page render ────────────────────────────────────────────────────────────
 $pageTitle = 'Badge Designer';
+$breadcrumbs = [
+    ['label' => 'Members', 'url' => 'members.php'],
+    ['label' => 'Badge design', 'url' => ''],
+];
+require_once __DIR__ . '/includes/page_header.php';
 require_once __DIR__ . '/includes/header.php';
+
+ob_start();
+?>
+        <span id="save-status" class="small text-muted"></span>
+        <input type="hidden" id="csrf_token_value" value="<?= htmlspecialchars(csrf_token()) ?>">
+        <button type="button" class="btn btn-primary btn-sm" id="saveDesign">
+            Save Design
+        </button>
+<?php
+$badgeHeaderActions = ob_get_clean();
+
+render_page_header([
+    'title'    => 'Badge Designer',
+    'subtitle' => 'Design your CR80 member ID card (3.375″ × 2.125″)',
+    'class'    => 'mb-2',
+    'actions'  => $badgeHeaderActions,
+]);
 
 // CR80: 85.6 × 53.98 mm
 $cardWidthLandscape  = 400;
@@ -69,20 +91,6 @@ $dataFields = [
     'emergency_contact_phone'        => ['label' => 'Emergency phone',     'placeholder' => '<EMERGENCY PHONE>',   'icon' => '🆘'],
 ];
 ?>
-
-<div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
-    <div>
-        <h1 class="h2 mb-0">Badge Designer</h1>
-        <p class="text-muted small mb-0">Design your CR80 member ID card (3.375″ × 2.125″)</p>
-    </div>
-    <div class="d-flex gap-2 align-items-center">
-        <span id="save-status" class="small text-muted"></span>
-        <input type="hidden" id="csrf_token_value" value="<?= htmlspecialchars(csrf_token()) ?>">
-        <button type="button" class="btn btn-primary" id="saveDesign">
-            Save Design
-        </button>
-    </div>
-</div>
 
 <?php /* ── Design picker: choose / create / rename / delete designs ────────── */ ?>
 <div class="card mb-3 shadow-sm">

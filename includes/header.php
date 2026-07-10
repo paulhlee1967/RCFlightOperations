@@ -207,6 +207,94 @@ $_headerBaseHref = $baseHref ?? '';
                                                  color: var(--club-primary) !important;
                                                  border-color: var(--club-muted) !important; }
 
+        /* Dropdown menus — light club panel (navbar may inherit data-bs-theme=dark) */
+        .dropdown-menu {
+            --bs-dropdown-bg: var(--club-card);
+            --bs-dropdown-color: var(--club-text);
+            --bs-dropdown-link-color: var(--club-text);
+            --bs-dropdown-link-hover-color: var(--club-primary);
+            --bs-dropdown-link-hover-bg: var(--club-accent);
+            --bs-dropdown-link-active-bg: var(--club-primary);
+            --bs-dropdown-link-active-color: var(--club-on-primary);
+            --bs-dropdown-border-color: var(--club-border);
+            background-color: var(--club-card);
+            color: var(--club-text);
+            border-color: var(--club-border);
+        }
+        .dropdown-item {
+            color: var(--club-text);
+        }
+        .dropdown-item:hover,
+        .dropdown-item:focus {
+            color: var(--club-primary);
+            background-color: var(--club-accent);
+        }
+        .dropdown-item.active,
+        .dropdown-item:active {
+            background-color: var(--club-primary);
+            color: var(--club-on-primary);
+        }
+        .dropdown-divider {
+            border-top-color: var(--club-border);
+        }
+
+        /* Navbar dropdowns — same tokens; data-bs-theme=light on markup breaks dark inherit */
+        .navbar .dropdown-menu {
+            --bs-dropdown-bg: var(--club-card);
+            --bs-dropdown-color: var(--club-text);
+            --bs-dropdown-link-color: var(--club-text);
+            --bs-dropdown-link-hover-color: var(--club-primary);
+            --bs-dropdown-link-hover-bg: var(--club-accent);
+            --bs-dropdown-link-active-bg: var(--club-primary);
+            --bs-dropdown-link-active-color: var(--club-on-primary);
+            --bs-dropdown-border-color: var(--club-border);
+            background-color: var(--club-card);
+            color: var(--club-text);
+            border-color: var(--club-border);
+        }
+        .navbar .dropdown-item {
+            color: var(--club-text);
+        }
+        .navbar .dropdown-item:hover,
+        .navbar .dropdown-item:focus {
+            color: var(--club-primary);
+            background-color: var(--club-accent);
+        }
+        .navbar .dropdown-item.active,
+        .navbar .dropdown-item:active {
+            background-color: var(--club-primary);
+            color: var(--club-on-primary);
+        }
+        .navbar .dropdown-item-text.text-muted {
+            color: var(--club-muted) !important;
+        }
+        .navbar .dropdown-divider {
+            border-top-color: var(--club-border);
+        }
+
+        /* Page nav-tabs (applications, comp invites, etc.) — matches member/config tabs */
+        .nav-tabs-club {
+            border-bottom: 2px solid var(--club-primary);
+        }
+        .nav-tabs-club .nav-link {
+            color: var(--club-text);
+            background: var(--club-bg);
+            border: 1px solid var(--club-muted);
+            border-bottom: none;
+            margin-bottom: -2px;
+            font-weight: 500;
+        }
+        .nav-tabs-club .nav-link:hover {
+            background: var(--club-accent);
+            color: var(--club-primary);
+            border-color: var(--club-muted);
+        }
+        .nav-tabs-club .nav-link.active {
+            background: var(--club-primary);
+            color: var(--club-on-primary);
+            border-color: var(--club-primary);
+        }
+
         /* ── Navbar ──────────────────────────────────────────────────── */
         .navbar-brand {
             min-width: 0;
@@ -543,7 +631,7 @@ $_headerBaseHref = $baseHref ?? '';
                        data-bs-toggle="dropdown" aria-expanded="false">
                         Administration
                     </a>
-                    <ul class="dropdown-menu" aria-labelledby="navAdmin">
+                    <ul class="dropdown-menu" aria-labelledby="navAdmin" data-bs-theme="light">
                         <li>
                             <a class="dropdown-item<?= navActive(['users.php', 'user_edit.php', 'user_delete.php']) ? ' active' : '' ?>"
                                href="<?= $_headerBaseHref ?>users.php">Users</a>
@@ -587,7 +675,7 @@ $_headerBaseHref = $baseHref ?? '';
                         </svg>
                         <span class="d-none d-xl-inline">Help</span>
                     </a>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navHelp">
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navHelp" data-bs-theme="light">
                         <li>
                             <a class="dropdown-item" href="<?= $_headerBaseHref ?>docs/index.html">
                                 Documentation
@@ -610,7 +698,7 @@ $_headerBaseHref = $baseHref ?? '';
                         <span class="nav-user-avatar"><?= htmlspecialchars($_navInitials ?: '?') ?></span>
                         <span class="d-none d-lg-inline"><?= htmlspecialchars($_navUserName) ?></span>
                     </a>
-                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navUser">
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navUser" data-bs-theme="light">
 
                         <!-- Role label (non-interactive header) -->
                         <?php if ($_navUserRole): ?>

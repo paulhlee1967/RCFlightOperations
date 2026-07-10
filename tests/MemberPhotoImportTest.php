@@ -96,6 +96,35 @@ final class MemberPhotoImportTest extends TestCase
         }
     }
 
+    public function test_save_faa_card_from_local_file_accepts_pdf(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        $stmt = $this->createMock(PDOStatement::class);
+        $pdo->method('prepare')->willReturn($stmt);
+        $stmt->method('execute')->willReturn(true);
+
+        $tmp = tempnam(sys_get_temp_dir(), 'member_faa_pdf_test_');
+        $this->assertNotFalse($tmp);
+        file_put_contents($tmp, "%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n");
+
+        $uploadDir = dirname(__DIR__) . '/uploads/member_faa_cards';
+        $destFile = $uploadDir . '/1.pdf';
+        if (is_file($destFile)) {
+            @unlink($destFile);
+        }
+
+        try {
+            $result = member_save_faa_card_from_local_file($pdo, 1, $tmp);
+            $this->assertTrue($result['ok'], $result['error'] ?? 'expected PDF save to succeed');
+            $this->assertSame('uploads/member_faa_cards/1.pdf', $result['faa_card_path']);
+        } finally {
+            @unlink($tmp);
+            if (is_file($destFile)) {
+                @unlink($destFile);
+            }
+        }
+    }
+
     public function test_import_faa_card_from_url_rejects_disallowed_host(): void
     {
         $pdo = $this->createMock(PDO::class);

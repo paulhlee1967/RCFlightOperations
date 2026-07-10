@@ -230,6 +230,145 @@ function membershipStatusCounts(PDO $pdo, ?int $year = null): array
 }
 
 /**
+ * Allowed membership filter values for the members list (mutually exclusive).
+ *
+ * @return list<string>
+ */
+function membersListStatusFilterKeys(): array
+{
+    return ['all', 'current'];
+}
+
+/**
+ * Allowed stackable flag filters for the members list.
+ *
+ * @return list<string>
+ */
+function membersListFlagFilterKeys(): array
+{
+    return ['free', 'life', 'suspended', 'archived'];
+}
+
+/**
+ * SQL WHERE fragment and params for a members list membership filter.
+ *
+ * @return array{sql:string, params:array<int, mixed>}
+ */
+function memberStatusFilterWhereSql(string $statusFilter, ?int $year = null, string $alias = 'm'): array
+{
+    if ($statusFilter === 'all') {
+        return ['sql' => '1=1', 'params' => []];
+    }
+
+    $year = $year ?? membershipStatusYear();
+
+    if ($statusFilter === 'current') {
+        return [
+            'sql'    => currentMemberWhereSql($alias === '' ? '' : $alias, $year),
+            'params' => currentMemberWhereParams($year),
+        ];
+    }
+
+    return ['sql' => '1=1', 'params' => []];
+}
+
+/**
+ * SQL WHERE fragment and params for a single member flag filter.
+ *
+ * @return array{sql:string, params:array<int, mixed>}
+ */
+function memberFlagFilterWhereSql(string $flag, string $alias = 'm'): array
+{
+    $c = memberSqlPrefix($alias);
+
+    return match ($flag) {
+        'free'      => ['sql' => "({$c}free_membership = 1)", 'params' => []],
+        'life'      => ['sql' => "({$c}life_member = 1)", 'params' => []],
+        'suspended' => ['sql' => "({$c}suspended = 1)", 'params' => []],
+        'archived'  => ['sql' => "({$c}inactive = 1)", 'params' => []],
+        default     => ['sql' => '1=1', 'params' => []],
+    };
+}
+
+/**
+ * Combined membership + flag filters for the members list (AND logic).
+ *
+ * @param  list<string>  $flagFilters
+ * @return array{sql:string, params:array<int, mixed>}
+ */
+function membersListCombinedFilterWhereSql(
+    string $statusFilter,
+    array $flagFilters,
+    ?int $year = null,
+    string $alias = 'm'
+): array {
+    $parts  = [];
+    $params = [];
+
+    if ($statusFilter !== 'all') {
+        $statusWhere = memberStatusFilterWhereSql($statusFilter, $year, $alias);
+        $parts[]     = $statusWhere['sql'];
+        $params      = array_merge($params, $statusWhere['params']);
+    }
+
+    foreach ($flagFilters as $flag) {
+        $flagWhere = memberFlagFilterWhereSql($flag, $alias);
+        $parts[]   = $flagWhere['sql'];
+        $params    = array_merge($params, $flagWhere['params']);
+    }
+
+    if ($parts === []) {
+        return ['sql' => '1=1', 'params' => []];
+    }
+
+    return [
+        'sql'    => implode(' AND ', array_map(static fn (string $p) => "($p)", $parts)),
+        'params' => $params,
+    ];
+}
+
+/**
+ * Chip counts for membership filters on the members list.
+ *
+ * @return array{all:int, current:int}
+ */
+function membersListStatusChipCounts(PDO $pdo, ?int $year = null): array
+{
+    $year = $year ?? membershipStatusYear();
+    $statusCounts = membershipStatusCounts($pdo, $year);
+
+    return [
+        'all'     => (int) ($statusCounts['total'] ?? 0),
+        'current' => (int) ($statusCounts['current'] ?? 0),
+    ];
+}
+
+/**
+ * Chip counts for each flag within a membership filter context (single flag only).
+ *
+ * @param  list<string>  $activeFlags  Currently selected flags (ignored for per-flag counts).
+ * @return array<string, int>
+ */
+function membersListFlagChipCounts(
+    PDO $pdo,
+    string $statusFilter,
+    array $activeFlags = [],
+    ?int $year = null
+): array {
+    $year   = $year ?? membershipStatusYear();
+    $counts = [];
+
+    foreach (membersListFlagFilterKeys() as $flag) {
+        $where = membersListCombinedFilterWhereSql($statusFilter, [$flag], $year, 'm');
+        $stmt  = $pdo->prepare("SELECT COUNT(*) FROM members m WHERE {$where['sql']}");
+        $stmt->execute($where['params']);
+        $counts[$flag] = (int) $stmt->fetchColumn();
+    }
+
+    return $counts;
+}
+
+/**
  * Count current members for a year.
  */
 function countCurrentMembers(PDO $pdo, ?int $year = null): int
@@ -251,24 +390,24 @@ function countMembersWithMembershipForYear(PDO $pdo, int $year): int
 }
 
 /**
- * Member counts grouped by membership_type_slot for a list status filter.
+ * Member counts grouped by membership_type_slot for list filters.
  *
- * @param  string  $statusFilter  One of: all, current, inactive
+ * @param  list<string>  $flagFilters
  * @return array<int, int>  slot => count
  */
-function membershipTypeSlotCounts(PDO $pdo, string $statusFilter, ?int $year = null): array
-{
+function membershipTypeSlotCounts(
+    PDO $pdo,
+    string $statusFilter,
+    array $flagFilters = [],
+    ?int $year = null
+): array {
     $year = $year ?? membershipStatusYear();
     $sql    = 'SELECT membership_type_slot, COUNT(*) AS cnt FROM members WHERE 1=1';
     $params = [];
 
-    if ($statusFilter === 'current') {
-        $sql .= ' AND ' . currentMemberWhereSql('', $year);
-        $params = currentMemberWhereParams($year);
-    } elseif ($statusFilter === 'inactive') {
-        $sql .= ' AND NOT ' . currentMemberWhereSql('', $year);
-        $params = currentMemberWhereParams($year);
-    }
+    $where = membersListCombinedFilterWhereSql($statusFilter, $flagFilters, $year, '');
+    $sql .= ' AND ' . $where['sql'];
+    $params = $where['params'];
 
     $sql .= ' GROUP BY membership_type_slot';
 
@@ -283,17 +422,18 @@ function membershipTypeSlotCounts(PDO $pdo, string $statusFilter, ?int $year = n
 }
 
 /**
- * Type-slot counts for all, current, and inactive (for filter chips).
+ * Type-slot counts for all and active membership (for filter chips when no flags selected).
  *
- * @return array{all: array<int, int>, current: array<int, int>, inactive: array<int, int>}
+ * @return array<string, array<int, int>>
  */
 function membershipTypeSlotCountsByStatus(PDO $pdo, ?int $year = null): array
 {
-    return [
-        'all'      => membershipTypeSlotCounts($pdo, 'all', $year),
-        'current'  => membershipTypeSlotCounts($pdo, 'current', $year),
-        'inactive' => membershipTypeSlotCounts($pdo, 'inactive', $year),
-    ];
+    $out = [];
+    foreach (membersListStatusFilterKeys() as $key) {
+        $out[$key] = membershipTypeSlotCounts($pdo, $key, [], $year);
+    }
+
+    return $out;
 }
 
 // ── Frozen per-year membership (member_membership_years) ───────────────────
@@ -512,6 +652,45 @@ function badgeUnprintedWhereSql(string $alias): string
 function badgeUnprintedWhereParams(int $year): array
 {
     return [$year];
+}
+
+/**
+ * SQL fragment: member has a recorded fulfillment for the year but card or mailer not printed.
+ */
+function fulfillmentPendingWhereSql(string $memberAlias = 'm'): string
+{
+    $p = $memberAlias !== '' ? $memberAlias . '.' : '';
+
+    return "EXISTS (
+        SELECT 1 FROM member_fulfillments f
+        WHERE f.member_id = {$p}id
+          AND f.year = ?
+          AND f.processed_at IS NOT NULL
+          AND (f.card_printed_at IS NULL OR f.mailer_printed_at IS NULL)
+    )";
+}
+
+/** @return array{0:int} */
+function fulfillmentPendingWhereParams(int $year): array
+{
+    return [$year];
+}
+
+/**
+ * Members with signup/renewal recorded for a year but fulfillment tasks still open.
+ */
+function countRecordedUnfulfilled(PDO $pdo, int $year): int
+{
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT COUNT(*) AS cnt FROM members m WHERE ' . fulfillmentPendingWhereSql('m')
+        );
+        $stmt->execute(fulfillmentPendingWhereParams($year));
+
+        return (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+    } catch (Throwable $e) {
+        return 0;
+    }
 }
 
 /**
