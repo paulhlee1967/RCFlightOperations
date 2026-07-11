@@ -242,6 +242,7 @@ require_once __DIR__ . '/includes/header.php';
                                 </div>
                             </div>
                         </div>
+                        <?php require __DIR__ . '/includes/member_sender_status.php'; ?>
                         <div class="col-12 order-4">
                             <label class="form-label">Mailing address</label>
                             <div class="row g-2">

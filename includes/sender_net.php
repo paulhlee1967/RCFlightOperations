@@ -7,6 +7,7 @@
  */
 
 const SENDER_NET_API_BASE = 'https://api.sender.net/v2';
+const SENDER_NET_DASHBOARD_BASE = 'https://app.sender.net';
 
 require_once __DIR__ . '/helpers.php';
 
@@ -745,6 +746,142 @@ function member_wants_expiry_reminder_emails(array $member): bool
     }
 
     return !empty($member['email_opt_in_expiry_reminders']);
+}
+
+/**
+ * Sender.net dashboard URL for subscriber list or a specific contact (when ID is known).
+ */
+function sender_net_dashboard_subscribers_url(?string $subscriberId = null): string
+{
+    $base = SENDER_NET_DASHBOARD_BASE . '/subscribers';
+    $id   = trim((string) ($subscriberId ?? ''));
+    if ($id !== '') {
+        return $base . '/' . rawurlencode($id);
+    }
+
+    return $base;
+}
+
+/**
+ * Badge-friendly label for a Sender campaign or transactional channel status.
+ *
+ * @return array{text: string, badge: string}
+ */
+function sender_net_format_channel_status(?array $subscriberData, string $channel): array
+{
+    if ($subscriberData === null) {
+        return ['text' => 'Not in Sender.net', 'badge' => 'bg-secondary'];
+    }
+
+    $status = strtolower(trim((string) ($subscriberData['status'][$channel] ?? '')));
+    if ($status === 'active') {
+        return ['text' => 'Active', 'badge' => 'bg-success'];
+    }
+    if ($status === 'unsubscribed') {
+        return ['text' => 'Unsubscribed', 'badge' => 'bg-secondary'];
+    }
+    if ($status === 'bounced') {
+        return ['text' => 'Bounced', 'badge' => 'bg-danger'];
+    }
+    if ($status === '') {
+        return ['text' => 'Unknown', 'badge' => 'bg-secondary'];
+    }
+
+    return ['text' => ucfirst($status), 'badge' => 'bg-secondary'];
+}
+
+/**
+ * Live Sender.net email preference summary for a member record (read-only display).
+ *
+ * @return array{
+ *   show: bool,
+ *   state: string,
+ *   email: string,
+ *   error: ?string,
+ *   dashboard_url: string,
+ *   rows: list<array{label: string, text: string, badge: string}>
+ * }
+ */
+function sender_net_member_email_status(?PDO $pdo, array $member): array
+{
+    $email = sender_net_normalize_email((string) ($member['email'] ?? ''));
+    $base  = [
+        'show'          => false,
+        'state'         => 'no_email',
+        'email'         => $email,
+        'error'         => null,
+        'dashboard_url' => sender_net_dashboard_subscribers_url(),
+        'rows'          => [],
+    ];
+
+    if ($email === '') {
+        return $base;
+    }
+
+    $config = sender_net_load_config($pdo);
+    if (!sender_net_is_configured($config)) {
+        $base['state'] = 'not_configured';
+
+        return $base;
+    }
+
+    $fetch = sender_net_fetch_subscriber($email, $config);
+    if (!$fetch['ok']) {
+        return [
+            'show'          => true,
+            'state'         => 'error',
+            'email'         => $email,
+            'error'         => $fetch['error'],
+            'dashboard_url' => sender_net_dashboard_subscribers_url(),
+            'rows'          => [],
+        ];
+    }
+
+    $subscriber = $fetch['data'];
+    if ($subscriber === null) {
+        return [
+            'show'          => true,
+            'state'         => 'not_found',
+            'email'         => $email,
+            'error'         => null,
+            'dashboard_url' => sender_net_dashboard_subscribers_url(),
+            'rows'          => [],
+        ];
+    }
+
+    $campaign = sender_net_format_channel_status($subscriber, 'email');
+    $reminder = sender_net_format_channel_status($subscriber, 'temail');
+    $rows     = [
+        [
+            'label' => 'Club events & announcements',
+            'text'  => $campaign['text'],
+            'badge' => $campaign['badge'],
+        ],
+        [
+            'label' => 'AMA/FAA expiry reminders',
+            'text'  => $reminder['text'],
+            'badge' => $reminder['badge'],
+        ],
+    ];
+
+    $groupId = trim((string) ($config['group_id'] ?? ''));
+    if ($groupId !== '') {
+        $inGroup = sender_net_subscriber_in_group($subscriber, $groupId);
+        $rows[]  = [
+            'label' => 'Members group',
+            'text'  => $inGroup ? 'Yes' : 'No',
+            'badge' => $inGroup ? 'bg-success' : 'bg-secondary',
+        ];
+    }
+
+    return [
+        'show'          => true,
+        'state'         => 'ok',
+        'email'         => $email,
+        'error'         => null,
+        'dashboard_url' => sender_net_dashboard_subscribers_url((string) ($subscriber['id'] ?? '')),
+        'rows'          => $rows,
+    ];
 }
 
 /**

@@ -149,6 +149,8 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
 
+                    <?php require __DIR__ . '/includes/member_sender_status.php'; ?>
+
                     <div class="col-12">
                         <label class="form-label">Mailing address</label>
                         <?php

@@ -99,6 +99,55 @@ final class SenderNetTest extends TestCase
         $this->assertFalse(sender_net_subscriber_in_group($subscriber, ''));
     }
 
+    public function test_format_channel_status(): void
+    {
+        $active = ['status' => ['email' => 'active', 'temail' => 'active']];
+        $this->assertSame(['text' => 'Active', 'badge' => 'bg-success'], sender_net_format_channel_status($active, 'email'));
+        $this->assertSame(['text' => 'Unsubscribed', 'badge' => 'bg-secondary'], sender_net_format_channel_status([
+            'status' => ['email' => 'unsubscribed'],
+        ], 'email'));
+        $this->assertSame(['text' => 'Bounced', 'badge' => 'bg-danger'], sender_net_format_channel_status([
+            'status' => ['email' => 'bounced'],
+        ], 'email'));
+        $this->assertSame(['text' => 'Not in Sender.net', 'badge' => 'bg-secondary'], sender_net_format_channel_status(null, 'email'));
+    }
+
+    public function test_dashboard_subscribers_url(): void
+    {
+        $this->assertSame('https://app.sender.net/subscribers', sender_net_dashboard_subscribers_url());
+        $this->assertSame('https://app.sender.net/subscribers/o2lk68Y', sender_net_dashboard_subscribers_url('o2lk68Y'));
+    }
+
+    public function test_member_email_status_without_email(): void
+    {
+        $status = sender_net_member_email_status(null, ['email' => '']);
+        $this->assertFalse($status['show']);
+        $this->assertSame('no_email', $status['state']);
+    }
+
+    public function test_member_email_status_not_configured(): void
+    {
+        $status = sender_net_member_email_status(null, ['email' => 'member@example.com']);
+        $this->assertFalse($status['show']);
+        $this->assertSame('not_configured', $status['state']);
+    }
+
+    public function test_member_email_status_ok(): void
+    {
+        $status = sender_net_member_email_status(null, [
+            'email' => 'member@example.com',
+        ]);
+        if (!sender_net_is_configured(sender_net_load_config(null))) {
+            $this->markTestSkipped('Sender.net API token not configured in config.php');
+        }
+
+        $this->assertContains($status['state'], ['ok', 'not_found', 'error']);
+        if ($status['state'] === 'ok') {
+            $this->assertNotSame([], $status['rows']);
+            $this->assertStringStartsWith('https://app.sender.net/subscribers', $status['dashboard_url']);
+        }
+    }
+
     public function test_build_transactional_request(): void
     {
         $request = sender_net_build_transactional_request(
