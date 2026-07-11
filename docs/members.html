@@ -155,7 +155,7 @@
         <tbody>
           <tr><td>First / Last name</td><td>Required. Used on badges and reports.</td></tr>
           <tr><td>Title</td><td>Mr., Ms., Dr., etc. — optional, shown on some reports.</td></tr>
-          <tr><td>Email</td><td>Member’s address (stored lowercase); used for in-app report emails, CSV “email only” export, and optional AMA/FAA expiry reminders when your host runs <code>scripts/send_reminders.php</code>. Reminders honor <strong>transactional</strong> opt-out in Sender.net when configured under <strong>Administration → Installation</strong> — newsletter unsubscribes are separate. Routine newsletters are typically managed in your external mailing tool (e.g. Sender.net).</td></tr>
+          <tr><td>Email</td><td>Member’s address (stored lowercase); used for in-app report emails, CSV “email only” export, and optional AMA/FAA expiry reminders when your host runs <code>scripts/send_reminders.php</code>. Reminder consent is stored in <code>email_opt_in_expiry_reminders</code> (set from <code>apply.php</code> on approve; existing members default to opted in after migration). Reminders also honor <strong>transactional</strong> opt-out in Sender.net when configured — newsletter/campaign unsubscribes are separate. Club event mail uses <code>email_opt_in_club_events</code>. See <a href="applications.html#email-preferences">Applications — Email preferences</a> and <a href="admin.html#sender-opt-out">Sender.net opt-out</a>.</td></tr>
           <tr><td>Birthday</td><td>Used by the Birthdays This Month report.</td></tr>
           <tr><td>Notes</td><td>Free-text internal notes — not shown on badges.</td></tr>
           <tr><td>Photo</td><td>Upload a headshot; appears on the badge front if your template includes it.</td></tr>

@@ -82,6 +82,7 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_single_phone.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_single_address.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_drop_comm_prefs.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_applications.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_email_opt_in.sql
 ```
 
 | Script | What it does |
@@ -90,6 +91,7 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_applications.sql
 | `migrate_single_address.sql` | Adds `address_*` columns on `members`, copies Home address from `member_addresses`, drops `member_addresses` |
 | `migrate_drop_comm_prefs.sql` | Drops `allow_email` and `allow_postal` (opt-out lives in Sender.net or similar) |
 | `migrate_member_applications.sql` | Creates `member_applications` queue table |
+| `migrate_email_opt_in.sql` | Adds `email_opt_in_club_events` and `email_opt_in_expiry_reminders` to `member_applications` and `members` |
 
 **Note:** If a member had multiple phones or addresses, only the preferred one is kept (same rules as local dev). Extra rows in the old tables are discarded when those tables are dropped — back up before migrating if you need to audit them.
 
@@ -110,7 +112,7 @@ Expected output: `Database OK: all expected tables and columns present.`
 ### 7. Smoke test
 
 - Open **Members** — edit a member; confirm single phone and mailing address fields.
-- Open **Applications**; submit a test via `/apply.php` and approve it — badge photo and FAA card should copy to the member record for printing.
+- Open **Applications**; submit a test via `/apply.php` (try both email opt-in checkboxes) and approve it — badge photo and FAA card should copy to the member record; email preferences should appear in the detail panel.
 - Spot-check a badge print / envelope (address still renders).
 - Turn off maintenance mode.
 

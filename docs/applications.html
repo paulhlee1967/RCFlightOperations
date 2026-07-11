@@ -39,6 +39,7 @@
     <a href="#workflow">Review workflow</a>
     <a href="#filters">Filters &amp; pagination</a>
     <a href="#payment">Payment display</a>
+    <a href="#email-preferences">Email preferences</a>
     <a href="#approve">Approve &amp; reject</a>
     <a href="#badge-photo">Badge photo</a>
     <a href="#setup">Website setup</a>
@@ -95,7 +96,7 @@
       <li>Open <strong>Applications</strong> from the top nav (or follow the dashboard link).</li>
       <li>Select an applicant from the list to open the detail panel.</li>
       <li>Check the suggested member match and any <strong>Changes vs matched member</strong> table.</li>
-      <li>Review payment info and uploaded file links (badge photo is copied to the member record on approve).</li>
+      <li>Review payment info, <a href="#email-preferences">email preferences</a>, and uploaded file links (badge photo is copied to the member record on approve).</li>
       <li>Adjust <strong>Renewal type</strong> and <strong>Renewal year</strong> if needed.</li>
       <li>Click <strong>Approve &amp; process</strong> or <strong>Reject</strong>.</li>
     </ol>
@@ -156,6 +157,28 @@
       <li><strong>Coupon / complimentary</strong> — from notes or waived payment status</li>
       <li><strong>Total paid</strong> — Stripe charge when payment was required</li>
     </ul>
+
+    <h2 id="email-preferences">Email preferences</h2>
+    <p>
+      The public form at <code>apply.php</code> includes an <strong>Optional email notifications</strong>
+      section with two independent checkboxes (both unchecked by default):
+    </p>
+    <ul>
+      <li><strong>Club events &amp; announcements</strong> — occasional fly-ins, meetings, and field updates via Sender’s <strong>campaign</strong> channel. Leaving this unchecked does <em>not</em> remove someone who already receives club mail from another sign-up; they can use the unsubscribe link in those messages.</li>
+      <li><strong>AMA &amp; FAA expiration reminders</strong> — scheduled expiry notices via Sender’s <strong>transactional</strong> channel (separate from club event mail). Each reminder includes its own opt-out link on <code>unsubscribe.php</code>. If unchecked, the app will not send reminders and will opt the member out of transactional mail in Sender when approved.</li>
+    </ul>
+    <p>
+      Staff see the applicant’s choices in the detail panel under <strong>Email preferences</strong>
+      (or “No optional emails selected”). On <strong>Approve &amp; process</strong>, preferences are
+      copied to the member record and synced to Sender.net when configured under
+      <strong>Administration → Installation</strong> (see
+      <a href="admin.html#sender-opt-out">Sender.net opt-out</a>).
+    </p>
+    <p>
+      Club-event opt-in is also pushed to Sender when the application is first submitted (if that
+      box was checked). Expiry-reminder preference is applied on approve so staff review completes
+      before transactional status changes.
+    </p>
 
     <h2 id="approve">Approve &amp; reject</h2>
     <h3>Approve</h3>

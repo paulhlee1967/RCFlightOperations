@@ -8,11 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- **Badge photo on application approve** — When staff approve a WPForms application with a badge photo URL, the app downloads the image from the club website (JPEG/PNG/GIF) and sets `members.photo_path` so Process Signup / Renewal is ready for badge printing. AMA/FAA files remain external links only. See [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md) and [docs/applications.html](docs/applications.html).
+- **Email opt-in on membership applications** — `apply.php` offers optional checkboxes for **club events & announcements** (Sender campaign channel) and **AMA/FAA expiration reminders** (Sender transactional channel). Preferences are stored on `member_applications` and copied to `members` on approve. When Sender.net is configured, submit syncs club-event opt-in; approve applies both preferences via `includes/sender_net.php`. `scripts/send_reminders.php` skips members with `email_opt_in_expiry_reminders = 0`. Idempotent migration: `scripts/migrate_email_opt_in.sql` (also in `schema_full.sql`). See [docs/applications.html](docs/applications.html#email-preferences) and [docs/admin.html](docs/admin.html#sender-opt-out).
 
 ### Changed
 
-- **Documentation** — Help center, [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md), [TECHNICAL.md](TECHNICAL.md), and [DEPLOY.md](DEPLOY.md) updated for badge photo import, image-only badge uploads on WPForms, and maintenance scripts (`reparse_applications.php`, `merge_members.php`).
+- **Documentation** — Help center, [TECHNICAL.md](TECHNICAL.md), and [DEPLOY.md](DEPLOY.md) updated for public `apply.php` applications (replacing WPForms), email opt-in preferences, and Sender.net sync on submit/approve.
 
 ## [1.5.2] - 2026-07-03
 

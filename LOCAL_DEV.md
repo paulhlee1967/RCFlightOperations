@@ -176,8 +176,8 @@ If your club uses [Sender.net](https://www.sender.net) for newsletters and membe
 
 1. **Administration → Installation → Sender.net (reminder opt-out)** — set the API access token (Sender → Settings → API access tokens) and **members group ID** (Subscribers → your members list → group settings).
 2. In `config.php`, set **`canonical_host`** (or **`public_base_url`**) so cron-built emails include HTTPS logo and unsubscribe links.
-3. Reminder cron normalizes emails to lowercase, creates missing Sender subscribers (and adds them to the members group), skips contacts who opted out of **transactional** email, and sends via Sender’s API. Each message includes a signed **reminder-only** unsubscribe link (`unsubscribe.php`); newsletters use a separate list.
-4. Unsubscribing from a newsletter in Sender does **not** stop AMA/FAA reminders — members use the link in reminder emails (or staff can manage status in Sender).
+3. Reminder cron skips members with `email_opt_in_expiry_reminders = 0` on file, normalizes emails to lowercase, creates missing Sender subscribers (and adds them to the members group), skips contacts who opted out of **transactional** email in Sender, and sends via Sender’s API. Each message includes a signed **reminder-only** unsubscribe link (`unsubscribe.php`); club event mail uses the campaign channel separately.
+4. **`apply.php`** collects optional checkboxes for club events and expiry reminders; preferences sync to Sender on submit (club events) and approve (both). See [docs/applications.html](docs/applications.html#email-preferences). Unsubscribing from a newsletter in Sender does **not** stop AMA/FAA reminders — members use the link in reminder emails (or staff can manage status in Sender).
 
 Optional fallback in `config.php`: see the `sender` block in `config.php.example`.
 

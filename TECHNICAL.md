@@ -68,7 +68,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **validation.php** | Server-side validation: `validate_member_input()`, `validate_payment_input()`, `validate_email()`, `validate_date()`, `validate_positive_number()`. Return structured errors for forms and APIs. |
 | **audit_log.php** | `audit_log($pdo, $userId, $action, $targetType, $targetId, $detail)`. Writes to `audit_log` table; safe if table is missing. **Admin UI:** `audit_log_viewer.php` (Administration → Audit log). |
 | **mail.php** | Email sending via config: `send_mail($to, $subject, $bodyHtml, $bodyText, $emailConfig, $options)`. Uses PHPMailer; SMTP or PHP `mail()`. Optional `list_unsubscribe_url` in `$options`. |
-| **sender_net.php** | Sender.net API: subscriber ensure/create, transactional (`temail`) opt-out checks, signed app unsubscribe URLs, group assignment, transactional send. Used by `send_reminders.php` and `unsubscribe.php`. |
+| **sender_net.php** | Sender.net API: subscriber ensure/create, campaign (`email`) and transactional (`temail`) channel status, club-event subscribe, expiry-reminder preference sync, signed app unsubscribe URLs, group assignment, transactional send. Helpers: `email_opt_in_from_post()`, `member_wants_expiry_reminder_emails()`, `email_opt_in_application_summary()`. Used by `apply.php`, `applications.php`, `send_reminders.php`, and `unsubscribe.php`. |
 | **email_urls.php** | `email_public_base_url()`, `email_club_logo_public_url()` — absolute HTTPS URLs for Sender/cron emails (logo thumb, unsubscribe links). |
 | **installation_config.php** | Loads/saves `system_config` keys; merges with `config.php` email and Sender settings for Installation screen. |
 | **password_policy.php** | Password strength rules and validation. |
@@ -92,8 +92,8 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **member_wizard_styles.php** | Inline CSS for wizard stepper (included by `member_wizard.php` and `member_process.php?wizard=1`). |
 | **member_match.php** | Duplicate member detection (AMA + tiered name/email/birthday). Used by CSV import and online applications. |
 | **member_import_helpers.php** | Shared `parseDateForDb()`, `normalizeMembershipTypeSlot()`, `normalizeBool()` for import and applications. |
-| **membership_application.php** | Public `apply.php` flow: AMA gate, dues quote, Stripe payment, file uploads, confirmation tokens. |
-| **member_applications.php** | Staff review queue: list filters, payment breakdown, approve/reject into member records, notifications. |
+| **membership_application.php** | Public `apply.php` flow: AMA gate, dues quote, Stripe payment, file uploads, optional email opt-in checkboxes, confirmation tokens, Sender preference sync on submit. |
+| **member_applications.php** | Staff review queue: list filters, payment breakdown, approve/reject into member records, email opt-in copy to `members`, Sender sync on approve, notifications. |
 | **app_signing_secret.php** | Loads `app_secret` from `system_config` or `config.php` for signed URLs. |
 
 ---
@@ -150,7 +150,7 @@ Run from project root: `php scripts/script_name.php`.
 | **verify_ama_health.php** | Probes AMA verify page for `form_build_id` (exit 0/1). Cron-friendly health check. |
 | **fetch_vendor_assets.sh** | Downloads pinned Bootstrap, Bootstrap Icons, and Fabric.js into `assets/vendor/`. |
 | **export_db_for_cpanel.php** | Exports SQL dump suitable for cPanel/phpMyAdmin import. |
-| **send_reminders.php** | Sends reminder emails (AMA/FAA expiry). Cron-friendly. When Sender.net is configured, checks transactional (`temail`) opt-out, ensures subscribers in the members group, sends via Sender API with signed app unsubscribe links. Flags: `--dry-run`, `--test-email=`, `--test-limit=N`, `--dump-sender-payload[=path]`. Requires `canonical_host` or `public_base_url` for logo/unsubscribe URLs. |
+| **send_reminders.php** | Sends reminder emails (AMA/FAA expiry). Cron-friendly. Skips members with `email_opt_in_expiry_reminders = 0`. When Sender.net is configured, also checks transactional (`temail`) opt-out, ensures subscribers in the members group, sends via Sender API with signed app unsubscribe links. Flags: `--dry-run`, `--test-email=`, `--test-limit=N`, `--dump-sender-payload[=path]`. Requires `canonical_host` or `public_base_url` for logo/unsubscribe URLs. |
 | **mark_expired_inactive.php** | Optional maintenance: mark members as inactive based on rules. |
 | **import_member_photos.php** | Bulk import member photos (e.g. from a directory keyed by member ID or name). |
 | **merge_members.php** | Merge duplicate member records (dry-run or `--execute`; uses `includes/member_merge.php`). |
@@ -181,7 +181,8 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 ## Email and PDF
 
 - **Email:** Defaults in `config.php` under `email`; **Administration → Installation** can store SMTP and other keys in `system_config` (see `includes/installation_config.php` and `includes/mail.php`).
-  - **Scheduled reminders:** `scripts/send_reminders.php` (cron) sends AMA/FAA expiry templates to members with a non-empty email. When a **Sender.net API token** and **members group ID** are configured, each recipient is ensured in Sender (lowercase email), checked via `GET /v2/subscribers/{email}` (`status.temail` must be `active`; campaign/newsletter opt-out in `status.email` does **not** block reminders), and sent via `POST /v2/message/send` with a signed **reminder-only** unsubscribe link on `unsubscribe.php`. Set `canonical_host` or `public_base_url` in `config.php` so logo and unsubscribe URLs resolve in cron.
+  - **Scheduled reminders:** `scripts/send_reminders.php` (cron) sends AMA/FAA expiry templates to members with a non-empty email and `email_opt_in_expiry_reminders = 1` (missing column defaults to allowed for pre-migration rows). When a **Sender.net API token** and **members group ID** are configured, each recipient is ensured in Sender (lowercase email), checked via `GET /v2/subscribers/{email}` (`status.temail` must be `active`; campaign/newsletter opt-out in `status.email` does **not** block reminders), and sent via `POST /v2/message/send` with a signed **reminder-only** unsubscribe link on `unsubscribe.php`. Set `canonical_host` or `public_base_url` in `config.php` so logo and unsubscribe URLs resolve in cron.
+  - **Application email opt-in:** `apply.php` stores `email_opt_in_club_events` and `email_opt_in_expiry_reminders` on `member_applications`; approve copies them to `members` and calls `membership_application_sync_sender_email_preferences()` (club events on submit when checked; both channels on approve). See `scripts/migrate_email_opt_in.sql`.
   - **Reminder unsubscribe:** `unsubscribe.php` — HMAC-signed links in reminder footers; POST sets Sender `transactional_email_status` to `UNSUBSCRIBED`.
   - **CSV:** `export.php` format `email` includes members with a non-empty email (opt-out/unsubscribe is expected to be managed in your external mailing tool, e.g. Sender.net).
   - **Report email:** `report_email.php` — snapshot to arbitrary addresses; member cohort blasts require a non-empty email on file.

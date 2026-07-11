@@ -138,8 +138,9 @@
       <strong>Renewal year default — pre-book starts</strong> (first month when “next calendar year” becomes the
       default renewal year in <strong>Process Signup / Renewal</strong>; default October),
       <strong>Reports — complete data starting year</strong>, and
-      <strong>WPForms integration</strong> webhook secret — see <a href="../WPFORMS_INTEGRATION.md">WPFORMS_INTEGRATION.md</a>
-      for Automator setup (including badge photo import on approve). The pre-book month also drives the default <strong>Renewal year</strong> filter on
+      <strong>Membership application (Stripe)</strong> keys and signing secret for the public
+      <code>apply.php</code> form — see <a href="applications.html#setup">Applications — Public form setup</a>.
+      The pre-book month also drives the default <strong>Renewal year</strong> filter on
       <a href="applications.html">Website Applications</a>.
     </p>
 
@@ -239,13 +240,18 @@
       <li><strong>Canonical host</strong> — set <code>canonical_host</code> (or <code>public_base_url</code>) in <code>config.php</code> on the server so cron-built emails include working logo and unsubscribe links.</li>
     </ul>
     <p>
-      <strong>Two separate opt-outs:</strong> Newsletter/campaign unsubscribes in Sender do <em>not</em> stop AMA/FAA expiry reminders.
-      Members who want to stop reminders use the <strong>reminder-only unsubscribe link</strong> in each expiry email (handled by
-      <code>unsubscribe.php</code> on this site). Newsletters and general club notices remain on your Sender list.
+      <strong>Two separate channels:</strong> Club events use Sender’s <strong>campaign</strong> channel
+      (<code>status.email</code>). AMA/FAA expiry reminders use the <strong>transactional</strong> channel
+      (<code>status.temail</code>). Unsubscribing from newsletters does <em>not</em> stop reminders, and vice versa.
     </p>
     <p>
-      New applicants are typically added to Sender via your website form (Uncanny Automator). Emails are stored lowercase in the app to avoid duplicate subscribers.
+      <strong>How preferences are set:</strong>
     </p>
+    <ul>
+      <li><strong>Public application (<code>apply.php</code>)</strong> — optional checkboxes for club events and expiry reminders. Club-event opt-in syncs to Sender on submit; both preferences sync on staff approve. See <a href="applications.html#email-preferences">Applications — Email preferences</a>.</li>
+      <li><strong>Reminder-only unsubscribe</strong> — signed link in each expiry email (<code>unsubscribe.php</code>) sets transactional status to <code>UNSUBSCRIBED</code> without affecting campaign mail.</li>
+      <li><strong>Existing members</strong> — <code>members.email_opt_in_expiry_reminders</code> defaults to opted in for databases migrated before this feature; <code>send_reminders.php</code> skips members who opted out on file. Emails are stored lowercase to avoid duplicate subscribers.</li>
+    </ul>
     <p>
       Test without sending: <code>php scripts/send_reminders.php --dry-run</code>
       (from SSH on your host). Use <code>--test-email=you@example.com</code> with optional <code>--test-limit=3</code> to receive sample reminders.

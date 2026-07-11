@@ -387,7 +387,11 @@
   Scheduled expiry reminders (<code>scripts/send_reminders.php</code>) use Sender.net when configured:
   API token and members group ID under <strong>Administration → Installation</strong>, lowercase email normalization,
   and signed <strong>reminder-only</strong> unsubscribe links (<code>unsubscribe.php</code> on this site).
-  Unsubscribing from newsletters in Sender does not stop reminders — each expiry email has its own opt-out link.
+  Reminders are sent only to members with <code>email_opt_in_expiry_reminders</code> set (from
+  <code>apply.php</code> on approve; existing members default to opted in after migration) and an active
+  transactional (<code>temail</code>) status in Sender. Unsubscribing from newsletters in Sender does not
+  stop reminders — each expiry email has its own opt-out link. See
+  <a href="applications.html#email-preferences">Applications — Email preferences</a>.
   Set <code>canonical_host</code> in server <code>config.php</code> so links and logos work from cron.
 </p>
 
