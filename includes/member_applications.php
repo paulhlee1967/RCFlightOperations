@@ -442,6 +442,8 @@ function application_member_post_from_row(array $app): array
         'first_name'                     => $app['first_name'] ?? '',
         'last_name'                      => $app['last_name'] ?? '',
         'email'                          => $app['email'] ?? '',
+        'email_opt_in_club_events'       => !empty($app['email_opt_in_club_events']) ? '1' : '0',
+        'email_opt_in_expiry_reminders'  => !empty($app['email_opt_in_expiry_reminders']) ? '1' : '0',
         'phone'                          => $app['phone'] ?? '',
         'address_street'                 => $app['address_street'] ?? '',
         'address_street2'                => $app['address_street2'] ?? '',
@@ -488,6 +490,8 @@ function application_update_existing_member(PDO $pdo, int $memberId, array $app,
         'first_name' => 'first_name',
         'last_name'  => 'last_name',
         'email'      => 'email',
+        'email_opt_in_club_events' => 'email_opt_in_club_events',
+        'email_opt_in_expiry_reminders' => 'email_opt_in_expiry_reminders',
         'phone'      => 'phone',
         'birthday'   => 'birthday',
         'notes'      => 'notes',
@@ -635,6 +639,16 @@ function application_approve(
             suggested_renewal_year = ?
         WHERE id = ?
     ')->execute([$reviewedBy, $memberId, $finalRenewalType, $finalRenewalYear, $applicationId]);
+
+    require_once __DIR__ . '/membership_application.php';
+    membership_application_ensure_email_opt_in_schema($pdo);
+
+    $clubOptIn = !empty($app['email_opt_in_club_events']) ? 1 : 0;
+    $remOptIn = !empty($app['email_opt_in_expiry_reminders']) ? 1 : 0;
+    $pdo->prepare('UPDATE members SET email_opt_in_club_events = ?, email_opt_in_expiry_reminders = ? WHERE id = ?')
+        ->execute([$clubOptIn, $remOptIn, $memberId]);
+
+    membership_application_sync_sender_email_preferences($pdo, $app, 'approve');
 
     return [
         'ok'             => true,

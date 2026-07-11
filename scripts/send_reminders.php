@@ -239,12 +239,27 @@ function send_reminder_message(
     $useSender   = sender_net_is_configured($senderCfg);
     $recipient   = $memberEmail;
 
+    if (!$isTest && !member_wants_expiry_reminder_emails($member)) {
+        $prefix = $dryRun ? '[dry-run] Would SKIP' : 'SKIPPED';
+        echo "{$prefix} {$templateKey} to {$memberEmail} ({$memberLabel}): no expiry reminder consent on file\n";
+        if (!$dryRun) {
+            flightops_log('INFO', 'send_reminders: skipped (no member opt-in)', [
+                'template'  => $templateKey,
+                'to'        => $memberEmail,
+                'member_id' => (int) ($member['id'] ?? 0),
+            ], 'cron');
+        }
+        $skipped++;
+        return;
+    }
+
     if (!$isTest && $useSender) {
         $prep = sender_net_prepare_recipient(
             $memberEmail,
             (string) ($member['first_name'] ?? ''),
             (string) ($member['last_name'] ?? ''),
             $senderCfg,
+            !$dryRun,
             !$dryRun
         );
         if (!$prep['send']) {

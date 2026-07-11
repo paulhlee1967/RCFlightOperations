@@ -407,6 +407,13 @@ render_page_header([
                     ])))) ?: '—' ?>
                 </p>
 
+                <h2 class="h6">Email preferences</h2>
+                <ul class="small mb-3">
+                    <?php foreach (email_opt_in_application_summary($application) as $line): ?>
+                    <li><?= h($line) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+
                 <h2 class="h6">Compliance</h2>
                 <dl class="row small mb-3">
                     <dt class="col-sm-4">AMA</dt>

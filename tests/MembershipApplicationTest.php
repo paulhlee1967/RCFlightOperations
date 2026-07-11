@@ -6,6 +6,7 @@ use PHPUnit\Framework\TestCase;
 
 require_once dirname(__DIR__) . '/includes/helpers.php';
 require_once dirname(__DIR__) . '/includes/dues_helpers.php';
+require_once dirname(__DIR__) . '/includes/sender_net.php';
 require_once dirname(__DIR__) . '/includes/membership_application.php';
 
 final class MembershipApplicationTest extends TestCase
@@ -72,6 +73,38 @@ final class MembershipApplicationTest extends TestCase
         $token = membership_application_confirmation_token(42, $secret);
         $this->assertTrue(membership_application_verify_confirmation_token(42, $token, $secret));
         $this->assertFalse(membership_application_verify_confirmation_token(43, $token, $secret));
+    }
+
+    public function testEmailOptInFromPost(): void
+    {
+        $this->assertSame(0, email_opt_in_from_post(null));
+        $this->assertSame(0, email_opt_in_from_post(''));
+        $this->assertSame(0, email_opt_in_from_post('0'));
+        $this->assertSame(1, email_opt_in_from_post('1'));
+        $this->assertSame(1, email_opt_in_from_post(1));
+        $this->assertSame(1, email_opt_in_from_post('on'));
+    }
+
+    public function testEmailOptInApplicationSummary(): void
+    {
+        $none = email_opt_in_application_summary([]);
+        $this->assertSame(['No optional emails selected'], $none);
+
+        $both = email_opt_in_application_summary([
+            'email_opt_in_club_events' => 1,
+            'email_opt_in_expiry_reminders' => 1,
+        ]);
+        $this->assertCount(2, $both);
+
+        $eventsOnly = email_opt_in_application_summary(['email_opt_in_club_events' => 1]);
+        $this->assertSame(['Club events & announcements'], $eventsOnly);
+    }
+
+    public function testMemberWantsExpiryReminderEmails(): void
+    {
+        $this->assertTrue(member_wants_expiry_reminder_emails([]));
+        $this->assertTrue(member_wants_expiry_reminder_emails(['email_opt_in_expiry_reminders' => 1]));
+        $this->assertFalse(member_wants_expiry_reminder_emails(['email_opt_in_expiry_reminders' => 0]));
     }
 
     public function testLocalUploadPathDetection(): void

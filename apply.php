@@ -72,17 +72,32 @@ require_once __DIR__ . '/includes/csp_nonce.php';
     font-weight: 700;
     flex-shrink: 0;
 }
+.apply-preflight-link {
+    color: var(--club-primary);
+    text-decoration: none;
+    font-weight: 500;
+}
+.apply-preflight-link:hover {
+    color: var(--club-primary-dark);
+    text-decoration: underline;
+}
 .apply-preflight-deadline {
-    border: 2px solid var(--club-primary);
+    border: 1px solid color-mix(in srgb, var(--club-warning) 35%, var(--club-border));
     border-radius: 14px;
     padding: 1rem 1.25rem;
-    background: color-mix(in srgb, var(--club-primary) 6%, #fff);
+    background: color-mix(in srgb, var(--club-warning) 14%, var(--club-bg));
 }
 .apply-preflight-deadline-date {
-    color: var(--club-primary);
-    font-size: clamp(1.35rem, 3vw, 1.85rem);
+    color: var(--club-text);
+    font-size: clamp(1.25rem, 2.5vw, 1.65rem);
     font-weight: 700;
     line-height: 1.2;
+}
+.apply-preflight-verify {
+    border: 1px solid var(--club-border);
+    border-radius: 12px;
+    padding: 1.25rem 1.35rem;
+    background: var(--club-card);
 }
 </style>
 
@@ -123,6 +138,11 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                                         <p class="small mb-0 mt-1" style="color: color-mix(in srgb, var(--club-text) 80%, var(--club-muted));">
                                             AMA Park Pilot, Temporary, and Trial memberships do <strong>not</strong> qualify for club membership.
                                         </p>
+                                        <p class="small mb-0 mt-2">
+                                            <a href="<?= h($amaEnrollUrl) ?>" class="apply-preflight-link" target="_blank" rel="noopener noreferrer">
+                                                Join or renew AMA membership ↗
+                                            </a>
+                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -136,15 +156,20 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                                         <p class="small mb-0 mt-1" style="color: color-mix(in srgb, var(--club-text) 80%, var(--club-muted));">
                                             Your FAA registration must be current before you complete the application in Step 2.
                                         </p>
+                                        <p class="small mb-0 mt-2">
+                                            <a href="<?= h($faaRegisterUrl) ?>" class="apply-preflight-link" target="_blank" rel="noopener noreferrer">
+                                                Get or renew FAA registration ↗
+                                            </a>
+                                        </p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="apply-preflight-deadline text-center mb-3">
-                        <div class="small fw-semibold mb-1" style="color: var(--club-primary);">
-                            Your AMA Open Membership MUST remain valid through
+                    <div class="apply-preflight-deadline text-center mb-4">
+                        <div class="small fw-semibold mb-1">
+                            Your AMA Open Membership must remain valid through
                         </div>
                         <div class="apply-preflight-deadline-date"><?= h($amaMinExpiryLong) ?></div>
                         <p class="small mb-0 mt-2" style="color: color-mix(in srgb, var(--club-text) 82%, var(--club-muted));">
@@ -153,45 +178,37 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                         </p>
                     </div>
 
-                    <div class="d-grid d-sm-flex gap-2 justify-content-sm-center mb-4">
-                        <a href="<?= h($amaEnrollUrl) ?>" class="btn btn-danger" target="_blank" rel="noopener noreferrer">
-                            Join / Renew AMA Membership
-                        </a>
-                        <a href="<?= h($faaRegisterUrl) ?>" class="btn btn-danger" target="_blank" rel="noopener noreferrer">
-                            Get / Renew FAA Registration
-                        </a>
-                    </div>
-
-                    <hr class="my-4">
-
-                    <p class="small mb-3">
-                        Enter your <strong>last name</strong> and <strong>AMA number</strong> below to verify your AMA membership and continue.
-                        Your AMA must be valid through at least <strong><?= h($amaMinExpiryLabel) ?></strong>.
-                    </p>
-                    <div id="ama-gate-form" class="<?= $amaVerified ? 'd-none' : '' ?>">
-                        <div class="row g-3 align-items-end">
-                            <div class="col-md-4">
-                                <label class="form-label" for="ama_verify_number">AMA # <span class="text-danger">*</span></label>
-                                <input type="text" id="ama_verify_number" class="form-control" autocomplete="off">
+                    <div class="apply-preflight-verify">
+                        <h4 class="h6 fw-bold mb-1">Verify your AMA membership</h4>
+                        <p class="small mb-3" style="color: color-mix(in srgb, var(--club-text) 82%, var(--club-muted));">
+                            Enter your <strong>last name</strong> and <strong>AMA number</strong> to continue to Step 2.
+                            Your AMA must be valid through at least <strong><?= h($amaMinExpiryLabel) ?></strong>.
+                        </p>
+                        <div id="ama-gate-form" class="<?= $amaVerified ? 'd-none' : '' ?>">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label" for="ama_verify_number">AMA # <span class="text-danger">*</span></label>
+                                    <input type="text" id="ama_verify_number" class="form-control" autocomplete="off">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label" for="ama_verify_last_name">Last name (as on AMA card) <span class="text-danger">*</span></label>
+                                    <input type="text" id="ama_verify_last_name" class="form-control" autocomplete="family-name">
+                                </div>
+                                <div class="col-12">
+                                    <button type="button" class="btn btn-primary btn-lg w-100" id="ama-verify-btn">Verify &amp; continue to Step 2</button>
+                                </div>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label" for="ama_verify_last_name">Last name (as on AMA card) <span class="text-danger">*</span></label>
-                                <input type="text" id="ama_verify_last_name" class="form-control" autocomplete="family-name">
-                            </div>
-                            <div class="col-md-4">
-                                <button type="button" class="btn btn-danger w-100" id="ama-verify-btn">Verify membership</button>
-                            </div>
+                            <div id="ama-verify-errors" class="alert alert-danger mt-3 mb-0 d-none" role="alert"></div>
                         </div>
-                        <div id="ama-verify-errors" class="alert alert-danger mt-3 d-none" role="alert"></div>
-                    </div>
-                    <div id="ama-gate-success" class="<?= $amaVerified ? '' : 'd-none' ?>">
-                        <div class="alert alert-success mb-2 py-2">
-                            <strong>AMA membership verified.</strong>
-                            <span id="ama-gate-success-name"><?= $amaVerified ? h($amaPrefill['first_name'] . ' ' . $amaPrefill['last_name']) : '' ?></span>
-                            · AMA #<span id="ama-gate-success-number"><?= h($amaPrefill['ama_number']) ?></span>
-                            · exp <span id="ama-gate-success-exp"><?= h($amaPrefill['ama_expiration']) ?></span>
+                        <div id="ama-gate-success" class="<?= $amaVerified ? '' : 'd-none' ?>">
+                            <div class="alert alert-success mb-2 py-2">
+                                <strong>AMA membership verified.</strong>
+                                <span id="ama-gate-success-name"><?= $amaVerified ? h($amaPrefill['first_name'] . ' ' . $amaPrefill['last_name']) : '' ?></span>
+                                · AMA #<span id="ama-gate-success-number"><?= h($amaPrefill['ama_number']) ?></span>
+                                · exp <span id="ama-gate-success-exp"><?= h($amaPrefill['ama_expiration']) ?></span>
+                            </div>
+                            <a href="apply.php?reset_ama=1" class="small">Use a different AMA number</a>
                         </div>
-                        <a href="apply.php?reset_ama=1" class="small">Use a different AMA number</a>
                     </div>
                 </div>
             </div>
@@ -356,6 +373,40 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                         <label class="form-label">FAA registration (PDF, .jpg, .png) <span class="text-danger">*</span></label>
                         <input type="file" name="faa_card" class="form-control" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
                         <div class="form-text">Current valid FAA registration. PDF or image. Max 5 MB.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header fw-semibold">Optional email notifications</div>
+                <div class="card-body">
+                    <p class="small text-muted mb-3">
+                        Both options are optional. Checking a box opts you in through this application; leaving it
+                        unchecked means we will not add you for that type of email here.
+                    </p>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="email_opt_in_club_events" value="1" id="email_opt_in_club_events">
+                        <label class="form-check-label" for="email_opt_in_club_events">
+                            <strong>Club events &amp; announcements</strong>
+                        </label>
+                        <div class="form-text ms-4">
+                            Fly-ins, meetings, field updates, and other club notices sent occasionally throughout the year.
+                            (This is not a newsletter — we do not publish one at this time.)
+                            If you already receive club emails from our website sign-up, leaving this unchecked does
+                            <strong>not</strong> remove you — use the unsubscribe link in those messages if you want to stop.
+                        </div>
+                    </div>
+                    <div class="form-check mb-0">
+                        <input class="form-check-input" type="checkbox" name="email_opt_in_expiry_reminders" value="1" id="email_opt_in_expiry_reminders">
+                        <label class="form-check-label" for="email_opt_in_expiry_reminders">
+                            <strong>AMA &amp; FAA expiration reminders</strong>
+                        </label>
+                        <div class="form-text ms-4">
+                            A reminder when your AMA membership or FAA drone registration is approaching its expiration date.
+                            Each reminder includes its own opt-out link and is separate from club event emails.
+                            If you leave this unchecked, we will not send you these reminders (and will opt you out if you
+                            were previously receiving them).
+                        </div>
                     </div>
                 </div>
             </div>

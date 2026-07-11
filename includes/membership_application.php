@@ -12,6 +12,7 @@ require_once __DIR__ . '/validation.php';
 require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/member_import_helpers.php';
 require_once __DIR__ . '/ama_verify.php';
+require_once __DIR__ . '/sender_net.php';
 
 /** Stripe pass-through: 2.9% + $0.30 per transaction. */
 const MEMBERSHIP_STRIPE_PERCENT = 0.029;
@@ -926,6 +927,9 @@ function membership_application_validate_input(PDO $pdo, array $post, array $fil
 
     $clean['coupon_code'] = membership_application_normalize_coupon($post['coupon_code'] ?? '');
 
+    $clean['email_opt_in_club_events'] = email_opt_in_from_post($post['email_opt_in_club_events'] ?? null);
+    $clean['email_opt_in_expiry_reminders'] = email_opt_in_from_post($post['email_opt_in_expiry_reminders'] ?? null);
+
     return ['errors' => $errors, 'clean' => $clean];
 }
 
@@ -1126,6 +1130,111 @@ function membership_application_ensure_schema(PDO $pdo): void
     } catch (Throwable $e) {
         // Table may not exist on very old installs.
     }
+
+    membership_application_ensure_email_opt_in_schema($pdo);
+}
+
+/**
+ * Idempotent columns for optional email opt-in on applications and members.
+ */
+function membership_application_ensure_email_opt_in_schema(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    try {
+        $columns = [];
+        $stmt = $pdo->query('SHOW COLUMNS FROM member_applications');
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $columns[(string) ($row['Field'] ?? '')] = true;
+        }
+        if (!isset($columns['email_opt_in_club_events'])) {
+            $pdo->exec("ALTER TABLE member_applications ADD COLUMN email_opt_in_club_events tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Applicant opted in to club event/announcement emails' AFTER email");
+        }
+        if (!isset($columns['email_opt_in_expiry_reminders'])) {
+            $pdo->exec("ALTER TABLE member_applications ADD COLUMN email_opt_in_expiry_reminders tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Applicant opted in to AMA/FAA expiry reminder emails' AFTER email_opt_in_club_events");
+        }
+    } catch (Throwable $e) {
+    }
+
+    try {
+        $columns = [];
+        $stmt = $pdo->query('SHOW COLUMNS FROM members');
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $columns[(string) ($row['Field'] ?? '')] = true;
+        }
+        if (!isset($columns['email_opt_in_club_events'])) {
+            $pdo->exec("ALTER TABLE members ADD COLUMN email_opt_in_club_events tinyint(1) NOT NULL DEFAULT 1 COMMENT 'Club event/announcement emails (Sender campaign channel)' AFTER email");
+        }
+        if (!isset($columns['email_opt_in_expiry_reminders'])) {
+            $pdo->exec("ALTER TABLE members ADD COLUMN email_opt_in_expiry_reminders tinyint(1) NOT NULL DEFAULT 1 COMMENT 'AMA/FAA expiry reminder emails (Sender transactional channel)' AFTER email_opt_in_club_events");
+        }
+    } catch (Throwable $e) {
+    }
+}
+
+/**
+ * Sync application email preferences to Sender.net (best-effort; logs warnings).
+ */
+function membership_application_sync_sender_email_preferences(PDO $pdo, array $application, string $phase): void
+{
+    require_once __DIR__ . '/sender_net.php';
+    require_once __DIR__ . '/app_log.php';
+
+    $email = trim((string) ($application['email'] ?? ''));
+    if ($email === '') {
+        return;
+    }
+
+    $senderCfg = sender_net_load_config($pdo);
+    if (!sender_net_is_configured($senderCfg)) {
+        return;
+    }
+
+    $firstName = trim((string) ($application['first_name'] ?? ''));
+    $lastName = trim((string) ($application['last_name'] ?? ''));
+    $clubEvents = !empty($application['email_opt_in_club_events']);
+    $expiryReminders = !empty($application['email_opt_in_expiry_reminders']);
+
+    if ($phase === 'submit' && $clubEvents) {
+        $result = sender_net_subscribe_club_events($email, $firstName, $lastName, $senderCfg);
+        if (!$result['ok'] && empty($result['skipped'])) {
+            flightops_log('WARN', 'membership_application: Sender club events subscribe failed', [
+                'email' => $email,
+                'error' => $result['error'],
+            ], 'web');
+        }
+    }
+
+    if ($phase === 'approve') {
+        if ($clubEvents) {
+            $result = sender_net_subscribe_club_events($email, $firstName, $lastName, $senderCfg);
+            if (!$result['ok'] && empty($result['skipped'])) {
+                flightops_log('WARN', 'membership_application: Sender club events subscribe failed on approve', [
+                    'email' => $email,
+                    'error' => $result['error'],
+                ], 'web');
+            }
+        }
+
+        $result = sender_net_apply_expiry_reminder_preference(
+            $email,
+            $firstName,
+            $lastName,
+            $senderCfg,
+            $expiryReminders
+        );
+        if (!$result['ok'] && empty($result['skipped'])) {
+            flightops_log('WARN', 'membership_application: Sender expiry reminder preference failed', [
+                'email'          => $email,
+                'opt_in'         => $expiryReminders,
+                'error'          => $result['error'],
+            ], 'web');
+        }
+    }
 }
 
 /**
@@ -1276,6 +1385,8 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
         'last_name'                    => $clean['last_name'],
         'middle_name'                  => $clean['middle_name'] !== '' ? $clean['middle_name'] : null,
         'email'                        => $clean['email'],
+        'email_opt_in_club_events'     => (int) $clean['email_opt_in_club_events'],
+        'email_opt_in_expiry_reminders'=> (int) $clean['email_opt_in_expiry_reminders'],
         'birthday'                     => $clean['birthday'],
         'phone'                        => $clean['phone'],
         'emergency_contact_name'       => $clean['emergency_contact_name'] !== '' ? $clean['emergency_contact_name'] : null,
@@ -1310,7 +1421,8 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
             status, wpforms_entry_id, wpforms_form_id, submitted_at,
             application_kind, form_season, suggested_renewal_type, suggested_renewal_year,
             matched_member_id, match_confidence, match_method,
-            first_name, last_name, middle_name, email, birthday, phone,
+            first_name, last_name, middle_name, email, email_opt_in_club_events, email_opt_in_expiry_reminders,
+            birthday, phone,
             emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
             address_street, address_street2, address_city, address_state, address_postal_code,
             ama_number, ama_expiration, faa_number, faa_expiration, membership_type_slot, notes,
@@ -1323,6 +1435,7 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
             ?, ?, ?, ?,
             ?, ?, ?,
             ?, ?, ?, ?, ?, ?,
+            ?, ?,
             ?, ?, ?,
             ?, ?, ?, ?, ?,
             ?, ?, ?, ?, ?, ?,
@@ -1348,6 +1461,8 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
         $applicationRow['last_name'],
         $applicationRow['middle_name'],
         $applicationRow['email'],
+        $applicationRow['email_opt_in_club_events'],
+        $applicationRow['email_opt_in_expiry_reminders'],
         $applicationRow['birthday'],
         $applicationRow['phone'],
         $applicationRow['emergency_contact_name'],
@@ -1553,6 +1668,11 @@ function membership_application_finalize_submission(PDO $pdo, int $applicationId
 
     application_notify_new_submission($pdo, $applicationId);
     membership_application_send_applicant_confirmation($pdo, $applicationId);
+
+    $app = application_fetch($pdo, $applicationId);
+    if ($app !== null) {
+        membership_application_sync_sender_email_preferences($pdo, $app, 'submit');
+    }
 
     return true;
 }

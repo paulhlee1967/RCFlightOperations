@@ -308,14 +308,14 @@
                 if (!json.ok) {
                     showAmaVerifyError(json.error || 'AMA membership could not be verified.');
                     amaVerifyBtn.disabled = false;
-                    amaVerifyBtn.textContent = 'Verify membership';
+                    amaVerifyBtn.textContent = 'Verify & continue to Step 2';
                     return;
                 }
                 revealApplicationStep(json.data || {});
             } catch (err) {
                 showAmaVerifyError('Network error. Try again.');
                 amaVerifyBtn.disabled = false;
-                amaVerifyBtn.textContent = 'Verify membership';
+                amaVerifyBtn.textContent = 'Verify & continue to Step 2';
             }
         });
     }

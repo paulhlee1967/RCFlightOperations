@@ -148,7 +148,8 @@ function sender_net_create_subscriber(
     string $email,
     ?string $firstName,
     ?string $lastName,
-    array $config
+    array $config,
+    ?array $groupIds = null
 ): array {
     $email = sender_net_normalize_email($email);
     if ($email === '') {
@@ -165,9 +166,12 @@ function sender_net_create_subscriber(
     if ($lastName !== null && trim($lastName) !== '') {
         $payload['lastname'] = trim($lastName);
     }
-    $groupId = trim((string) ($config['group_id'] ?? ''));
-    if ($groupId !== '') {
-        $payload['groups'] = [$groupId];
+    if ($groupIds === null) {
+        $groupId = trim((string) ($config['group_id'] ?? ''));
+        $groupIds = $groupId !== '' ? [$groupId] : [];
+    }
+    if ($groupIds !== []) {
+        $payload['groups'] = array_values($groupIds);
     }
 
     $result = sender_net_api_request('POST', '/subscribers', $config, $payload);
@@ -258,7 +262,8 @@ function sender_net_ensure_subscriber(
     ?string $firstName,
     ?string $lastName,
     array $config,
-    bool $createIfMissing = true
+    bool $createIfMissing = true,
+    bool $addToMembersGroup = true
 ): array {
     $normalized = sender_net_normalize_email($email);
     if ($normalized === '') {
@@ -270,7 +275,9 @@ function sender_net_ensure_subscriber(
         return ['ok' => false, 'subscriber' => null, 'error' => $fetch['error'], 'created' => false];
     }
     if ($fetch['data'] !== null) {
-        sender_net_ensure_subscriber_group($normalized, $fetch['data'], $config);
+        if ($addToMembersGroup) {
+            sender_net_ensure_subscriber_group($normalized, $fetch['data'], $config);
+        }
 
         return ['ok' => true, 'subscriber' => $fetch['data'], 'error' => null, 'created' => false];
     }
@@ -279,9 +286,12 @@ function sender_net_ensure_subscriber(
         return ['ok' => true, 'subscriber' => null, 'error' => null, 'created' => false];
     }
 
-    $create = sender_net_create_subscriber($normalized, $firstName, $lastName, $config);
+    $createGroups = $addToMembersGroup ? null : [];
+    $create = sender_net_create_subscriber($normalized, $firstName, $lastName, $config, $createGroups);
     if ($create['ok']) {
-        sender_net_ensure_subscriber_group($normalized, $create['data'], $config);
+        if ($addToMembersGroup) {
+            sender_net_ensure_subscriber_group($normalized, $create['data'], $config);
+        }
 
         return ['ok' => true, 'subscriber' => $create['data'], 'error' => null, 'created' => true];
     }
@@ -289,7 +299,9 @@ function sender_net_ensure_subscriber(
     // Race or duplicate — try fetch again after failed create.
     $retry = sender_net_fetch_subscriber($normalized, $config);
     if ($retry['ok'] && $retry['data'] !== null) {
-        sender_net_ensure_subscriber_group($normalized, $retry['data'], $config);
+        if ($addToMembersGroup) {
+            sender_net_ensure_subscriber_group($normalized, $retry['data'], $config);
+        }
 
         return ['ok' => true, 'subscriber' => $retry['data'], 'error' => null, 'created' => false];
     }
@@ -366,7 +378,8 @@ function sender_net_prepare_recipient(
     ?string $firstName,
     ?string $lastName,
     array $config,
-    bool $createIfMissing = true
+    bool $createIfMissing = true,
+    bool $addToMembersGroup = true
 ): array {
     $normalized = sender_net_normalize_email($email);
     if ($normalized === '') {
@@ -391,7 +404,7 @@ function sender_net_prepare_recipient(
         ];
     }
 
-    $ensure = sender_net_ensure_subscriber($normalized, $firstName, $lastName, $config, $createIfMissing);
+    $ensure = sender_net_ensure_subscriber($normalized, $firstName, $lastName, $config, $createIfMissing, $addToMembersGroup);
     if (!$ensure['ok']) {
         return [
             'send'             => false,
@@ -593,6 +606,166 @@ function sender_net_unsubscribe_subscriber(string $email, array $config): array
     }
 
     return ['ok' => true, 'error' => null];
+}
+
+/**
+ * PATCH subscriber fields (status, groups, name, etc.).
+ *
+ * @param array<string, mixed> $fields
+ * @return array{ok: bool, error: ?string}
+ */
+function sender_net_patch_subscriber(string $email, array $config, array $fields): array
+{
+    $email = sender_net_normalize_email($email);
+    if ($email === '') {
+        return ['ok' => false, 'error' => 'Empty email'];
+    }
+    if ($fields === []) {
+        return ['ok' => true, 'error' => null];
+    }
+
+    $payload = $fields;
+    if (!array_key_exists('trigger_automation', $payload)) {
+        $payload['trigger_automation'] = false;
+    }
+
+    $result = sender_net_api_request('PATCH', '/subscribers/' . rawurlencode($email), $config, $payload);
+    if (!$result['ok']) {
+        return ['ok' => false, 'error' => $result['error']];
+    }
+
+    return ['ok' => true, 'error' => null];
+}
+
+/**
+ * Opt in to club event / announcement emails (Sender campaign channel).
+ * Creates the subscriber without adding them to the members reminder group.
+ *
+ * @return array{ok: bool, error: ?string, skipped: bool}
+ */
+function sender_net_subscribe_club_events(
+    string $email,
+    ?string $firstName,
+    ?string $lastName,
+    array $config
+): array {
+    if (!sender_net_is_configured($config)) {
+        return ['ok' => true, 'error' => null, 'skipped' => true];
+    }
+
+    $ensure = sender_net_ensure_subscriber($email, $firstName, $lastName, $config, true, false);
+    if (!$ensure['ok']) {
+        return ['ok' => false, 'error' => $ensure['error'], 'skipped' => false];
+    }
+
+    $subscriber = $ensure['subscriber'];
+    if ($subscriber !== null && sender_net_promotional_email_active($subscriber) === false) {
+        $patch = sender_net_patch_subscriber($email, $config, ['subscriber_status' => 'ACTIVE']);
+        if (!$patch['ok']) {
+            return ['ok' => false, 'error' => $patch['error'], 'skipped' => false];
+        }
+    }
+
+    return ['ok' => true, 'error' => null, 'skipped' => false];
+}
+
+/**
+ * Apply AMA/FAA expiry reminder preference (Sender transactional channel + members group).
+ *
+ * @return array{ok: bool, error: ?string, skipped: bool}
+ */
+function sender_net_apply_expiry_reminder_preference(
+    string $email,
+    ?string $firstName,
+    ?string $lastName,
+    array $config,
+    bool $optIn
+): array {
+    if (!sender_net_is_configured($config)) {
+        return ['ok' => true, 'error' => null, 'skipped' => true];
+    }
+
+    if ($optIn) {
+        $ensure = sender_net_ensure_subscriber($email, $firstName, $lastName, $config, true, true);
+        if (!$ensure['ok']) {
+            return ['ok' => false, 'error' => $ensure['error'], 'skipped' => false];
+        }
+
+        $subscriber = $ensure['subscriber'];
+        if ($subscriber !== null && sender_net_transactional_email_active($subscriber) === false) {
+            $patch = sender_net_patch_subscriber($email, $config, ['transactional_email_status' => 'ACTIVE']);
+            if (!$patch['ok']) {
+                return ['ok' => false, 'error' => $patch['error'], 'skipped' => false];
+            }
+        }
+
+        return ['ok' => true, 'error' => null, 'skipped' => false];
+    }
+
+    $fetch = sender_net_fetch_subscriber($email, $config);
+    if (!$fetch['ok']) {
+        return ['ok' => false, 'error' => $fetch['error'], 'skipped' => false];
+    }
+    if ($fetch['data'] === null) {
+        return ['ok' => true, 'error' => null, 'skipped' => false];
+    }
+
+    if (sender_net_transactional_email_active($fetch['data']) === false) {
+        return ['ok' => true, 'error' => null, 'skipped' => false];
+    }
+
+    $patch = sender_net_patch_subscriber($email, $config, ['transactional_email_status' => 'UNSUBSCRIBED']);
+    if (!$patch['ok']) {
+        return ['ok' => false, 'error' => $patch['error'], 'skipped' => false];
+    }
+
+    return ['ok' => true, 'error' => null, 'skipped' => false];
+}
+
+/**
+ * Normalize POST/checkbox value to 0/1 for email opt-in columns.
+ */
+function email_opt_in_from_post(mixed $value): int
+{
+    if ($value === null || $value === '' || $value === false || $value === 0 || $value === '0') {
+        return 0;
+    }
+
+    return 1;
+}
+
+/**
+ * Whether a member row allows AMA/FAA expiry reminder emails.
+ * Missing column (pre-migration SELECT) defaults to allowed.
+ */
+function member_wants_expiry_reminder_emails(array $member): bool
+{
+    if (!array_key_exists('email_opt_in_expiry_reminders', $member)) {
+        return true;
+    }
+
+    return !empty($member['email_opt_in_expiry_reminders']);
+}
+
+/**
+ * Human-readable labels for staff review of application email preferences.
+ *
+ * @return list<string>
+ */
+function email_opt_in_application_summary(array $application): array
+{
+    $lines = [];
+    if (!empty($application['email_opt_in_club_events'])) {
+        $lines[] = 'Club events & announcements';
+    }
+    if (!empty($application['email_opt_in_expiry_reminders'])) {
+        $lines[] = 'AMA/FAA expiration reminders';
+    }
+    if ($lines === []) {
+        $lines[] = 'No optional emails selected';
+    }
+
+    return $lines;
 }
 
 /**
