@@ -41,6 +41,11 @@ function ama_verify_normalize_number(string $raw): string
         return '';
     }
 
+    // Common numeric forms: AMA1252583, AMA#1252583, #1252583
+    if (preg_match('/^(?:AMA#?|#)(\d+)$/', $s, $m) === 1) {
+        return $m[1];
+    }
+
     // Legacy path: plain numeric with optional dash/dot separators.
     if (preg_match('/^[0-9.\-]+$/', $s) === 1) {
         return preg_replace('/[^\d]/', '', $s) ?? '';
@@ -453,11 +458,7 @@ function ama_verify_parse_html(string $html, string $submittedLastName = ''): ar
     if (preg_match('/membership for (.*?) - AMA #/', $html, $nameMatch)) {
         $fullName = trim($nameMatch[1]);
         if ($submittedLastName !== '' && $fullName !== '') {
-            $lastUpper = strtoupper($submittedLastName);
-            $pos       = strpos($fullName, $lastUpper);
-            if ($pos !== false) {
-                $firstName = ucfirst(strtolower(trim(substr($fullName, 0, $pos))));
-            }
+            $firstName = ama_verify_parse_first_name($fullName, $submittedLastName);
         }
     }
 
@@ -487,6 +488,63 @@ function ama_verify_parse_html(string $html, string $submittedLastName = ''): ar
         $lastNameOut,
         $fullName
     );
+}
+
+/**
+ * Extract first name from AMA full name using the submitted last name as anchor.
+ */
+function ama_verify_parse_first_name(string $fullName, string $submittedLastName): ?string
+{
+    $fullName = trim($fullName);
+    $submittedLastName = trim($submittedLastName);
+    if ($fullName === '' || $submittedLastName === '') {
+        return null;
+    }
+
+    if (str_contains($fullName, ',')) {
+        $parts = array_map('trim', explode(',', $fullName, 2));
+        if (count($parts) === 2 && strcasecmp($parts[0], $submittedLastName) === 0) {
+            return ama_verify_title_case_name($parts[1]);
+        }
+    }
+
+    $pos = stripos($fullName, $submittedLastName);
+    if ($pos !== false) {
+        if ($pos > 0) {
+            $first = trim(substr($fullName, 0, $pos));
+        } else {
+            $first = trim(substr($fullName, strlen($submittedLastName)));
+        }
+        if ($first !== '') {
+            return ama_verify_title_case_name($first);
+        }
+    }
+
+    $tokens = preg_split('/\s+/', $fullName) ?: [];
+    if (count($tokens) >= 2) {
+        $submittedParts = preg_split('/\s+/', $submittedLastName) ?: [];
+        $n = count($submittedParts);
+        if ($n > 0 && count($tokens) > $n) {
+            $tail = implode(' ', array_slice($tokens, -$n));
+            if (strcasecmp($tail, $submittedLastName) === 0) {
+                $first = implode(' ', array_slice($tokens, 0, -$n));
+
+                return $first !== '' ? ama_verify_title_case_name($first) : null;
+            }
+        }
+    }
+
+    return null;
+}
+
+function ama_verify_title_case_name(string $name): string
+{
+    $parts = preg_split('/\s+/', trim($name)) ?: [];
+
+    return implode(' ', array_map(
+        static fn (string $part): string => ucfirst(strtolower($part)),
+        $parts
+    ));
 }
 
 /** @return ?array{form_build_id:string,cookies:string,expires_at:int} */

@@ -33,6 +33,26 @@ final class AmaVerifyTest extends TestCase
         $this->assertSame('2026-12-31', $result['expiration_ymd']);
         $this->assertSame('12/31/2026', $result['expiration_mdy']);
         $this->assertFalse($result['life_member']);
+        $this->assertSame('John', $result['first_name']);
+    }
+
+    public function testParseFirstNameFromMixedCaseFullName(): void
+    {
+        $html = '<div>The membership for Randy Adams - AMA #1252583 is valid until 06/30/2027.</div>';
+        $result = ama_verify_parse_html($html, 'Adams');
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('Randy', $result['first_name']);
+        $this->assertSame('Randy Adams', $result['full_name']);
+    }
+
+    public function testParseFirstNameFromLastCommaFirstFormat(): void
+    {
+        $html = '<div>The membership for ADAMS, ROBERT - AMA #999999 is valid until 12/31/2026.</div>';
+        $result = ama_verify_parse_html($html, 'Adams');
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame('Robert', $result['first_name']);
     }
 
     public function testParseNoMatch(): void
@@ -67,6 +87,13 @@ final class AmaVerifyTest extends TestCase
     public function testNormalizeAmaNumberStripsNumericSeparators(): void
     {
         $this->assertSame('123456', ama_verify_normalize_number(' 12-3456 '));
+    }
+
+    public function testNormalizeAmaNumberStripsAmaPrefix(): void
+    {
+        $this->assertSame('1252583', ama_verify_normalize_number('AMA#1252583'));
+        $this->assertSame('1252583', ama_verify_normalize_number('ama 1252583'));
+        $this->assertSame('1252583', ama_verify_normalize_number('#1252583'));
     }
 
     public function testNormalizeAmaNumberPreservesAlphanumeric(): void
