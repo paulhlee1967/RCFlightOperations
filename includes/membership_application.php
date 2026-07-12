@@ -157,6 +157,135 @@ function membership_application_club_member_apply_block_message(?array $member):
 }
 
 /**
+ * Format a phone number for the US apply-form mask: (555) 123-4567.
+ * Non-10-digit values are returned trimmed as stored.
+ */
+function membership_application_format_us_phone(?string $raw): string
+{
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return '';
+    }
+    $digits = preg_replace('/\D+/', '', $raw) ?? '';
+    if (strlen($digits) === 11 && $digits[0] === '1') {
+        $digits = substr($digits, 1);
+    }
+    if (strlen($digits) !== 10) {
+        return $raw;
+    }
+
+    return '(' . substr($digits, 0, 3) . ') ' . substr($digits, 3, 3) . '-' . substr($digits, 6, 4);
+}
+
+/**
+ * Empty editable apply-form prefill shape.
+ *
+ * @return array<string,string>
+ */
+function membership_application_empty_club_prefill(): array
+{
+    return [
+        'email'                          => '',
+        'phone'                          => '',
+        'birthday'                       => '',
+        'address_street'                 => '',
+        'address_street2'                => '',
+        'address_city'                   => '',
+        'address_state'                  => '',
+        'address_postal_code'            => '',
+        'emergency_contact_name'         => '',
+        'emergency_contact_relationship' => '',
+        'emergency_contact_phone'        => '',
+        'faa_number'                     => '',
+        'faa_expiration'                 => '',
+        'membership_type_slot'           => '',
+    ];
+}
+
+/**
+ * Normalize a club-prefill array (session / API) to the known key set.
+ *
+ * @param array<string,mixed>|null $prefill
+ * @return array<string,string>
+ */
+function membership_application_normalize_club_prefill(?array $prefill): array
+{
+    $out = membership_application_empty_club_prefill();
+    if ($prefill === null) {
+        return $out;
+    }
+    foreach ($out as $key => $_) {
+        if (!array_key_exists($key, $prefill)) {
+            continue;
+        }
+        $out[$key] = trim((string) $prefill[$key]);
+    }
+
+    return $out;
+}
+
+/**
+ * Editable apply-form fields loaded from an existing club member DB row.
+ *
+ * @return array<string,string>
+ */
+function membership_application_club_prefill_from_row(?array $row): array
+{
+    if ($row === null) {
+        return membership_application_empty_club_prefill();
+    }
+
+    $slot = isset($row['membership_type_slot']) && $row['membership_type_slot'] !== null && $row['membership_type_slot'] !== ''
+        ? (string) (int) $row['membership_type_slot']
+        : '';
+
+    return [
+        'email'                          => trim((string) ($row['email'] ?? '')),
+        'phone'                          => membership_application_format_us_phone($row['phone'] ?? null),
+        'birthday'                       => membership_application_ymd_to_mdy($row['birthday'] ?? null),
+        'address_street'                 => trim((string) ($row['address_street'] ?? '')),
+        'address_street2'                => trim((string) ($row['address_street2'] ?? '')),
+        'address_city'                   => trim((string) ($row['address_city'] ?? '')),
+        'address_state'                  => trim((string) ($row['address_state'] ?? '')),
+        'address_postal_code'            => trim((string) ($row['address_postal_code'] ?? '')),
+        'emergency_contact_name'         => trim((string) ($row['emergency_contact_name'] ?? '')),
+        'emergency_contact_relationship' => trim((string) ($row['emergency_contact_relationship'] ?? '')),
+        'emergency_contact_phone'        => membership_application_format_us_phone($row['emergency_contact_phone'] ?? null),
+        'faa_number'                     => trim((string) ($row['faa_number'] ?? '')),
+        'faa_expiration'                 => membership_application_ymd_to_mdy($row['faa_expiration'] ?? null),
+        'membership_type_slot'           => $slot,
+    ];
+}
+
+/**
+ * Load editable apply-form prefill for a club member id (by primary key).
+ *
+ * @return array<string,string>
+ */
+function membership_application_load_club_prefill(PDO $pdo, ?int $memberId): array
+{
+    if ($memberId === null || $memberId < 1) {
+        return membership_application_empty_club_prefill();
+    }
+
+    try {
+        $stmt = $pdo->prepare(
+            'SELECT email, phone, birthday, faa_number, faa_expiration,
+                    emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
+                    address_street, address_street2, address_city, address_state, address_postal_code,
+                    membership_type_slot
+             FROM members WHERE id = ? LIMIT 1'
+        );
+        $stmt->execute([$memberId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return membership_application_club_prefill_from_row(is_array($row) ? $row : null);
+    } catch (Throwable $e) {
+        return membership_application_empty_club_prefill();
+    }
+}
+
+/**
  * @return array{
  *   ama_number: string,
  *   last_name: string,
@@ -167,6 +296,7 @@ function membership_application_club_member_apply_block_message(?array $member):
  *   renewal_eligible: bool,
  *   renewal_eligible_message: string,
  *   renewal_member_id: ?int,
+ *   club_prefill?: array<string,string>,
  *   verified_at: int,
  *   token: string
  * }|null
@@ -196,11 +326,11 @@ function membership_application_ama_get_session(): ?array
  *   first_name: string,
  *   ama_expiration_ymd: ?string,
  *   ama_expiration_mdy: ?string,
- *   ama_expiration_mdy: ?string,
  *   life_member: bool,
  *   renewal_eligible?: bool,
  *   renewal_eligible_message?: string,
- *   renewal_member_id?: ?int
+ *   renewal_member_id?: ?int,
+ *   club_prefill?: array<string,string>
  * } $data
  */
 function membership_application_ama_set_session(array $data): void
@@ -221,6 +351,9 @@ function membership_application_ama_set_session(array $data): void
         'complimentary_member'       => (bool) ($data['complimentary_member'] ?? false),
         'complimentary_member_detail'  => (string) ($data['complimentary_member_detail'] ?? ''),
         'complimentary_member_id'    => isset($data['complimentary_member_id']) ? (int) $data['complimentary_member_id'] : null,
+        'club_prefill'               => membership_application_normalize_club_prefill(
+            is_array($data['club_prefill'] ?? null) ? $data['club_prefill'] : null
+        ),
         'verified_at'                => time(),
         'token'                      => bin2hex(random_bytes(16)),
     ];
@@ -344,6 +477,12 @@ function membership_application_ama_verify_for_apply(PDO $pdo, string $amaNumber
     $sessionData['complimentary_member_detail'] = $complimentaryLabels !== [] ? implode(', ', $complimentaryLabels) : '';
     $sessionData['complimentary_member_id'] = $clubMember !== null ? (int) $clubMember['id'] : null;
 
+    $clubPrefill = membership_application_load_club_prefill(
+        $pdo,
+        $clubMember !== null ? (int) $clubMember['id'] : null
+    );
+    $sessionData['club_prefill'] = $clubPrefill;
+
     membership_application_ama_set_session($sessionData);
 
     return [
@@ -358,6 +497,7 @@ function membership_application_ama_verify_for_apply(PDO $pdo, string $amaNumber
             'renewal_eligible' => $renewalEligibility['eligible'],
             'renewal_message'  => $renewalEligibility['message'],
             'complimentary_member' => $sessionData['complimentary_member'],
+            'club_prefill'     => $clubPrefill,
             'message'          => (string) ($result['message'] ?? 'AMA membership verified.'),
         ],
     ];

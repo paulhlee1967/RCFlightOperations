@@ -278,4 +278,63 @@ final class MembershipApplicationTest extends TestCase
 
         $this->assertNull(membership_application_club_member_apply_block_message(['inactive' => 1]));
     }
+
+    public function testFormatUsPhone(): void
+    {
+        $this->assertSame('(555) 123-4567', membership_application_format_us_phone('5551234567'));
+        $this->assertSame('(555) 123-4567', membership_application_format_us_phone('15551234567'));
+        $this->assertSame('(555) 123-4567', membership_application_format_us_phone('(555) 123-4567'));
+        $this->assertSame('', membership_application_format_us_phone(''));
+        $this->assertSame('ext 12', membership_application_format_us_phone('ext 12'));
+    }
+
+    public function testClubPrefillFromRowFormatsContactFields(): void
+    {
+        $prefill = membership_application_club_prefill_from_row([
+            'email' => ' flyer@example.com ',
+            'phone' => '9095551212',
+            'birthday' => '1980-03-15',
+            'address_street' => '123 Main',
+            'address_street2' => 'Apt 4',
+            'address_city' => 'Claremont',
+            'address_state' => 'CA',
+            'address_postal_code' => '91711',
+            'emergency_contact_name' => 'Pat',
+            'emergency_contact_relationship' => 'Spouse',
+            'emergency_contact_phone' => '9095559999',
+            'faa_number' => 'FA123',
+            'faa_expiration' => '2027-06-01',
+            'membership_type_slot' => 2,
+        ]);
+
+        $this->assertSame('flyer@example.com', $prefill['email']);
+        $this->assertSame('(909) 555-1212', $prefill['phone']);
+        $this->assertSame('03/15/1980', $prefill['birthday']);
+        $this->assertSame('123 Main', $prefill['address_street']);
+        $this->assertSame('Apt 4', $prefill['address_street2']);
+        $this->assertSame('Claremont', $prefill['address_city']);
+        $this->assertSame('CA', $prefill['address_state']);
+        $this->assertSame('91711', $prefill['address_postal_code']);
+        $this->assertSame('Pat', $prefill['emergency_contact_name']);
+        $this->assertSame('Spouse', $prefill['emergency_contact_relationship']);
+        $this->assertSame('(909) 555-9999', $prefill['emergency_contact_phone']);
+        $this->assertSame('FA123', $prefill['faa_number']);
+        $this->assertSame('06/01/2027', $prefill['faa_expiration']);
+        $this->assertSame('2', $prefill['membership_type_slot']);
+    }
+
+    public function testNormalizeClubPrefillKeepsMdyDates(): void
+    {
+        $normalized = membership_application_normalize_club_prefill([
+            'email' => 'a@b.com',
+            'birthday' => '03/15/1980',
+            'faa_expiration' => '06/01/2027',
+            'extra' => 'ignored',
+        ]);
+        $this->assertSame('a@b.com', $normalized['email']);
+        $this->assertSame('03/15/1980', $normalized['birthday']);
+        $this->assertSame('06/01/2027', $normalized['faa_expiration']);
+        $this->assertSame('', $normalized['phone']);
+        $this->assertArrayNotHasKey('extra', $normalized);
+    }
 }

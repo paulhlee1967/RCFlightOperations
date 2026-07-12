@@ -9,7 +9,7 @@ require_once __DIR__ . '/includes/auth.php';
 
 requireLogin();
 
-$appVersion = defined('FLIGHT_OPS_VERSION') ? FLIGHT_OPS_VERSION : '1.5.1';
+$appVersion = defined('FLIGHT_OPS_VERSION') ? FLIGHT_OPS_VERSION : '1.6.0';
 
 $clubName = 'RC Flight Operations';
 try {

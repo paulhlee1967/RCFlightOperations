@@ -29,7 +29,7 @@ if (!isset($config)) {
 }
 
 if (!defined('FLIGHT_OPS_VERSION')) {
-    define('FLIGHT_OPS_VERSION', '1.5.2');
+    define('FLIGHT_OPS_VERSION', '1.6.0');
 }
 
 if (!defined('FLIGHT_OPS_COPYRIGHT_YEAR_START')) {

@@ -6,13 +6,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-11
+
 ### Added
 
-- **Email opt-in on membership applications** — `apply.php` offers optional checkboxes for **club events & announcements** (Sender campaign channel) and **AMA/FAA expiration reminders** (Sender transactional channel). Preferences are stored on `member_applications` and copied to `members` on approve. When Sender.net is configured, submit syncs club-event opt-in; approve applies both preferences via `includes/sender_net.php`. `scripts/send_reminders.php` skips members with `email_opt_in_expiry_reminders = 0`. Idempotent migration: `scripts/migrate_email_opt_in.sql` (also in `schema_full.sql`). See [docs/applications.html](docs/applications.html#email-preferences) and [docs/admin.html](docs/admin.html#sender-opt-out).
+- **Native public membership application** — Public form at [`apply.php`](apply.php) with AMA verification gate, membership type quote, Stripe payment, badge photo / FAA uploads, signature, and confirmation page. Staff review remains in **Applications** ([`applications.php`](applications.php)). Replaces the WPForms / Uncanny Automator webhook integration as the primary intake path. See [docs/applications.html](docs/applications.html).
+- **AMA gate + club-record prefill** — After AMA # + last name verify, the app checks club records (renewal eligibility, suspended block, complimentary flags) and, when a member is found by AMA #, prefills editable contact/FAA fields from the roster. First/last name and AMA #/expiration stay read-only from AMA. Helpers in [`includes/membership_application.php`](includes/membership_application.php); UI in [`js/membership_apply.js`](js/membership_apply.js).
+- **Email opt-in on applications** — Optional checkboxes for **club events & announcements** (Sender campaign channel) and **AMA/FAA expiration reminders** (Sender transactional channel). Stored on `member_applications`, copied to `members` on approve. Submit syncs club-event opt-in; approve applies both via [`includes/sender_net.php`](includes/sender_net.php). `scripts/send_reminders.php` skips `email_opt_in_expiry_reminders = 0`. Migration: [`scripts/migrate_email_opt_in.sql`](scripts/migrate_email_opt_in.sql).
+- **Sender.net status on member records** — Contact tab shows a read-only **Email preferences (Sender.net)** panel (`includes/member_sender_status.php`) with campaign/transactional status and a link to open the contact in Sender.
+- **Complimentary membership invites** — Staff create email/AMA-matched invites (`comp_invites.php`, `includes/membership_comp_invites.php`) that waive payment on `apply.php` when redeemed.
+- **Stripe on public apply** — Publishable/secret keys and webhook (`api_stripe_webhook.php`) under **Administration → Installation**; dues/initiation/processing fee quote on the form.
+- **FAA registration card on applications** — Applicants upload FAA registration; approve copies it to the member Compliance tab alongside badge photo import.
 
 ### Changed
 
-- **Documentation** — Help center, [TECHNICAL.md](TECHNICAL.md), and [DEPLOY.md](DEPLOY.md) updated for public `apply.php` applications (replacing WPForms), email opt-in preferences, and Sender.net sync on submit/approve.
+- **Payments model clarified** — Staff UI remains a ledger for cash/check renewals; online applicants can pay dues via Stripe on `/apply.php`. Docs updated accordingly.
+- **Documentation** — Help center, [TECHNICAL.md](TECHNICAL.md), [DEPLOY.md](DEPLOY.md), [README.md](README.md), and [LOCAL_DEV.md](LOCAL_DEV.md) updated for native applications, email opt-in, Sender sync, member Sender status, and complimentary invites.
+
+### Removed
+
+- **WPForms as primary application intake** — Website submissions no longer require WPForms / Uncanny Automator. Legacy webhook helpers are not part of the supported 1.6 path; use `/apply.php`.
 
 ## [1.5.2] - 2026-07-03
 

@@ -249,6 +249,7 @@
     </p>
     <ul>
       <li><strong>Public application (<code>apply.php</code>)</strong> — optional checkboxes for club events and expiry reminders. Club-event opt-in syncs to Sender on submit; both preferences sync on staff approve. See <a href="applications.html#email-preferences">Applications — Email preferences</a>.</li>
+      <li><strong>Member contact tab</strong> — when Sender is configured, shows a read-only campaign/transactional status panel with a link to open the contact in Sender.net. See <a href="members.html#contact">Members — Contact tab</a>.</li>
       <li><strong>Reminder-only unsubscribe</strong> — signed link in each expiry email (<code>unsubscribe.php</code>) sets transactional status to <code>UNSUBSCRIBED</code> without affecting campaign mail.</li>
       <li><strong>Existing members</strong> — <code>members.email_opt_in_expiry_reminders</code> defaults to opted in for databases migrated before this feature; <code>send_reminders.php</code> skips members who opted out on file. Emails are stored lowercase to avoid duplicate subscribers.</li>
     </ul>

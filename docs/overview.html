@@ -92,6 +92,7 @@
   <li><strong>Reports</strong> — membership snapshots, retention, revenue, compliance, incidents, birthdays, and data-quality lists</li>
   <li><strong>CSV import &amp; export</strong> — bring in your existing member list and export it in formats for AMA filings, newsletters, and backups</li>
   <li><strong>Safety incident log</strong> — keep a dated record of field incidents for your club's safety records</li>
+  <li><strong>Online membership applications</strong> — public <code>/apply.php</code> form (AMA verify, optional Stripe, email opt-in) with staff review in Applications</li>
   <li><strong>Multiple users with roles</strong> — give board members access at the right level without sharing a single login</li>
 </ul>
 
@@ -108,23 +109,23 @@
 <!-- ── Payments note ── -->
 <h2 id="payments">A Note on Payments</h2>
 <p>
-  RC Flight Operations <strong>does not process payments</strong> of any kind. It has no
-  connection to credit card processors, PayPal, bank accounts, or any other payment
-  system. There is no way to pay dues through this app.
+  Inside the staff app, RC Flight Operations is primarily a <strong>ledger</strong>:
+  officers <strong>record payments already received</strong> (cash, check, or another
+  channel your club already uses) so renewal status and reports stay accurate.
 </p>
 <p>
-  What it <em>does</em> do is let you <strong>record payments that you've already received</strong>
-  through your club's normal channels — whether that's cash at a meeting, a check in
-  the mail, or a transfer through a service your club already uses. Once you've collected
-  dues by whatever method works for your club, you log the payment here so your records
-  stay accurate and members show up as renewed.
+  Separately, the <strong>public membership application</strong> at
+  <code>/apply.php</code> can collect dues online via <strong>Stripe</strong> when
+  configured under <strong>Administration → Installation</strong>. Those paid
+  submissions still land in <strong>Applications</strong> for staff review before
+  the roster is updated. See <a href="applications.html">Website Applications</a>.
 </p>
 <div class="callout callout-info">
   <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
   <div class="callout-body">
-    Think of it like a ledger. Money changes hands offline; you write it down here.
-    Reports and renewal status are based entirely on what you've recorded —
-    so keep your records current and they'll stay accurate.
+    Think of staff renewals as writing down money that already changed hands.
+    Online applicants may pay through Stripe on the public form; officers still
+    approve the application and complete fulfillment in the app.
   </div>
 </div>
 

@@ -1,20 +1,20 @@
 # RC Flight Operations
 
-**Version 1.5.2** — See [CHANGELOG.md](CHANGELOG.md).
+**Version 1.6.0** — See [CHANGELOG.md](CHANGELOG.md).
 
 Open-source (**MIT**) membership management for AMA-affiliated RC flying clubs. One installation serves **one club** (single database, single `config.php`). Officers get a shared dashboard, role-based logins, and club branding (logo, favicon, colors) that carries through the app and help docs.
 
 ## Features
 
-- **Members** — Searchable roster, CSV import/export, photos, emergency contacts
+- **Members** — Searchable roster, CSV import/export, photos, emergency contacts; Sender.net email preference status on the contact tab when configured
 - **New member wizard** — Guided five-step signup: contact → compliance → membership → record first payment → print & mail
-- **Renewals & dues** — Record cash/check payments (the app is a ledger, not a payment processor); prorated, late, and complimentary renewals
+- **Renewals & dues** — Record cash/check payments in the staff ledger; prorated, late, and complimentary renewals
+- **Online applications** — Public form at `/apply.php` (AMA verify, Stripe, email opt-in, club-record prefill); staff review queue in **Applications** ([docs/applications.html](docs/applications.html))
 - **AMA & FAA compliance** — Track numbers and expirations; live AMA lookup before renewal
 - **Badge designer & printing** — Multiple CR80 templates, Fabric.js canvas editor, live member preview, undo/redo, personalized print at renewal
 - **Reports** — Membership, retention, revenue, compliance, and more — on screen, CSV, branded PDF, or email
 - **Incident log** — Optional dated safety/field incident records
-- **Online applications** — Public form at `/apply.php` (Stripe, AMA verification); staff review queue in **Applications** ([docs/applications.html](docs/applications.html))
-- **Administration** — Users & roles (administrator, membership manager, club staff, report viewer), club configuration, audit log
+- **Administration** — Users & roles (administrator, membership manager, club staff, report viewer), club configuration, complimentary invites, audit log
 
 End-user help lives in **[docs/](docs/)** (also linked from the app as **Help & Documentation**).
 

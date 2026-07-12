@@ -259,12 +259,55 @@
         refreshQuote();
     }
 
+    function applyClubPrefill(prefill) {
+        if (!prefill || typeof prefill !== 'object') {
+            return;
+        }
+        const textFields = [
+            'address_street',
+            'address_street2',
+            'address_city',
+            'address_state',
+            'address_postal_code',
+            'phone',
+            'email',
+            'birthday',
+            'emergency_contact_name',
+            'emergency_contact_relationship',
+            'emergency_contact_phone',
+            'faa_number',
+            'faa_expiration',
+        ];
+        textFields.forEach((name) => {
+            const el = form[name];
+            if (!el) return;
+            const value = typeof prefill[name] === 'string' ? prefill[name] : '';
+            if (value === '') {
+                // Keep existing defaults (e.g. State=CA) when club has no value.
+                if (name === 'address_state' && !el.value) {
+                    el.value = 'CA';
+                }
+                return;
+            }
+            el.value = value;
+            if (el.classList.contains('js-phone-us')) {
+                formatUsPhoneInput(el);
+            } else if (el.classList.contains('js-date-us')) {
+                formatUsDateInput(el);
+            }
+        });
+        if (form.membership_type_slot && prefill.membership_type_slot) {
+            form.membership_type_slot.value = prefill.membership_type_slot;
+        }
+    }
+
     function revealApplicationStep(data) {
         amaVerified = true;
         if (form.first_name) form.first_name.value = data.first_name || '';
         if (form.last_name) form.last_name.value = data.last_name || '';
         if (form.ama_number) form.ama_number.value = data.ama_number || '';
         if (form.ama_expiration) form.ama_expiration.value = data.ama_expiration || '';
+        applyClubPrefill(data.club_prefill || {});
 
         const nameEl = document.getElementById('ama-gate-success-name');
         const numEl = document.getElementById('ama-gate-success-number');
@@ -280,6 +323,7 @@
             applyStep2.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
         configureApplicationKind(!!data.renewal_eligible, data.renewal_message || '');
+        refreshQuote();
         if (typeof resizeSignatureCanvas === 'function') {
             requestAnimationFrame(() => resizeSignatureCanvas());
         }

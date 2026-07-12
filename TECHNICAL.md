@@ -92,8 +92,10 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **member_wizard_styles.php** | Inline CSS for wizard stepper (included by `member_wizard.php` and `member_process.php?wizard=1`). |
 | **member_match.php** | Duplicate member detection (AMA + tiered name/email/birthday). Used by CSV import and online applications. |
 | **member_import_helpers.php** | Shared `parseDateForDb()`, `normalizeMembershipTypeSlot()`, `normalizeBool()` for import and applications. |
-| **membership_application.php** | Public `apply.php` flow: AMA gate, dues quote, Stripe payment, file uploads, optional email opt-in checkboxes, confirmation tokens, Sender preference sync on submit. |
+| **membership_application.php** | Public `apply.php` flow: AMA gate, club-record prefill, renewal eligibility, dues quote, Stripe payment, file uploads, optional email opt-in checkboxes, complimentary invite redemption, confirmation tokens, Sender preference sync on submit. |
 | **member_applications.php** | Staff review queue: list filters, payment breakdown, approve/reject into member records, email opt-in copy to `members`, Sender sync on approve, notifications. |
+| **membership_comp_invites.php** | Complimentary invite CRUD, matching (email/AMA), redeem on apply submit, apply flags to member on approve. |
+| **member_sender_status.php** | Read-only Sender.net campaign/transactional status panel for the member contact tab. |
 | **app_signing_secret.php** | Loads `app_secret` from `system_config` or `config.php` for signed URLs. |
 
 ---
@@ -125,8 +127,9 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **badge_print.php** | Print view for one member’s badge (front/back). Marks badge as printed. |
 | **badge_photo.php** | Securely serves member photo from `uploads/` (no direct URL to uploads). |
 | **import.php** | CSV import: upload, column mapping, preview, insert/update members (and optional payment rows). |
-| **applications.php** | Online membership application review queue: status tabs, renewal-year filter, search, pagination, detail/diff, payment breakdown, approve (upsert member, copy uploads, → `member_process.php`), reject. |
-| **apply.php** / **apply_confirm.php** | Public membership application form and confirmation page (Stripe + AMA verification). |
+| **applications.php** | Online membership application review queue: status tabs, renewal-year filter, search, pagination, detail/diff, payment breakdown, email preferences, approve (upsert member, copy uploads, → `member_process.php`), reject. |
+| **apply.php** / **apply_confirm.php** | Public membership application: AMA gate, club-record prefill, Stripe quote/pay, email opt-in, uploads, confirmation. |
+| **comp_invites.php** | Staff complimentary membership invites (create, cancel, filter open/redeemed). |
 | **api_stripe_webhook.php** | Stripe `payment_intent.succeeded` webhook; finalizes paid applications. |
 | **export.php** / **export_options.php** | CSV export (full, short, email-only); filters by year/renewal status. **`export.php` is POST + CSRF only** (forms in the UI and `export_options.php`). |
 | **api_verify_ama.php** | AJAX endpoint: verifies AMA number against AMA lookup via `includes/ama_verify.php`; returns JSON. |
@@ -220,7 +223,7 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 | Add or change a report | `includes/run_report.php`, `reports.php`, `report_email.php`, `includes/report_pdf.php` |
 | Change badge layout / data | `badge_design.php`, `includes/badge_design_api.php`, `includes/badge_design_helpers.php`, `includes/badge_member_data.php`, `badge_print.php`, `includes/badge_print_helpers.php`, `js/badge_fabric.js`, `js/badge_design.js`, `js/badge_print.js`, `badge_templates` table |
 | Change member list filters / UI | `members.php`, `includes/members_list_query.php`, `includes/members_list_helpers.php`, `js/members_list.js` |
-| Change online application review | `applications.php`, `apply.php`, `includes/member_applications.php`, `includes/membership_application.php`, [docs/applications.html](docs/applications.html) |
+| Change online application review | `applications.php`, `apply.php`, `includes/member_applications.php`, `includes/membership_application.php`, `comp_invites.php`, [docs/applications.html](docs/applications.html) |
 | Change dues or proration logic | `dues_rules` table, `member_process.php`, `config_site.php`, `includes/dues_helpers.php` |
 | Change email content | `templates/email/`, `includes/email_templates.php` |
 | Change SMTP / installation behaviour | `installation.php`, `system_config`, `config.php` → `email` / `sender` / `canonical_host` / `public_base_url`, `includes/mail.php`, `includes/sender_net.php`, `unsubscribe.php` |

@@ -42,10 +42,15 @@ $amaPrefill = [
     'ama_number'     => $amaSession['ama_number'] ?? '',
     'ama_expiration' => $amaSession['ama_expiration_mdy'] ?? membership_application_ymd_to_mdy($amaSession['ama_expiration_ymd'] ?? null),
 ];
+$clubPrefill = membership_application_normalize_club_prefill(
+    is_array($amaSession['club_prefill'] ?? null) ? $amaSession['club_prefill'] : null
+);
 $renewalEligible = $amaVerified && !empty($amaSession['renewal_eligible']);
 $renewalEligibleMessage = (string) ($amaSession['renewal_eligible_message'] ?? '');
 $complimentaryMember = $amaVerified && !empty($amaSession['complimentary_member']);
 $complimentaryMemberDetail = (string) ($amaSession['complimentary_member_detail'] ?? '');
+$prefillState = $clubPrefill['address_state'] !== '' ? $clubPrefill['address_state'] : 'CA';
+$prefillMembershipSlot = $clubPrefill['membership_type_slot'];
 
 require_once __DIR__ . '/includes/header.php';
 require_once __DIR__ . '/includes/csp_nonce.php';
@@ -232,47 +237,47 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                         </div>
                         <div class="col-12">
                             <label class="form-label">Street address <span class="text-danger">*</span></label>
-                            <input type="text" name="address_street" class="form-control" required autocomplete="address-line1">
+                            <input type="text" name="address_street" class="form-control" required autocomplete="address-line1" value="<?= h($clubPrefill['address_street']) ?>">
                         </div>
                         <div class="col-12">
                             <label class="form-label">Address line 2</label>
-                            <input type="text" name="address_street2" class="form-control" autocomplete="address-line2">
+                            <input type="text" name="address_street2" class="form-control" autocomplete="address-line2" value="<?= h($clubPrefill['address_street2']) ?>">
                         </div>
                         <div class="col-md-5">
                             <label class="form-label">City <span class="text-danger">*</span></label>
-                            <input type="text" name="address_city" class="form-control" required autocomplete="address-level2">
+                            <input type="text" name="address_city" class="form-control" required autocomplete="address-level2" value="<?= h($clubPrefill['address_city']) ?>">
                         </div>
                         <div class="col-md-3">
                             <label class="form-label">State <span class="text-danger">*</span></label>
-                            <input type="text" name="address_state" class="form-control" value="CA" required autocomplete="address-level1">
+                            <input type="text" name="address_state" class="form-control" value="<?= h($prefillState) ?>" required autocomplete="address-level1">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">ZIP <span class="text-danger">*</span></label>
-                            <input type="text" name="address_postal_code" class="form-control" required autocomplete="postal-code">
+                            <input type="text" name="address_postal_code" class="form-control" required autocomplete="postal-code" value="<?= h($clubPrefill['address_postal_code']) ?>">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Phone <span class="text-danger">*</span></label>
-                            <input type="tel" name="phone" class="form-control js-phone-us" required autocomplete="tel" placeholder="(555) 123-4567" inputmode="tel" maxlength="14">
+                            <input type="tel" name="phone" class="form-control js-phone-us" required autocomplete="tel" placeholder="(555) 123-4567" inputmode="tel" maxlength="14" value="<?= h($clubPrefill['phone']) ?>">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Email <span class="text-danger">*</span></label>
-                            <input type="email" name="email" class="form-control" required autocomplete="email">
+                            <input type="email" name="email" class="form-control" required autocomplete="email" value="<?= h($clubPrefill['email']) ?>">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Date of birth <span class="text-danger">*</span></label>
-                            <input type="text" name="birthday" class="form-control js-date-us" required placeholder="MM/DD/YYYY" inputmode="numeric" autocomplete="bday" maxlength="10">
+                            <input type="text" name="birthday" class="form-control js-date-us" required placeholder="MM/DD/YYYY" inputmode="numeric" autocomplete="bday" maxlength="10" value="<?= h($clubPrefill['birthday']) ?>">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Emergency contact</label>
-                            <input type="text" name="emergency_contact_name" class="form-control">
+                            <input type="text" name="emergency_contact_name" class="form-control" value="<?= h($clubPrefill['emergency_contact_name']) ?>">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Relationship</label>
-                            <input type="text" name="emergency_contact_relationship" class="form-control" placeholder="Spouse, parent, etc.">
+                            <input type="text" name="emergency_contact_relationship" class="form-control" placeholder="Spouse, parent, etc." value="<?= h($clubPrefill['emergency_contact_relationship']) ?>">
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Emergency phone</label>
-                            <input type="tel" name="emergency_contact_phone" class="form-control js-phone-us" placeholder="(555) 123-4567" inputmode="tel" maxlength="14">
+                            <input type="tel" name="emergency_contact_phone" class="form-control js-phone-us" placeholder="(555) 123-4567" inputmode="tel" maxlength="14" value="<?= h($clubPrefill['emergency_contact_phone']) ?>">
                         </div>
                     </div>
                 </div>
@@ -317,7 +322,7 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                         <select name="membership_type_slot" id="membership_type_slot" class="form-select" required>
                             <option value="">— Select —</option>
                             <?php foreach ($context['membership_types'] as $type): ?>
-                            <option value="<?= (int) $type['slot'] ?>"><?= h($type['label']) ?></option>
+                            <option value="<?= (int) $type['slot'] ?>"<?= ((string) (int) $type['slot'] === $prefillMembershipSlot) ? ' selected' : '' ?>><?= h($type['label']) ?></option>
                             <?php endforeach; ?>
                         </select>
                         <div class="form-text" style="color: var(--club-primary);">Children, students, or youth under 18 must be accompanied by a parent or legal guardian at the flying field.</div>
@@ -352,11 +357,11 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">FAA registration number <span class="text-danger">*</span></label>
-                        <input type="text" name="faa_number" class="form-control" required>
+                        <input type="text" name="faa_number" class="form-control" required value="<?= h($clubPrefill['faa_number']) ?>">
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">FAA registration expiration <span class="text-danger">*</span></label>
-                        <input type="text" name="faa_expiration" class="form-control js-date-us" required placeholder="MM/DD/YYYY" inputmode="numeric" maxlength="10">
+                        <input type="text" name="faa_expiration" class="form-control js-date-us" required placeholder="MM/DD/YYYY" inputmode="numeric" maxlength="10" value="<?= h($clubPrefill['faa_expiration']) ?>">
                     </div>
                 </div>
             </div>

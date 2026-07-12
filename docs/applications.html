@@ -36,6 +36,7 @@
     <div class="sidebar-title">On this page</div>
     <a href="#overview">Overview</a>
     <a href="#who">Who can use it</a>
+    <a href="#ama-gate">AMA gate &amp; prefill</a>
     <a href="#workflow">Review workflow</a>
     <a href="#filters">Filters &amp; pagination</a>
     <a href="#payment">Payment display</a>
@@ -43,6 +44,7 @@
     <a href="#approve">Approve &amp; reject</a>
     <a href="#badge-photo">Badge photo</a>
     <a href="#setup">Website setup</a>
+    <a href="#comp-invites">Complimentary invites</a>
     <hr class="sidebar-divider">
     <div class="sidebar-title">Other Docs</div>
     <a href="index.html">← Docs home</a>
@@ -90,6 +92,23 @@
       <li><strong>Club Staff</strong> — can review and approve (same as renewal processing access).</li>
       <li><strong>Report Viewer</strong> — no access to Applications.</li>
     </ul>
+
+    <h2 id="ama-gate">AMA gate &amp; club-record prefill</h2>
+    <p>
+      Before the full application form, applicants enter their <strong>AMA number</strong> and
+      <strong>last name</strong>. The app verifies membership against AMA’s public lookup, then
+      applies club rules:
+    </p>
+    <ul>
+      <li><strong>Minimum AMA expiration</strong> — membership must be valid through your club’s required date (life members exempt).</li>
+      <li><strong>Suspended members</strong> — if the AMA # matches a suspended club record, online apply is blocked with a contact-the-club message.</li>
+      <li><strong>Renewal eligibility</strong> — during renewal season, a matching current member may choose <strong>Renewal</strong>; otherwise the form steers them to <strong>New member</strong>.</li>
+      <li><strong>Prefill from club roster</strong> — when the AMA # matches an existing member, editable fields (address, phone, email, birthday, emergency contact, FAA, membership type) are filled from the club record. First name, last name, AMA #, and AMA expiration stay read-only from the AMA verification.</li>
+    </ul>
+    <p>
+      Applicants can still edit any prefilled value before submit. Staff matching on approve still
+      uses AMA + name/email/birthday tiers for linking to the correct member.
+    </p>
 
     <h2 id="workflow">Review workflow</h2>
     <ol>
@@ -222,6 +241,15 @@
       <strong>Administration → Installation</strong>. Link your club website to
       <code>/apply.php</code> on this server. Stripe webhooks should target
       <code>api_stripe_webhook.php</code>.
+    </p>
+
+    <h2 id="comp-invites">Complimentary invites</h2>
+    <p>
+      Staff can create <strong>complimentary membership invites</strong> (email and/or AMA number,
+      free membership or life member) from the complimentary invites screen. When an applicant
+      matches an open invite on <code>apply.php</code>, payment is waived and the invite is
+      marked redeemed on successful submit. Life/free flags already on a club member record can
+      also waive payment without a separate invite.
     </p>
 
   </main>
