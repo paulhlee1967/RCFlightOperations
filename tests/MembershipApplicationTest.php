@@ -246,6 +246,70 @@ final class MembershipApplicationTest extends TestCase
         $this->assertFalse(membership_application_ama_meets_minimum_expiry($pdo, '2026-06-30', false, $now));
     }
 
+    public function testFaaMeetsMinimumExpiryFollowsAmaRule(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        $beforePrebook = new DateTimeImmutable('2026-07-09');
+        $this->assertTrue(membership_application_faa_meets_minimum_expiry($pdo, '2026-12-31', $beforePrebook));
+        $this->assertFalse(membership_application_faa_meets_minimum_expiry($pdo, '2026-06-30', $beforePrebook));
+
+        $afterPrebook = new DateTimeImmutable('2026-11-01');
+        $this->assertTrue(membership_application_faa_meets_minimum_expiry($pdo, '2027-12-31', $afterPrebook));
+        $this->assertFalse(membership_application_faa_meets_minimum_expiry($pdo, '2027-06-01', $afterPrebook));
+    }
+
+    public function testFaaCardMayReuseRequiresFileAndMinimumExpiry(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        $now = new DateTimeImmutable('2026-07-09');
+        $base = sys_get_temp_dir() . '/rcflight_faa_reuse_' . bin2hex(random_bytes(4));
+        mkdir($base . '/uploads/member_faa_cards', 0777, true);
+        $rel = 'uploads/member_faa_cards/99.pdf';
+        file_put_contents($base . '/' . $rel, '%PDF-1.4');
+
+        $member = ['faa_card_path' => $rel];
+        $this->assertTrue(
+            membership_application_faa_card_may_reuse($pdo, $member, '2026-12-31', $now, $base)
+        );
+        $this->assertFalse(
+            membership_application_faa_card_may_reuse($pdo, $member, '2026-06-01', $now, $base)
+        );
+        $this->assertFalse(
+            membership_application_faa_card_may_reuse($pdo, ['faa_card_path' => ''], '2026-12-31', $now, $base)
+        );
+        $this->assertFalse(
+            membership_application_faa_card_may_reuse($pdo, null, '2026-12-31', $now, $base)
+        );
+
+        @unlink($base . '/' . $rel);
+        @rmdir($base . '/uploads/member_faa_cards');
+        @rmdir($base . '/uploads');
+        @rmdir($base);
+    }
+
+    public function testMemberBadgePhotoUrlRequiresReadableFile(): void
+    {
+        $base = sys_get_temp_dir() . '/rcflight_badge_' . bin2hex(random_bytes(4));
+        mkdir($base . '/uploads/member_photos', 0777, true);
+        $rel = 'uploads/member_photos/7.jpg';
+        file_put_contents($base . '/' . $rel, 'fake');
+
+        $this->assertSame(
+            $rel,
+            membership_application_member_badge_photo_url(['photo_path' => $rel], $base)
+        );
+        $this->assertSame(
+            '',
+            membership_application_member_badge_photo_url(['photo_path' => 'uploads/member_photos/missing.jpg'], $base)
+        );
+        $this->assertFalse(membership_application_member_has_badge_photo(null, $base));
+
+        @unlink($base . '/' . $rel);
+        @rmdir($base . '/uploads/member_photos');
+        @rmdir($base . '/uploads');
+        @rmdir($base);
+    }
+
     public function testAmaAssertVerifiedRequiresSession(): void
     {
         membership_application_ama_clear_session();
@@ -321,6 +385,10 @@ final class MembershipApplicationTest extends TestCase
         $this->assertSame('FA123', $prefill['faa_number']);
         $this->assertSame('06/01/2027', $prefill['faa_expiration']);
         $this->assertSame('2', $prefill['membership_type_slot']);
+        $this->assertSame('', $prefill['badge_photo_url']);
+        $this->assertSame('', $prefill['faa_card_on_file']);
+        $this->assertSame('', $prefill['faa_card_url']);
+        $this->assertSame('', $prefill['faa_card_is_image']);
     }
 
     public function testNormalizeClubPrefillKeepsMdyDates(): void

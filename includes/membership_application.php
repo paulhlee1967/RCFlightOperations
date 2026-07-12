@@ -64,6 +64,109 @@ function membership_application_ama_meets_minimum_expiry(
     return $expirationYmd >= membership_application_ama_minimum_expiry_ymd($pdo, $now);
 }
 
+/**
+ * FAA registration must meet the same year-end minimum as AMA (no life-member exemption).
+ */
+function membership_application_faa_meets_minimum_expiry(
+    PDO $pdo,
+    ?string $expirationYmd,
+    ?DateTimeInterface $now = null
+): bool {
+    return membership_application_ama_meets_minimum_expiry($pdo, $expirationYmd, false, $now);
+}
+
+/**
+ * Whether a club member has a readable badge photo on disk.
+ */
+function membership_application_member_has_badge_photo(?array $member, ?string $baseDir = null): bool
+{
+    if ($member === null) {
+        return false;
+    }
+    $relative = ltrim((string) ($member['photo_path'] ?? ''), '/');
+    if ($relative === '' || str_contains($relative, '..')) {
+        return false;
+    }
+    $baseDir = $baseDir ?? dirname(__DIR__);
+    $full = $baseDir . '/' . $relative;
+
+    return is_file($full) && is_readable($full);
+}
+
+/**
+ * Public-relative URL for an on-file badge photo, or empty string.
+ */
+function membership_application_member_badge_photo_url(?array $member, ?string $baseDir = null): string
+{
+    if (!membership_application_member_has_badge_photo($member, $baseDir)) {
+        return '';
+    }
+
+    return ltrim((string) ($member['photo_path'] ?? ''), '/');
+}
+
+/**
+ * Whether the applicant may skip FAA card upload and keep the member's on-file card.
+ */
+function membership_application_faa_card_may_reuse(
+    PDO $pdo,
+    ?array $member,
+    ?string $faaExpirationYmd,
+    ?DateTimeInterface $now = null,
+    ?string $baseDir = null
+): bool {
+    if ($member === null || $faaExpirationYmd === null) {
+        return false;
+    }
+    require_once __DIR__ . '/member_compliance_helpers.php';
+    if (!member_faa_card_has_file($member, $baseDir)) {
+        return false;
+    }
+
+    return membership_application_faa_meets_minimum_expiry($pdo, $faaExpirationYmd, $now);
+}
+
+/**
+ * Load photo/FAA card paths for apply upload reuse checks (by AMA number).
+ *
+ * @return array{id:?int, photo_path:string, faa_card_path:string}|null
+ */
+function membership_application_find_member_upload_row(PDO $pdo, string $amaNumber): ?array
+{
+    require_once __DIR__ . '/ama_verify.php';
+
+    $normalized = ama_verify_normalize_number($amaNumber);
+    if ($normalized === '') {
+        return null;
+    }
+
+    try {
+        $stmt = $pdo->query(
+            "SELECT id, ama_number, photo_path, faa_card_path
+             FROM members
+             WHERE ama_number IS NOT NULL AND TRIM(ama_number) != ''"
+        );
+        if (!$stmt) {
+            return null;
+        }
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if (ama_verify_normalize_number((string) ($row['ama_number'] ?? '')) !== $normalized) {
+                continue;
+            }
+
+            return [
+                'id'            => (int) $row['id'],
+                'photo_path'    => (string) ($row['photo_path'] ?? ''),
+                'faa_card_path' => (string) ($row['faa_card_path'] ?? ''),
+            ];
+        }
+    } catch (Throwable $e) {
+        return null;
+    }
+
+    return null;
+}
+
 function membership_application_ymd_to_mdy(?string $ymd): string
 {
     if ($ymd === null || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
@@ -199,6 +302,10 @@ function membership_application_empty_club_prefill(): array
         'faa_number'                     => '',
         'faa_expiration'                 => '',
         'membership_type_slot'           => '',
+        'badge_photo_url'                => '',
+        'faa_card_on_file'               => '',
+        'faa_card_url'                   => '',
+        'faa_card_is_image'              => '',
     ];
 }
 
@@ -239,6 +346,16 @@ function membership_application_club_prefill_from_row(?array $row): array
         ? (string) (int) $row['membership_type_slot']
         : '';
 
+    require_once __DIR__ . '/member_compliance_helpers.php';
+    $badgeUrl = membership_application_member_badge_photo_url($row);
+    $faaOnFile = member_faa_card_has_file($row) ? '1' : '';
+    $faaUrl = '';
+    $faaIsImage = '';
+    if ($faaOnFile === '1') {
+        $faaUrl = ltrim((string) ($row['faa_card_path'] ?? ''), '/');
+        $faaIsImage = member_faa_card_is_image($row) ? '1' : '';
+    }
+
     return [
         'email'                          => trim((string) ($row['email'] ?? '')),
         'phone'                          => membership_application_format_us_phone($row['phone'] ?? null),
@@ -254,6 +371,10 @@ function membership_application_club_prefill_from_row(?array $row): array
         'faa_number'                     => trim((string) ($row['faa_number'] ?? '')),
         'faa_expiration'                 => membership_application_ymd_to_mdy($row['faa_expiration'] ?? null),
         'membership_type_slot'           => $slot,
+        'badge_photo_url'                => $badgeUrl,
+        'faa_card_on_file'               => $faaOnFile,
+        'faa_card_url'                   => $faaUrl,
+        'faa_card_is_image'              => $faaIsImage,
     ];
 }
 
@@ -273,7 +394,7 @@ function membership_application_load_club_prefill(PDO $pdo, ?int $memberId): arr
             'SELECT email, phone, birthday, faa_number, faa_expiration,
                     emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
                     address_street, address_street2, address_city, address_state, address_postal_code,
-                    membership_type_slot
+                    membership_type_slot, photo_path, faa_card_path
              FROM members WHERE id = ? LIMIT 1'
         );
         $stmt->execute([$memberId]);
@@ -1009,8 +1130,9 @@ function membership_application_validate_input(PDO $pdo, array $post, array $fil
         $errors['faa_expiration'] = $rawFaaExp === '' ? 'FAA registration expiration is required.' : 'Enter a valid FAA expiration (MM/DD/YYYY).';
     } else {
         $clean['faa_expiration'] = $parsedFaaExp;
-        if (strtotime($parsedFaaExp) < strtotime('today')) {
-            $errors['faa_expiration'] = 'FAA registration must not be expired.';
+        if (!membership_application_faa_meets_minimum_expiry($pdo, $parsedFaaExp)) {
+            $minLabel = membership_application_ama_minimum_expiry_label($pdo);
+            $errors['faa_expiration'] = 'FAA registration must be valid through at least ' . $minLabel . '.';
         }
     }
 
@@ -1048,14 +1170,31 @@ function membership_application_validate_input(PDO $pdo, array $post, array $fil
         $errors['terms'] = 'You must agree to the club terms.';
     }
 
-    if (($clean['application_kind'] ?? '') === 'new') {
-        if (empty($files['badge_photo']['tmp_name']) || !is_uploaded_file((string) $files['badge_photo']['tmp_name'])) {
-            $errors['badge_photo'] = 'Badge photo is required for new members.';
-        }
+    $uploadMember = membership_application_find_member_upload_row($pdo, (string) ($clean['ama_number'] ?? ''));
+    $hasBadgeOnFile = membership_application_member_has_badge_photo($uploadMember);
+    $badgeUploaded = !empty($files['badge_photo']['tmp_name']) && is_uploaded_file((string) $files['badge_photo']['tmp_name']);
+    if (($clean['application_kind'] ?? '') === 'new' && !$badgeUploaded && !$hasBadgeOnFile) {
+        $errors['badge_photo'] = 'Badge photo is required for new members.';
     }
 
-    if (empty($files['faa_card']['tmp_name']) || !is_uploaded_file((string) $files['faa_card']['tmp_name'])) {
-        $errors['faa_card'] = 'FAA registration file is required.';
+    $faaUploaded = !empty($files['faa_card']['tmp_name']) && is_uploaded_file((string) $files['faa_card']['tmp_name']);
+    $faaMayReuse = membership_application_faa_card_may_reuse(
+        $pdo,
+        $uploadMember,
+        isset($clean['faa_expiration']) ? (string) $clean['faa_expiration'] : null
+    );
+    if (!$faaUploaded && !$faaMayReuse) {
+        require_once __DIR__ . '/member_compliance_helpers.php';
+        $hasFaaOnFile = $uploadMember !== null && member_faa_card_has_file($uploadMember);
+        $expOk = isset($clean['faa_expiration'])
+            && membership_application_faa_meets_minimum_expiry($pdo, (string) $clean['faa_expiration']);
+        if ($hasFaaOnFile && !$expOk && isset($clean['faa_expiration'])) {
+            $minLabel = membership_application_ama_minimum_expiry_label($pdo);
+            $errors['faa_card'] = 'Your FAA registration expires before ' . $minLabel
+                . '. Renew with the FAA and upload your new registration.';
+        } else {
+            $errors['faa_card'] = 'FAA registration file is required.';
+        }
     }
 
     $signature = trim((string) ($post['signature_data'] ?? ''));
@@ -1396,7 +1535,7 @@ function membership_application_store_files(PDO $pdo, int $applicationId, array 
     $photoMimes = member_photo_allowed_mimes();
     $faaMimes = member_faa_card_allowed_mimes();
 
-    if ($kind === 'new' && !empty($files['badge_photo']['tmp_name'])) {
+    if (!empty($files['badge_photo']['tmp_name'])) {
         $finfo = new finfo(FILEINFO_MIME_TYPE);
         $mime = $finfo->file((string) $files['badge_photo']['tmp_name']);
         $ext = $photoMimes[$mime] ?? 'jpg';

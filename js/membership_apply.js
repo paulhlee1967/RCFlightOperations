@@ -18,6 +18,16 @@
     const badgePhoto = document.getElementById('badge_photo');
     const badgeWrap = document.getElementById('badge-photo-wrap');
     const badgeStar = document.getElementById('badge-required-star');
+    const badgeExisting = document.getElementById('badge-photo-existing');
+    const badgePreview = document.getElementById('badge-photo-preview');
+    const faaCard = document.getElementById('faa_card');
+    const faaStar = document.getElementById('faa-required-star');
+    const faaExisting = document.getElementById('faa-card-existing');
+    const faaPreviewWrap = document.getElementById('faa-card-preview-wrap');
+    const faaPreviewImg = document.getElementById('faa-card-preview-img');
+    const faaPreviewLink = document.getElementById('faa-card-preview-link');
+    const faaHelp = document.getElementById('faa-card-help');
+    const faaReuseMinLabel = document.getElementById('faa-reuse-min-label');
     const signatureCanvas = document.getElementById('signature-pad');
     const signatureData = document.getElementById('signature_data');
     const signatureClear = document.getElementById('signature-clear');
@@ -35,6 +45,8 @@
     let paymentMounted = false;
     let pendingClientSecret = null;
     let pendingConfirmUrl = null;
+    let hasBadgeOnFile = !!(cfg.clubPrefill && cfg.clubPrefill.badge_photo_url);
+    let hasFaaOnFile = !!(cfg.clubPrefill && cfg.clubPrefill.faa_card_on_file === '1');
 
     function money(n) {
         return '$' + Number(n).toFixed(2);
@@ -47,17 +59,99 @@
         return hidden ? hidden.value : 'new';
     }
 
+    function parseUsDateToYmd(value) {
+        const m = String(value || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (!m) return '';
+        const month = m[1].padStart(2, '0');
+        const day = m[2].padStart(2, '0');
+        return m[3] + '-' + month + '-' + day;
+    }
+
+    function faaExpirationMeetsMinimum() {
+        const minYmd = cfg.amaMinExpiryYmd || '';
+        if (!minYmd) return false;
+        const ymd = parseUsDateToYmd(form.faa_expiration ? form.faa_expiration.value : '');
+        return ymd !== '' && ymd >= minYmd;
+    }
+
     function updateBadgeRequirement() {
         const isNew = getKind() === 'new';
+        const required = isNew && !hasBadgeOnFile;
         if (badgePhoto) {
-            badgePhoto.required = isNew;
+            badgePhoto.required = required;
         }
         if (badgeWrap) {
-            badgeWrap.classList.toggle('opacity-50', !isNew);
+            badgeWrap.classList.toggle('opacity-50', !required && !hasBadgeOnFile && !isNew);
         }
         if (badgeStar) {
-            badgeStar.classList.toggle('d-none', !isNew);
+            badgeStar.classList.toggle('d-none', !required);
         }
+    }
+
+    function updateFaaRequirement() {
+        const mayReuse = hasFaaOnFile && faaExpirationMeetsMinimum();
+        if (faaCard) {
+            faaCard.required = !mayReuse;
+        }
+        if (faaStar) {
+            faaStar.classList.toggle('d-none', mayReuse);
+        }
+        if (faaExisting) {
+            faaExisting.classList.toggle('d-none', !hasFaaOnFile);
+        }
+        if (faaReuseMinLabel && cfg.amaMinExpiryLabel) {
+            faaReuseMinLabel.textContent = cfg.amaMinExpiryLabel;
+        }
+        if (faaHelp) {
+            if (mayReuse) {
+                faaHelp.textContent = 'Optional — leave blank to keep the registration on file. Max 5 MB if replacing.';
+            } else if (hasFaaOnFile) {
+                faaHelp.textContent = 'Your FAA registration must be valid through at least '
+                    + (cfg.amaMinExpiryLabel || 'the club minimum date')
+                    + '. Renew with the FAA and upload the new registration. Max 5 MB.';
+            } else {
+                faaHelp.textContent = 'Upload required (no registration file on file yet). Must be valid through at least '
+                    + (cfg.amaMinExpiryLabel || 'the club minimum date')
+                    + '. PDF or image. Max 5 MB.';
+            }
+        }
+    }
+
+    function showExistingBadgePhoto(url) {
+        hasBadgeOnFile = !!url;
+        if (badgeExisting) {
+            badgeExisting.classList.toggle('d-none', !url);
+        }
+        if (badgePreview && url) {
+            badgePreview.src = url;
+        }
+        updateBadgeRequirement();
+    }
+
+    function setExistingFaaCard(onFile, url, isImage) {
+        hasFaaOnFile = !!onFile;
+        const previewUrl = typeof url === 'string' ? url : '';
+        const showImage = !!isImage && previewUrl !== '';
+        const showLink = !showImage && previewUrl !== '';
+
+        if (faaPreviewWrap) {
+            faaPreviewWrap.classList.toggle('d-none', !previewUrl);
+        }
+        if (faaPreviewImg) {
+            if (showImage) {
+                faaPreviewImg.src = previewUrl;
+            }
+            faaPreviewImg.classList.toggle('d-none', !showImage);
+        }
+        if (faaPreviewLink) {
+            if (showLink) {
+                faaPreviewLink.href = previewUrl;
+            } else {
+                faaPreviewLink.href = '#';
+            }
+            faaPreviewLink.classList.toggle('d-none', !showLink);
+        }
+        updateFaaRequirement();
     }
 
     function formQuoteData() {
@@ -213,6 +307,10 @@
 
     document.querySelectorAll('.js-date-us').forEach((input) => {
         bindMaskedInput(input, formatUsDateInput);
+        if (input.name === 'faa_expiration') {
+            input.addEventListener('input', updateFaaRequirement);
+            input.addEventListener('blur', updateFaaRequirement);
+        }
     });
 
     document.querySelectorAll('.js-phone-us').forEach((input) => {
@@ -256,11 +354,14 @@
             }
         }
         updateBadgeRequirement();
+        updateFaaRequirement();
         refreshQuote();
     }
 
     function applyClubPrefill(prefill) {
         if (!prefill || typeof prefill !== 'object') {
+            showExistingBadgePhoto('');
+            setExistingFaaCard(false, '', false);
             return;
         }
         const textFields = [
@@ -299,6 +400,12 @@
         if (form.membership_type_slot && prefill.membership_type_slot) {
             form.membership_type_slot.value = prefill.membership_type_slot;
         }
+        showExistingBadgePhoto(typeof prefill.badge_photo_url === 'string' ? prefill.badge_photo_url : '');
+        setExistingFaaCard(
+            prefill.faa_card_on_file === '1',
+            typeof prefill.faa_card_url === 'string' ? prefill.faa_card_url : '',
+            prefill.faa_card_is_image === '1'
+        );
     }
 
     function revealApplicationStep(data) {
@@ -454,6 +561,7 @@
         form.email.addEventListener('blur', refreshQuote);
     }
     updateBadgeRequirement();
+    updateFaaRequirement();
 
     if (cfg.amaVerified && cfg.renewalOpen) {
         configureApplicationKind(!!cfg.renewalEligible, cfg.renewalMessage || '');

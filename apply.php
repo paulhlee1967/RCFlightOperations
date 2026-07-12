@@ -371,13 +371,41 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                 <div class="card-body row g-3">
                     <div class="col-md-6" id="badge-photo-wrap">
                         <label class="form-label">Badge photo (.jpg, .png) <span class="text-danger" id="badge-required-star">*</span></label>
+                        <div id="badge-photo-existing" class="mb-2<?= $clubPrefill['badge_photo_url'] !== '' ? '' : ' d-none' ?>">
+                            <?php if ($clubPrefill['badge_photo_url'] !== ''): ?>
+                            <img id="badge-photo-preview" src="<?= h($clubPrefill['badge_photo_url']) ?>" alt="Current badge photo" class="img-thumbnail d-block" style="max-width:120px;max-height:120px;object-fit:cover;">
+                            <?php else: ?>
+                            <img id="badge-photo-preview" src="" alt="Current badge photo" class="img-thumbnail d-block" style="max-width:120px;max-height:120px;object-fit:cover;">
+                            <?php endif; ?>
+                            <div class="form-text" id="badge-photo-existing-help">On file — leave blank to keep this photo, or upload a new one.</div>
+                        </div>
                         <input type="file" name="badge_photo" id="badge_photo" class="form-control" accept=".jpg,.jpeg,.png,image/jpeg,image/png">
-                        <div class="form-text">Full face in color — printed on your membership card. Max 5 MB.</div>
+                        <div class="form-text" id="badge-photo-help">Full face in color — printed on your membership card. Max 5 MB.</div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">FAA registration (PDF, .jpg, .png) <span class="text-danger">*</span></label>
-                        <input type="file" name="faa_card" class="form-control" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png" required>
-                        <div class="form-text">Current valid FAA registration. PDF or image. Max 5 MB.</div>
+                    <div class="col-md-6" id="faa-card-wrap">
+                        <label class="form-label">FAA registration (PDF, .jpg, .png) <span class="text-danger" id="faa-required-star">*</span></label>
+                        <?php
+                        $faaExistingVisible = $clubPrefill['faa_card_on_file'] === '1';
+                        $faaPreviewUrl = $clubPrefill['faa_card_url'] ?? '';
+                        $faaPreviewIsImage = ($clubPrefill['faa_card_is_image'] ?? '') === '1';
+                        ?>
+                        <div id="faa-card-existing" class="mb-2<?= $faaExistingVisible ? '' : ' d-none' ?>">
+                            <div id="faa-card-preview-wrap" class="mb-2<?= ($faaExistingVisible && $faaPreviewUrl !== '') ? '' : ' d-none' ?>">
+                                <img id="faa-card-preview-img" src="<?= $faaPreviewIsImage ? h($faaPreviewUrl) : '' ?>" alt="Current FAA registration" class="img-thumbnail d-block<?= $faaPreviewIsImage ? '' : ' d-none' ?>" style="max-width:160px;max-height:160px;object-fit:contain;">
+                                <a id="faa-card-preview-link" href="<?= (!$faaPreviewIsImage && $faaPreviewUrl !== '') ? h($faaPreviewUrl) : '#' ?>" target="_blank" rel="noopener noreferrer" class="small<?= (!$faaPreviewIsImage && $faaPreviewUrl !== '') ? '' : ' d-none' ?>">View current FAA registration (PDF)</a>
+                            </div>
+                            <div class="form-text" id="faa-card-existing-help">
+                                Registration on file — leave blank to keep it when your FAA expiration is valid through at least <strong id="faa-reuse-min-label"><?= h($amaMinExpiryLabel) ?></strong>.
+                            </div>
+                        </div>
+                        <input type="file" name="faa_card" id="faa_card" class="form-control" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
+                        <div class="form-text" id="faa-card-help">
+                            <?php if ($clubPrefill['faa_card_on_file'] === '1'): ?>
+                            Registration on file may be kept when expiration is valid through at least <?= h($amaMinExpiryLabel) ?>. PDF or image. Max 5 MB.
+                            <?php else: ?>
+                            Upload required if no registration file is on file yet (even when number and expiration are current). Must be valid through at least <?= h($amaMinExpiryLabel) ?>. PDF or image. Max 5 MB.
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -476,7 +504,10 @@ window.MEMBERSHIP_APPLY = {
     renewalOpen: <?= $context['renewal_open'] ? 'true' : 'false' ?>,
     amaVerified: <?= $amaVerified ? 'true' : 'false' ?>,
     renewalEligible: <?= $renewalEligible ? 'true' : 'false' ?>,
-    renewalMessage: <?= json_encode($renewalEligibleMessage, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>
+    renewalMessage: <?= json_encode($renewalEligibleMessage, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+    amaMinExpiryYmd: <?= json_encode($amaMinExpiryYmd, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+    amaMinExpiryLabel: <?= json_encode($amaMinExpiryLabel, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+    clubPrefill: <?= json_encode($clubPrefill, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES) ?>
 };
 </script>
 <script src="https://js.stripe.com/v3/"></script>
