@@ -18,6 +18,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/flash.php';
 require_once __DIR__ . '/includes/audit_log.php';
+require_once __DIR__ . '/includes/member_save.php';
 
 requireLogin();
 if (!canEditMembers()) {
@@ -71,11 +72,13 @@ function deleteMembers(PDO $pdo, array $ids, int $userId = 0): int {
 
     $delStmt = $pdo->prepare('DELETE FROM members WHERE id = ?');
     $deleted  = 0;
+    $deletedIds = [];
     foreach ($ids as $mid) {
         if ($mid > 0) {
             $delStmt->execute([$mid]);
             if ($delStmt->rowCount()) {
                 $deleted++;
+                $deletedIds[] = $mid;
                 if (function_exists('audit_log')) {
                     audit_log($pdo, $userId, 'member_delete', 'member', $mid, '');
                 }
@@ -83,8 +86,15 @@ function deleteMembers(PDO $pdo, array $ids, int $userId = 0): int {
         }
     }
 
+    // DB paths (covers non-standard locations) plus every {id}.* sibling orphan.
     foreach ($uploads as $rel) {
         flightops_safe_unlink_member_upload($rel);
+    }
+    $photoDir = __DIR__ . '/uploads/member_photos';
+    $faaDir = __DIR__ . '/uploads/member_faa_cards';
+    foreach ($deletedIds as $mid) {
+        member_upload_remove_id_files($photoDir, $mid);
+        member_upload_remove_id_files($faaDir, $mid);
     }
 
     return $deleted;

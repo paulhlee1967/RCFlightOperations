@@ -125,6 +125,70 @@ final class MemberPhotoImportTest extends TestCase
         }
     }
 
+    public function test_save_faa_card_removes_sibling_files_with_other_extensions(): void
+    {
+        $pdo = $this->createMock(PDO::class);
+        $stmt = $this->createMock(PDOStatement::class);
+        $pdo->method('prepare')->willReturn($stmt);
+        $stmt->method('execute')->willReturn(true);
+
+        $uploadDir = dirname(__DIR__) . '/uploads/member_faa_cards';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $memberId = 900001;
+        $orphanJpg = $uploadDir . '/' . $memberId . '.jpg';
+        $orphanPng = $uploadDir . '/' . $memberId . '.png';
+        $destPdf = $uploadDir . '/' . $memberId . '.pdf';
+        file_put_contents($orphanJpg, 'orphan-jpg');
+        file_put_contents($orphanPng, 'orphan-png');
+
+        $tmp = tempnam(sys_get_temp_dir(), 'member_faa_pdf_sib_');
+        $this->assertNotFalse($tmp);
+        file_put_contents($tmp, "%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF\n");
+
+        try {
+            $result = member_save_faa_card_from_local_file($pdo, $memberId, $tmp);
+            $this->assertTrue($result['ok'], $result['error'] ?? 'expected PDF save to succeed');
+            $this->assertSame('uploads/member_faa_cards/' . $memberId . '.pdf', $result['faa_card_path']);
+            $this->assertFileExists($destPdf);
+            $this->assertFileDoesNotExist($orphanJpg);
+            $this->assertFileDoesNotExist($orphanPng);
+        } finally {
+            @unlink($tmp);
+            @unlink($destPdf);
+            @unlink($orphanJpg);
+            @unlink($orphanPng);
+        }
+    }
+
+    public function test_upload_remove_id_files_deletes_all_when_keep_is_null(): void
+    {
+        $dir = sys_get_temp_dir() . '/flightops_member_upload_test_' . getmypid();
+        if (!is_dir($dir)) {
+            mkdir($dir, 0755, true);
+        }
+        $a = $dir . '/42.jpg';
+        $b = $dir . '/42.pdf';
+        $other = $dir . '/43.jpg';
+        file_put_contents($a, 'a');
+        file_put_contents($b, 'b');
+        file_put_contents($other, 'c');
+
+        try {
+            member_upload_remove_id_files($dir, 42);
+            $this->assertFileDoesNotExist($a);
+            $this->assertFileDoesNotExist($b);
+            $this->assertFileExists($other);
+        } finally {
+            @unlink($a);
+            @unlink($b);
+            @unlink($other);
+            @rmdir($dir);
+        }
+    }
+
     public function test_import_faa_card_from_url_rejects_disallowed_host(): void
     {
         $pdo = $this->createMock(PDO::class);

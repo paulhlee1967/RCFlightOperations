@@ -25,6 +25,34 @@ function member_faa_card_allowed_mimes(): array
 }
 
 /**
+ * Remove files named {memberId}.* under an uploads directory.
+ *
+ * When $keepBasename is set (e.g. after replacing with a new extension), that
+ * file is retained. When null (e.g. member delete), all matching files go.
+ */
+function member_upload_remove_id_files(string $absoluteDir, int $memberId, ?string $keepBasename = null): void
+{
+    if ($memberId <= 0 || $absoluteDir === '' || !is_dir($absoluteDir)) {
+        return;
+    }
+
+    $matches = glob($absoluteDir . '/' . $memberId . '.*') ?: [];
+    foreach ($matches as $path) {
+        if (!is_file($path)) {
+            continue;
+        }
+        $base = basename($path);
+        if ($keepBasename !== null && $base === $keepBasename) {
+            continue;
+        }
+        if (!preg_match('/^\d+\.[a-z0-9]+$/i', $base)) {
+            continue;
+        }
+        @unlink($path);
+    }
+}
+
+/**
  * When Automator or legacy imports send multiple file URLs, use the first non-empty value.
  */
 function member_photo_pick_first_url(string $raw): string
@@ -141,6 +169,8 @@ function member_save_photo_from_local_file(PDO $pdo, int $memberId, string $loca
     if (!copy($localPath, $dest)) {
         return ['ok' => false, 'error' => 'Could not save badge photo.', 'photo_path' => null];
     }
+
+    member_upload_remove_id_files($dir, $memberId, $filename);
 
     $photoPath = 'uploads/member_photos/' . $filename;
     $pdo->prepare('UPDATE members SET photo_path = ? WHERE id = ?')->execute([$photoPath, $memberId]);
@@ -284,6 +314,8 @@ function member_save_faa_card_from_local_file(PDO $pdo, int $memberId, string $l
         return ['ok' => false, 'error' => 'Could not save FAA card.', 'faa_card_path' => null];
     }
 
+    member_upload_remove_id_files($dir, $memberId, $filename);
+
     $path = 'uploads/member_faa_cards/' . $filename;
     $pdo->prepare('UPDATE members SET faa_card_path = ? WHERE id = ?')->execute([$path, $memberId]);
 
@@ -396,6 +428,7 @@ function save_member_from_post(PDO $pdo, ?int $memberId, array $post, array $fil
                 $filename = $memberId . '.' . $ext;
                 $path = $dir . '/' . $filename;
                 if (move_uploaded_file($files['photo']['tmp_name'], $path)) {
+                    member_upload_remove_id_files($dir, $memberId, $filename);
                     $photoPath = 'uploads/member_photos/' . $filename;
                     $pdo->prepare('UPDATE members SET photo_path = ? WHERE id = ?')->execute([$photoPath, $memberId]);
                 }
@@ -417,6 +450,7 @@ function save_member_from_post(PDO $pdo, ?int $memberId, array $post, array $fil
                 $filename = $memberId . '.' . $ext;
                 $path = $dir . '/' . $filename;
                 if (move_uploaded_file($files['faa_card']['tmp_name'], $path)) {
+                    member_upload_remove_id_files($dir, $memberId, $filename);
                     $faaPath = 'uploads/member_faa_cards/' . $filename;
                     $pdo->prepare('UPDATE members SET faa_card_path = ? WHERE id = ?')->execute([$faaPath, $memberId]);
                 }

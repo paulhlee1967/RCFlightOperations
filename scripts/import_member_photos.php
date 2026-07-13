@@ -17,6 +17,8 @@
 require_once __DIR__ . '/../includes/cli_only_script.php';
 flightops_require_cli();
 
+require_once dirname(__DIR__) . '/includes/member_save.php';
+
 $baseDir = dirname(__DIR__);
 if (!is_file($baseDir . '/config.php')) {
     fwrite(STDERR, "Missing config.php. Run from project root or ensure config exists.\n");
@@ -132,6 +134,7 @@ foreach ($files as $file) {
             $errors[] = "Failed to copy $basename -> $destFilename";
             continue;
         }
+        member_upload_remove_id_files($destBase, (int) $m['id'], $destFilename);
         $pdo->prepare('UPDATE members SET photo_path = ? WHERE id = ?')
             ->execute([$photoPath, $m['id']]);
         echo "  {$basename} -> uploads/member_photos/{$destFilename} (id {$m['id']}, {$m['last_name']}, {$m['first_name']})\n";
