@@ -8,6 +8,7 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/security_headers.php';
 require_once __DIR__ . '/includes/membership_application.php';
+require_once __DIR__ . '/includes/rate_limit.php';
 
 flightops_send_security_headers();
 
@@ -24,6 +25,15 @@ function membership_quote_json(array $data, int $status = 200): void
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     membership_quote_json(['ok' => false, 'error' => 'Method not allowed.'], 405);
+}
+
+// Rate limiting: 30 requests per 15 minutes per IP
+$clientIp = rate_limit_get_client_ip($config ?? null);
+if (!rate_limit_apply_preset($pdo, 'membership_quote', $clientIp)) {
+    membership_quote_json([
+        'ok' => false,
+        'error' => 'Too many requests. Please try again in a few minutes.',
+    ], 429);
 }
 
 csrf_validate(['json' => true]);
