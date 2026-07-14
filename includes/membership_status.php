@@ -664,14 +664,17 @@ function badgeUnprintedWhereParams(int $year): array
 
 /**
  * SQL fragment: member has a recorded fulfillment for the year but card or mailer not printed.
+ *
+ * When $memberAlias is empty (unaliased FROM members), qualify as members.id —
+ * bare "id" is ambiguous inside the EXISTS and binds to member_fulfillments.id.
  */
 function fulfillmentPendingWhereSql(string $memberAlias = 'm'): string
 {
-    $p = $memberAlias !== '' ? $memberAlias . '.' : '';
+    $memberId = $memberAlias !== '' ? $memberAlias . '.id' : 'members.id';
 
     return "EXISTS (
         SELECT 1 FROM member_fulfillments f
-        WHERE f.member_id = {$p}id
+        WHERE f.member_id = {$memberId}
           AND f.year = ?
           AND f.processed_at IS NOT NULL
           AND (f.card_printed_at IS NULL OR f.mailer_printed_at IS NULL)

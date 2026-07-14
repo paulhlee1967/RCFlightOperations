@@ -55,4 +55,19 @@ final class MembershipStatusSqlTest extends TestCase
             'life_member' => 1,
         ], 2026));
     }
+
+    public function testFulfillmentPendingWhereSqlQualifiesMemberIdWhenUnaliased(): void
+    {
+        $sql = fulfillmentPendingWhereSql('');
+
+        $this->assertStringContainsString('f.member_id = members.id', $sql);
+        $this->assertStringNotContainsString('f.member_id = id', $sql);
+    }
+
+    public function testFulfillmentPendingWhereSqlUsesAliasWhenProvided(): void
+    {
+        $sql = fulfillmentPendingWhereSql('m');
+
+        $this->assertStringContainsString('f.member_id = m.id', $sql);
+    }
 }
