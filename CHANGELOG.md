@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Members list Inactive filter** — Membership chips are **All / Active / Inactive**, partitioning on the `inactive` flag so counts add up (`Active + Inactive = All`).
+- **Filter-aware CSV export** — The Members **Export CSV** menu exports the currently filtered list (Full / Short / Email), with matching row counts. Special one-off filters remain under **More export options**.
+
+### Changed
+
+- **“Current member” definition** — A member is current for year Y when `membership_renewal_year = Y` and they are not Inactive or Suspended. Payment, fulfillment, life, and complementary flags no longer override Inactive — life members can be inactive like anyone else.
+- **Removed Archived flag chip** — Duplicate of Inactive (`inactive = 1`); use the Inactive membership chip instead.
+- **FAA card / badge photo uploads** — Saving a new file deletes sibling `{memberId}.*` files with other extensions. Member delete removes all photo and FAA card files for that id (including orphans).
+
 ## [1.6.0] - 2026-07-11
 
 ### Added

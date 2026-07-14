@@ -154,6 +154,51 @@ function members_list_parse_request(array $get): array
 }
 
 /**
+ * Full member columns used by CSV export (same set as export.php).
+ */
+function members_list_export_select_sql(): string
+{
+    return 'id, title, first_name, last_name, email, phone, birthday, notes, date_joined,
+            membership_type_slot, membership_renewal_year, inactive, suspended, life_member,
+            free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member,
+            faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship,
+            emergency_contact_phone, address_street, address_street2, address_city, address_state,
+            address_postal_code';
+}
+
+/**
+ * Fetch all members matching the same filters as the members list (no pagination).
+ *
+ * @param array<string, mixed> $request  GET/POST params (status, flag, q, member_type, …)
+ * @return list<array<string, mixed>>
+ */
+function members_list_fetch_export_rows(PDO $pdo, array $request, int $currentYear): array
+{
+    $filters = members_list_parse_request($request);
+    $filters['perPage'] = 0;
+    $filters['page'] = 1;
+
+    $list = members_list_fetch($pdo, $filters, $currentYear);
+    $ids = array_values(array_filter(array_map(
+        static fn ($id): int => (int) $id,
+        array_column($list['members'], 'id')
+    ), static fn (int $id): bool => $id > 0));
+
+    if ($ids === []) {
+        return [];
+    }
+
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $sql = 'SELECT ' . members_list_export_select_sql()
+        . ' FROM members WHERE id IN (' . $placeholders . ')'
+        . ' ORDER BY FIELD(id, ' . $placeholders . ')';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge($ids, $ids));
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+/**
  * Run list query with filters; returns rows and pagination metadata.
  *
  * @return array{

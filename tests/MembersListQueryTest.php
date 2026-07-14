@@ -168,4 +168,14 @@ final class MembersListQueryTest extends TestCase
         $this->assertStringContainsString('m.last_name', $map['name']['search']);
         $this->assertStringContainsString('last_name', $map['name']['main']);
     }
+
+    public function testExportSelectSqlIncludesCoreColumns(): void
+    {
+        $sql = members_list_export_select_sql();
+
+        $this->assertStringContainsString('first_name', $sql);
+        $this->assertStringContainsString('membership_renewal_year', $sql);
+        $this->assertStringContainsString('ama_number', $sql);
+        $this->assertStringContainsString('address_postal_code', $sql);
+    }
 }

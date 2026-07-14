@@ -8,6 +8,36 @@
 declare(strict_types=1);
 
 /**
+ * Render hidden inputs so an export form preserves the current members-list filters.
+ *
+ * @param array<string, mixed> $queryParams
+ */
+function members_list_export_filter_hidden_inputs(array $queryParams): void
+{
+    foreach ($queryParams as $key => $value) {
+        $name = (string) $key;
+        if ($name === '' || $name === 'page' || $name === 'per') {
+            continue;
+        }
+        if (is_array($value)) {
+            foreach ($value as $item) {
+                if ($item === null || $item === '') {
+                    continue;
+                }
+                echo '<input type="hidden" name="' . htmlspecialchars($name) . '[]" value="'
+                    . htmlspecialchars((string) $item) . '">' . "\n";
+            }
+            continue;
+        }
+        if ($value === null || $value === '') {
+            continue;
+        }
+        echo '<input type="hidden" name="' . htmlspecialchars($name) . '" value="'
+            . htmlspecialchars((string) $value) . '">' . "\n";
+    }
+}
+
+/**
  * Build a members.php URL preserving current active params, with overrides.
  */
 function membersUrl(array $params, ?int $pg = null): string

@@ -162,9 +162,15 @@
     <!-- ── Export ── -->
     <h2 id="export">CSV Export</h2>
     <p>
-      Go to <strong>Members → Export CSV</strong> (dropdown button) or
-      <strong>Members → More export options</strong>. Also accessible from any report's
-      export toolbar.
+      From the <strong>Members</strong> list, open <strong>Export CSV</strong>. The Full, Short,
+      and Email options export <strong>exactly the members matching your current filters</strong>
+      (membership chips, flags, type, search, and any badge/fulfillment filters), with the matching
+      count shown on each menu item.
+    </p>
+    <p>
+      For one-off filters that are not on the list (for example, not-yet-renewed for a chosen year),
+      use <strong>More export options…</strong> on the same menu, or open
+      <code>export_options.php</code> from Members.
     </p>
 
     <!-- ── Export formats ── -->
@@ -197,11 +203,12 @@
       </table>
     </div>
 
-    <p>Each format can be filtered by:</p>
+    <p><strong>More export options</strong> still lets you choose format plus these standalone filters:</p>
     <ul>
       <li><strong>All members</strong> — every member in the database</li>
-      <li><strong>Members for year</strong> — only members who renewed in a specific year</li>
-      <li><strong>Not renewed for year</strong> — members who had last year's renewal but not the selected year</li>
+      <li><strong>Current members</strong> — renewal year is the current calendar year and not inactive/suspended</li>
+      <li><strong>Members for year</strong> — members associated with a specific year</li>
+      <li><strong>Not renewed for year</strong> — members who had last year’s renewal but not the selected year</li>
     </ul>
 
     <!-- ── PDF ── -->

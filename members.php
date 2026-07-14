@@ -99,48 +99,27 @@ ob_start();
                 Export CSV
             </button>
             <ul class="dropdown-menu dropdown-menu-end">
+                <?php
+                $exportCountLabel = number_format($totalCount) . ' member' . ($totalCount !== 1 ? 's' : '');
+                $exportFormats = [
+                    'full'  => 'Full list',
+                    'short' => 'Short list',
+                    'email' => 'Email list',
+                ];
+                foreach ($exportFormats as $exportFormat => $exportLabel):
+                ?>
                 <li>
                     <form method="post" action="export.php" class="m-0">
                         <?= csrf_field() ?>
-                        <input type="hidden" name="format" value="full">
-                        <input type="hidden" name="filter" value="all">
-                        <button type="submit" class="dropdown-item border-0 bg-transparent w-100 text-start rounded-0">All members</button>
+                        <input type="hidden" name="format" value="<?= htmlspecialchars($exportFormat) ?>">
+                        <input type="hidden" name="filter" value="filtered">
+                        <?php members_list_export_filter_hidden_inputs($queryParams); ?>
+                        <button type="submit" class="dropdown-item border-0 bg-transparent w-100 text-start rounded-0">
+                            <?= htmlspecialchars($exportLabel) ?> — <?= htmlspecialchars($exportCountLabel) ?>
+                        </button>
                     </form>
                 </li>
-                <li>
-                    <form method="post" action="export.php" class="m-0">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="format" value="full">
-                        <input type="hidden" name="filter" value="current">
-                        <button type="submit" class="dropdown-item border-0 bg-transparent w-100 text-start rounded-0">Current year (<?= $currentYear ?>)</button>
-                    </form>
-                </li>
-                <li>
-                    <form method="post" action="export.php" class="m-0">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="format" value="short">
-                        <input type="hidden" name="filter" value="current">
-                        <button type="submit" class="dropdown-item border-0 bg-transparent w-100 text-start rounded-0">Short list — <?= $currentYear ?></button>
-                    </form>
-                </li>
-                <li>
-                    <form method="post" action="export.php" class="m-0">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="format" value="email">
-                        <input type="hidden" name="filter" value="all">
-                        <button type="submit" class="dropdown-item border-0 bg-transparent w-100 text-start rounded-0">Email list only</button>
-                    </form>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                    <form method="post" action="export.php" class="m-0">
-                        <?= csrf_field() ?>
-                        <input type="hidden" name="format" value="short">
-                        <input type="hidden" name="filter" value="not_renewed">
-                        <input type="hidden" name="year" value="<?= (int) $currentYear ?>">
-                        <button type="submit" class="dropdown-item border-0 bg-transparent w-100 text-start rounded-0">Not yet renewed — <?= $currentYear ?></button>
-                    </form>
-                </li>
+                <?php endforeach; ?>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" href="export_options.php">More export options&hellip;</a></li>
             </ul>

@@ -72,22 +72,24 @@
       <li>Click any member's name to open their full record</li>
       <li>Click <strong>Renew</strong> to go straight to the renewal workflow</li>
       <li>Click <strong>Print card</strong> to print their ID badge</li>
-      <li>Use the <strong>Export CSV</strong> dropdown to download the list</li>
+      <li>Use the <strong>Export CSV</strong> dropdown to download the <em>currently filtered</em> list</li>
     </ul>
 
     <!-- ── Search ── -->
     <h2 id="search">Search &amp; Filter</h2>
     <p>The filter bar above the list lets you narrow members by:</p>
     <ul>
-      <li><strong>Status chips:</strong> All, Current, Inactive (plus membership type when viewing current members)</li>
-      <li><strong>Membership type:</strong> Adult, Youth, Senior, Spouse</li>
-      <li><strong>Search box:</strong> Searches first name, last name, and email in real time (press Enter or click Search)</li>
+      <li><strong>Membership chips:</strong> <strong>All</strong>, <strong>Active</strong> (not marked inactive), and <strong>Inactive</strong> (marked inactive). These three partition the roster — Active + Inactive = All.</li>
+      <li><strong>Flags:</strong> Free, Life, and Suspended (stackable checkboxes)</li>
+      <li><strong>Membership type:</strong> Adult, Youth, Senior, Spouse (or your club’s labels)</li>
+      <li><strong>Search box:</strong> Searches name, email, AMA/FAA, address, and related fields (press Enter or click Search)</li>
     </ul>
     <div class="callout callout-tip">
       <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
       <div class="callout-body">
-        Filters are additive — you can combine status + type + search to get exactly the list you need.
+        Filters are additive — you can combine membership + flags + type + search to get exactly the list you need.
         The URL updates as you filter, so you can bookmark a particular view.
+        Dashboard “Current members” uses a separate year-based filter (renewal year for this calendar year, not inactive/suspended).
       </div>
     </div>
 
@@ -198,9 +200,9 @@
           <tr><td>Membership type</td><td>Adult, Youth, Senior, Spouse — controls which dues rate applies.</td></tr>
           <tr><td>Renewal year</td><td>Set automatically when you record a renewal. Do not edit manually.</td></tr>
           <tr><td>Gate key number</td><td>Field key or code assigned to this member.</td></tr>
-          <tr><td>Inactive</td><td>Archived / not a current member; keeps the record in the database. Different from an expired renewal year.</td></tr>
+          <tr><td>Inactive</td><td>Not an active roster member; keeps the record in the database. Life members may also be marked inactive. Different from an expired renewal year alone.</td></tr>
           <tr><td>Suspended</td><td>Member does not count as current while checked; shows a warning on the record. Clear when the suspension ends.</td></tr>
-          <tr><td>Life member</td><td>Permanent club life member (separate from AMA life member). Waives dues — only this flag is needed for life members.</td></tr>
+          <tr><td>Life member</td><td>Permanent club life member (separate from AMA life member). Waives dues — only this flag is needed for life members. Does not force Active/Current status.</td></tr>
           <tr><td>Free membership</td><td>Complimentary membership for non–life members — no dues required. Do not check both Life and Free for the same person.</td></tr>
         </tbody>
       </table>
@@ -225,8 +227,8 @@
       Membership-tab checkboxes fall into two groups:
     </p>
     <ul>
-      <li><strong>Dues type:</strong> Life member or Free membership (pick at most one in practice) — both waive the payment requirement for current status</li>
-      <li><strong>Account status:</strong> Inactive or Suspended — can combine with life/free; either prevents the member from counting as current</li>
+      <li><strong>Dues type:</strong> Life member or Free membership (pick at most one in practice) — both waive dues</li>
+      <li><strong>Account status:</strong> Inactive or Suspended — can combine with life/free; either prevents the member from counting as current for the year</li>
     </ul>
     <p>Here's what each badge means:</p>
     <div class="docs-table-wrap">
@@ -235,11 +237,11 @@
         <tbody>
           <tr>
             <td><span class="badge bg-success">Current</span></td>
-            <td>Renewal year is the current calendar year, payment is on file (or life/free membership), and not marked inactive or suspended</td>
+            <td>Renewal year is the current calendar year, and the member is not marked inactive or suspended. Payment history and life/free flags do not override Inactive.</td>
           </tr>
           <tr>
             <td><span class="badge bg-secondary">Inactive</span></td>
-            <td>Everyone who is not a current member — including expired renewals and members marked inactive on the Membership tab</td>
+            <td>Marked inactive on the Membership tab, or otherwise not current for the year (for example, a prior renewal year)</td>
           </tr>
           <tr>
             <td><span class="badge bg-danger">Suspended</span></td>
@@ -247,7 +249,7 @@
           </tr>
           <tr>
             <td><span class="badge" style="background:#6f42c1">Life</span></td>
-            <td>Club life member — shown in addition to current/inactive status</td>
+            <td>Club life member — shown in addition to active/inactive status</td>
           </tr>
           <tr>
             <td><span class="badge bg-info text-dark">Free</span></td>
@@ -261,8 +263,9 @@
     <h2 id="photo">Member Photo</h2>
     <p>
       Upload a headshot on the Contact tab. Supported formats: <strong>JPEG, PNG, GIF</strong>
-      (max 5 MB). Photos are stored under <code>uploads/member_photos/</code> and used for badges
-      and internal display.
+      (max 5 MB). Photos are stored under <code>uploads/member_photos/</code> as
+      <code>{memberId}.{ext}</code>. Replacing a photo with a different format removes the
+      previous file so only one photo per member is kept on disk.
     </p>
     <p>
       When you approve a <a href="applications.html">website application</a> that includes a badge
@@ -279,7 +282,7 @@
       <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
       <div class="callout-body">
         <strong>Deletion is permanent</strong>
-        Deleting a member removes all their data — contact info, payments, and photos.
+        Deleting a member removes all their data — contact info, payments, photos, and FAA card files.
         Consider marking them <strong>Inactive</strong> instead to preserve history.
       </div>
     </div>

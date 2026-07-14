@@ -23,7 +23,7 @@ This document describes how the application is built and how its parts work toge
 | **assets/** | Club logo (`rc-flight-operations-logo.png`) and **vendored front-end** libraries under `assets/vendor/` (Bootstrap, Bootstrap Icons, Fabric.js). URLs via `includes/vendor_assets.php`. Refresh with `scripts/fetch_vendor_assets.sh`. |
 | **js/** | `flightops_ui.js` (global UI helpers, deferred from footer). `badge_fabric.js` — shared Fabric.js helpers. `badge_design.js`, `badge_print.js`, `members_list.js`, `member_wizard.js` — page-specific logic extracted from large PHP entry points. |
 | **templates/** | Email and letter templates (PHP/HTML) |
-| **uploads/** | Member photos and club branding (written by the app; photos served via `badge_photo.php`, not direct URLs) |
+| **uploads/** | Member photos (`member_photos/`), FAA cards (`member_faa_cards/`), and club branding (written by the app; photos served via `badge_photo.php` / `faa_card.php`, not direct URLs) |
 | **vendor/** | Composer dependencies (Dompdf, PHPMailer, etc.) |
 | `schema_full.sql` | Full, ready-to-import schema (initial + embedded upgrades) |
 
@@ -79,15 +79,15 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **report_pdf.php** | Renders a report structure to a downloadable PDF via Dompdf. `reportPdfAvailable()` guards against a missing `vendor/`. |
 | **vendor_assets.php** | URL helpers for pinned assets in `assets/vendor/` (Bootstrap CSS/JS, Bootstrap Icons, Fabric.js). |
 | **dues_helpers.php** | Membership type labels, `dues_rules` fetch, and renewal amount calculation (`calculateDues()`). |
-| **membership_status.php** | Current-member SQL (`currentMemberWhereSql`), per-year roster helpers, status counts for lists and reports. |
+| **membership_status.php** | Current-member SQL (`currentMemberWhereSql`: renewal year + not inactive/suspended), per-year roster helpers, members-list Active/Inactive chip counts. |
+| **members_list_query.php** | Members list filter/pagination query builder; filter-aware CSV export row fetch. |
 | **ama_verify.php** | AMA number lookup scraper (cookie session, Drupal AJAX parsing, retries). Used by `api_verify_ama.php`. |
 | **badge_design_helpers.php** | Badge designer paths, background file handling, design list helpers. |
 | **badge_design_api.php** | JSON/AJAX handlers for `badge_design.php` (save, load, upload, member preview). |
 | **badge_member_data.php** | Shared member→badge field map (`badge_member_data_from_row()`), CR80 dimensions, member+address SQL. |
 | **badge_print_helpers.php** | Design selection, mark-printed POST, member load for `badge_print.php`. |
-| **members_list_query.php** | Filter/pagination query builder for `members.php`. |
-| **members_list_helpers.php** | URL builder and list display badges (type, year, initials color). |
-| **member_save.php** | Shared member create/update from POST (`member_edit.php`, `member_wizard.php`). Optional URL import for legacy external badge/FAA files on application approve. |
+| **members_list_helpers.php** | URL builder, list display badges, and export filter hidden inputs for `members.php`. |
+| **member_save.php** | Shared member create/update from POST (`member_edit.php`, `member_wizard.php`). Optional URL import for legacy external badge/FAA files on application approve. Replacing a photo or FAA card deletes sibling `{id}.*` upload files. |
 | **member_wizard_nav.php** | Wizard step definitions, stepper render, and URL helpers for wizard ↔ process handoff. |
 | **member_wizard_styles.php** | Inline CSS for wizard stepper (included by `member_wizard.php` and `member_process.php?wizard=1`). |
 | **member_match.php** | Duplicate member detection (AMA + tiered name/email/birthday). Used by CSV import and online applications. |
@@ -116,7 +116,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **payment_delete.php** | POST: permanently delete an erroneous payment row. Administrator, Membership Manager, or Club Staff. The deletion is recorded in `audit_log` and the member's frozen membership-year roster is re-synced. |
 | **member_detail.php** | Read-only member view (optional alternate to edit). |
 | **member_process.php** | Renewal workflow: record payment, update `membership_renewal_year`, clear badge-printed flag. With `?wizard=1`, continues the new-member wizard (steps 4–5: record signup, print & mail). Uses `defaultRenewalYear()`, dues from `dues_rules`. |
-| **member_delete.php** | Deletes member and related data (payments, fulfillments, etc.); removes photo file from `uploads/`. |
+| **member_delete.php** | Deletes member and related data (payments, fulfillments, etc.); removes badge photo and FAA card files from `uploads/` (including orphaned `{id}.*` siblings). |
 | **users.php** | List app users (Admin only). |
 | **user_edit.php** | Add/edit app user, role, active flag, password (Admin only). |
 | **config_site.php** | Club configuration: General (name), Design (logo, favicon, colors), membership type labels, and **dues_rules** per slot. Admin only. |

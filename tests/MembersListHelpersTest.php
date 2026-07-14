@@ -61,13 +61,24 @@ final class MembersListHelpersTest extends TestCase
         $this->assertStringContainsString('bg-primary', $html);
     }
 
-    public function testYearBadgeReflectsCurrentDueAndLapsed(): void
+    public function testExportFilterHiddenInputsPreserveStatusAndFlags(): void
     {
-        $currentYear = 2026;
+        ob_start();
+        members_list_export_filter_hidden_inputs([
+            'status' => 'inactive',
+            'flag'   => ['life', 'free'],
+            'q'      => 'smith',
+            'page'   => 2,
+            'per'    => 50,
+        ]);
+        $html = (string) ob_get_clean();
 
-        $this->assertStringContainsString('badge-year-current', members_year_badge(2026, $currentYear));
-        $this->assertStringContainsString('badge-year-due', members_year_badge(2025, $currentYear));
-        $this->assertStringContainsString('badge-year-lapsed', members_year_badge(2024, $currentYear));
-        $this->assertStringContainsString('—', members_year_badge(0, $currentYear));
+        $this->assertStringContainsString('name="status"', $html);
+        $this->assertStringContainsString('value="inactive"', $html);
+        $this->assertStringContainsString('name="flag[]"', $html);
+        $this->assertStringContainsString('value="life"', $html);
+        $this->assertStringContainsString('name="q"', $html);
+        $this->assertStringNotContainsString('name="page"', $html);
+        $this->assertStringNotContainsString('name="per"', $html);
     }
 }
