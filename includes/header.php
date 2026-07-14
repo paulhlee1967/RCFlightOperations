@@ -87,6 +87,7 @@ $_headerBaseHref = $baseHref ?? '';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow, noarchive">
     <?php if ($_headerBaseHref !== ''): ?>
     <base href="<?= htmlspecialchars($_headerBaseHref) ?>">
     <?php endif; ?>
@@ -153,29 +154,101 @@ $_headerBaseHref = $baseHref ?? '';
         /* ── Base ────────────────────────────────────────────────────── */
         body { background-color: var(--club-bg); color: var(--club-text); font-family: var(--club-font-sans); }
 
-        /* ── Bootstrap primary overrides ─────────────────────────────── */
+        /* ── Bootstrap primary overrides ───────────────────────────────
+           Bootstrap 5.3 hard-codes --bs-btn-* on .btn-primary (etc.), not
+           var(--bs-primary). Active paint uses :not(.btn-check)+.btn:active
+           which out-specs color overrides — redefine the custom props. */
         .navbar.bg-primary                     { background-color: var(--club-primary) !important; }
-        .btn-primary                           { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
-        .btn-primary:hover, .btn-primary:focus { background-color: var(--club-primary-dark); border-color: var(--club-primary-dark); color: var(--club-on-primary); }
-        .btn-primary:active,
-        .btn-primary:disabled              { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
-        .btn-primary:disabled              { opacity: 0.65; }
-        .btn-outline-primary                   { color: var(--club-primary); border-color: var(--club-primary); }
-        .btn-outline-primary:hover             { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
+        .btn-primary {
+            --bs-btn-color: var(--club-on-primary);
+            --bs-btn-bg: var(--club-primary);
+            --bs-btn-border-color: var(--club-primary);
+            --bs-btn-hover-color: var(--club-on-primary);
+            --bs-btn-hover-bg: var(--club-primary-dark);
+            --bs-btn-hover-border-color: var(--club-primary-dark);
+            --bs-btn-active-color: var(--club-on-primary);
+            --bs-btn-active-bg: var(--club-primary-dark);
+            --bs-btn-active-border-color: var(--club-primary-dark);
+            --bs-btn-disabled-color: var(--club-on-primary);
+            --bs-btn-disabled-bg: var(--club-primary);
+            --bs-btn-disabled-border-color: var(--club-primary);
+            --bs-btn-focus-shadow-rgb: var(--club-primary-rgb);
+            background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary);
+        }
+        .btn-primary:disabled                  { opacity: 0.65; }
+        .btn-outline-primary {
+            --bs-btn-color: var(--club-primary);
+            --bs-btn-bg: transparent;
+            --bs-btn-border-color: var(--club-primary);
+            --bs-btn-hover-color: var(--club-on-primary);
+            --bs-btn-hover-bg: var(--club-primary);
+            --bs-btn-hover-border-color: var(--club-primary);
+            --bs-btn-active-color: var(--club-on-primary);
+            --bs-btn-active-bg: var(--club-primary-dark);
+            --bs-btn-active-border-color: var(--club-primary-dark);
+            --bs-btn-disabled-color: var(--club-primary);
+            --bs-btn-disabled-border-color: var(--club-primary);
+            --bs-btn-focus-shadow-rgb: var(--club-primary-rgb);
+            color: var(--club-primary); border-color: var(--club-primary);
+        }
         /* Danger-style buttons use theme (e.g. Delete member) so the app stays on-palette */
-        .btn-danger                            { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
-        .btn-danger:hover, .btn-danger:focus   { background-color: var(--club-primary-dark); border-color: var(--club-primary-dark); color: var(--club-on-primary); }
-        .btn-danger:active,
-        .btn-danger:disabled                    { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
-        .btn-danger:disabled                    { opacity: 0.65; }
-        .btn-outline-danger                    { color: var(--club-primary); border-color: var(--club-primary); }
-        .btn-outline-danger:hover              { background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary); }
-        .btn-outline-secondary                 { color: var(--club-muted); border-color: var(--club-muted); }
-        .btn-outline-secondary:hover,
-        .btn-outline-secondary:focus           { background-color: var(--club-accent); border-color: var(--club-primary); color: var(--club-primary); }
-        .btn-secondary                         { background-color: color-mix(in srgb, var(--club-muted) 22%, var(--club-bg)); border-color: var(--club-muted); color: var(--club-text); }
-        .btn-secondary:hover,
-        .btn-secondary:focus                   { background-color: var(--club-accent-mid); border-color: var(--club-primary); color: var(--club-primary); }
+        .btn-danger {
+            --bs-btn-color: var(--club-on-primary);
+            --bs-btn-bg: var(--club-primary);
+            --bs-btn-border-color: var(--club-primary);
+            --bs-btn-hover-color: var(--club-on-primary);
+            --bs-btn-hover-bg: var(--club-primary-dark);
+            --bs-btn-hover-border-color: var(--club-primary-dark);
+            --bs-btn-active-color: var(--club-on-primary);
+            --bs-btn-active-bg: var(--club-primary-dark);
+            --bs-btn-active-border-color: var(--club-primary-dark);
+            --bs-btn-disabled-color: var(--club-on-primary);
+            --bs-btn-disabled-bg: var(--club-primary);
+            --bs-btn-disabled-border-color: var(--club-primary);
+            --bs-btn-focus-shadow-rgb: var(--club-primary-rgb);
+            background-color: var(--club-primary); border-color: var(--club-primary); color: var(--club-on-primary);
+        }
+        .btn-danger:disabled                   { opacity: 0.65; }
+        .btn-outline-danger {
+            --bs-btn-color: var(--club-primary);
+            --bs-btn-bg: transparent;
+            --bs-btn-border-color: var(--club-primary);
+            --bs-btn-hover-color: var(--club-on-primary);
+            --bs-btn-hover-bg: var(--club-primary);
+            --bs-btn-hover-border-color: var(--club-primary);
+            --bs-btn-active-color: var(--club-on-primary);
+            --bs-btn-active-bg: var(--club-primary-dark);
+            --bs-btn-active-border-color: var(--club-primary-dark);
+            --bs-btn-disabled-color: var(--club-primary);
+            --bs-btn-disabled-border-color: var(--club-primary);
+            --bs-btn-focus-shadow-rgb: var(--club-primary-rgb);
+            color: var(--club-primary); border-color: var(--club-primary);
+        }
+        .btn-outline-secondary {
+            --bs-btn-color: var(--club-muted);
+            --bs-btn-border-color: var(--club-muted);
+            --bs-btn-hover-color: var(--club-primary);
+            --bs-btn-hover-bg: var(--club-accent);
+            --bs-btn-hover-border-color: var(--club-primary);
+            --bs-btn-active-color: var(--club-primary);
+            --bs-btn-active-bg: var(--club-accent);
+            --bs-btn-active-border-color: var(--club-primary);
+            --bs-btn-focus-shadow-rgb: var(--club-primary-rgb);
+            color: var(--club-muted); border-color: var(--club-muted);
+        }
+        .btn-secondary {
+            --bs-btn-color: var(--club-text);
+            --bs-btn-bg: color-mix(in srgb, var(--club-muted) 22%, var(--club-bg));
+            --bs-btn-border-color: var(--club-muted);
+            --bs-btn-hover-color: var(--club-primary);
+            --bs-btn-hover-bg: var(--club-accent-mid);
+            --bs-btn-hover-border-color: var(--club-primary);
+            --bs-btn-active-color: var(--club-primary);
+            --bs-btn-active-bg: var(--club-accent-mid);
+            --bs-btn-active-border-color: var(--club-primary);
+            --bs-btn-focus-shadow-rgb: var(--club-primary-rgb);
+            background-color: color-mix(in srgb, var(--club-muted) 22%, var(--club-bg)); border-color: var(--club-muted); color: var(--club-text);
+        }
         .form-check-input:checked              { background-color: var(--club-primary); border-color: var(--club-primary); }
         .border-primary                        { border-color: var(--club-primary) !important; }
         .text-primary                          { color: var(--club-primary) !important; }
