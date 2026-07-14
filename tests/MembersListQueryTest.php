@@ -15,22 +15,29 @@ final class MembersListQueryTest extends TestCase
         $this->assertSame(1, $f['page']);
         $this->assertSame('', $f['memberTypeFilter']);
         $this->assertNull($f['memberTypeSlotFilter']);
-        $this->assertSame('current', $f['statusFilter']);
+        $this->assertSame('active', $f['statusFilter']);
         $this->assertSame([], $f['flagFilters']);
         $this->assertSame('', $f['badgeFilter']);
         $this->assertSame('name', $f['sort']);
     }
 
-    public function testParseRequestMapsActiveStatusToCurrent(): void
+    public function testParseRequestAcceptsActiveStatus(): void
     {
         $f = members_list_parse_request(['status' => 'active']);
+
+        $this->assertSame('active', $f['statusFilter']);
+    }
+
+    public function testParseRequestAcceptsCurrentStatusForDashboard(): void
+    {
+        $f = members_list_parse_request(['status' => 'current']);
 
         $this->assertSame('current', $f['statusFilter']);
     }
 
     public function testParseRequestAcceptsStackableFlagFilters(): void
     {
-        $f = members_list_parse_request(['flag' => ['free', 'life', 'bogus']]);
+        $f = members_list_parse_request(['flag' => ['free', 'life', 'bogus', 'archived']]);
 
         $this->assertSame(['free', 'life'], $f['flagFilters']);
     }
@@ -43,29 +50,46 @@ final class MembersListQueryTest extends TestCase
         $this->assertSame(['free'], $f['flagFilters']);
     }
 
-    public function testParseRequestMigratesLegacyInactiveStatusToAll(): void
+    public function testParseRequestAcceptsInactiveStatus(): void
     {
         $f = members_list_parse_request(['status' => 'inactive']);
 
-        $this->assertSame('all', $f['statusFilter']);
+        $this->assertSame('inactive', $f['statusFilter']);
         $this->assertSame([], $f['flagFilters']);
+    }
+
+    public function testParseRequestMapsLegacyArchivedStatusToInactive(): void
+    {
+        $f = members_list_parse_request(['status' => 'archived']);
+
+        $this->assertSame('inactive', $f['statusFilter']);
     }
 
     public function testParseRequestRejectsInvalidStatusFilter(): void
     {
         $f = members_list_parse_request(['status' => 'expired']);
 
-        $this->assertSame('current', $f['statusFilter']);
+        $this->assertSame('active', $f['statusFilter']);
     }
 
-    public function testStatusFilterKeysAreMembershipOnly(): void
+    public function testStatusFilterKeysPartitionOnInactiveFlag(): void
     {
-        $this->assertSame(['all', 'current'], membersListStatusFilterKeys());
+        $this->assertSame(['all', 'active', 'inactive'], membersListStatusFilterKeys());
+        $this->assertSame(['all', 'active', 'inactive', 'current'], membersListAcceptedStatusFilters());
     }
 
-    public function testFlagFilterKeysIncludeArchived(): void
+    public function testMemberStatusFilterWhereSqlForActiveAndInactive(): void
     {
-        $this->assertSame(['free', 'life', 'suspended', 'archived'], membersListFlagFilterKeys());
+        $activeSql = memberStatusFilterWhereSql('active', 2026, 'm')['sql'];
+        $this->assertStringContainsString('m.inactive = 0', $activeSql);
+
+        $inactiveSql = memberStatusFilterWhereSql('inactive', 2026, 'm')['sql'];
+        $this->assertStringContainsString('m.inactive = 1', $inactiveSql);
+    }
+
+    public function testFlagFilterKeysDoNotIncludeArchived(): void
+    {
+        $this->assertSame(['free', 'life', 'suspended'], membersListFlagFilterKeys());
     }
 
     public function testMemberFlagFilterWhereSql(): void
@@ -73,14 +97,13 @@ final class MembersListQueryTest extends TestCase
         $this->assertStringContainsString('free_membership = 1', memberFlagFilterWhereSql('free')['sql']);
         $this->assertStringContainsString('life_member = 1', memberFlagFilterWhereSql('life')['sql']);
         $this->assertStringContainsString('suspended = 1', memberFlagFilterWhereSql('suspended')['sql']);
-        $this->assertStringContainsString('inactive = 1', memberFlagFilterWhereSql('archived')['sql']);
     }
 
     public function testMembersListCombinedFilterWhereSqlAndsStatusAndFlags(): void
     {
-        $sql = membersListCombinedFilterWhereSql('current', ['free', 'life'], 2026, 'm')['sql'];
+        $sql = membersListCombinedFilterWhereSql('active', ['free', 'life'], 2026, 'm')['sql'];
 
-        $this->assertStringContainsString('membership_renewal_year', $sql);
+        $this->assertStringContainsString('inactive = 0', $sql);
         $this->assertStringContainsString('free_membership = 1', $sql);
         $this->assertStringContainsString('life_member = 1', $sql);
     }

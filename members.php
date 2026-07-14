@@ -64,11 +64,10 @@ $flagChipLabels = [
     'free'      => 'Free',
     'life'      => 'Life',
     'suspended' => 'Suspended',
-    'archived'  => 'Archived',
 ];
 $hasMembersInDatabase = ($chipCounts['all'] ?? 0) > 0;
 $hasActiveListFilters = $searchQ !== ''
-    || $statusFilter !== 'current'
+    || $statusFilter !== 'active'
     || $flagFilters !== []
     || $memberTypeFilter !== ''
     || $badgeFilter !== ''
@@ -166,8 +165,9 @@ render_page_header([
         <span class="text-muted small me-1">Membership:</span>
         <?php
         $statusChipLabels = [
-            'all'     => 'All',
-            'current' => 'Active',
+            'all'      => 'All',
+            'active'   => 'Active',
+            'inactive' => 'Inactive',
         ];
         foreach ($statusChipLabels as $val => $label):
             $isActive = $statusFilter === $val;
@@ -213,7 +213,7 @@ render_page_header([
     <div class="d-flex flex-wrap gap-2 align-items-center mb-2">
         <span class="text-muted small me-1">Type:</span>
         <?php
-        $statusKeysForTypes = membersListStatusFilterKeys();
+        $statusKeysForTypes = array_merge(membersListStatusFilterKeys(), ['current']);
         $allTypeCounts = [];
         if ($flagFilters === []) {
             foreach ($statusKeysForTypes as $sk) {
@@ -298,7 +298,7 @@ render_page_header([
         </div>
         <div class="col-auto d-flex gap-1">
             <button type="submit" class="btn btn-sm btn-outline-primary">Search</button>
-            <?php if ($searchQ !== '' || $memberTypeFilter !== '' || $statusFilter !== 'current' || $flagFilters !== [] || $badgeFilter !== '' || $sort !== 'name'): ?>
+            <?php if ($searchQ !== '' || $memberTypeFilter !== '' || $statusFilter !== 'active' || $flagFilters !== [] || $badgeFilter !== '' || $sort !== 'name'): ?>
             <a href="members.php" class="btn btn-sm btn-outline-secondary">Clear</a>
             <?php endif; ?>
         </div>
@@ -309,11 +309,22 @@ render_page_header([
         Showing results for &ldquo;<?= htmlspecialchars($searchQ) ?>&rdquo;
     </p>
     <?php endif; ?>
+    <?php if ($statusFilter === 'current'): ?>
+    <p class="text-muted small mt-1 mb-0">
+        Showing current (paid-up) members for <?= (int) $currentYear ?>.
+    </p>
+    <?php endif; ?>
     <?php if ($flagFilters !== []): ?>
     <p class="text-muted small mt-1 mb-0">
         Showing members matching
-        <?= $statusFilter === 'current' ? 'active membership' : 'all memberships' ?>
         <?php
+        $membershipPhrase = match ($statusFilter) {
+            'active'   => 'active membership',
+            'inactive' => 'inactive membership',
+            'current'  => 'current membership',
+            default    => 'all memberships',
+        };
+        echo $membershipPhrase;
         $flagLabels = array_map(
             static fn (string $f) => strtolower($flagChipLabels[$f] ?? $f),
             $flagFilters

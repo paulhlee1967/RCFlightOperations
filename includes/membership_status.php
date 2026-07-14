@@ -7,8 +7,9 @@
  * A member is current for year Y when:
  *   - membership_renewal_year = Y (signed up / renewed for that year)
  *   - not manually flagged inactive or suspended
- *   - and either life_member, free_membership (complimentary), or a
- *     payment or fulfillment record for year Y
+ *
+ * Life / complimentary membership and payment records do not override the
+ * inactive flag — life members can be inactive like anyone else.
  *
  * Everyone else is inactive (for list filters, dashboard counts, and reports).
  */
@@ -126,30 +127,16 @@ function currentMemberWhereSql(string $alias = 'm', ?int $year = null): string
 {
     $year = $year ?? membershipStatusYear();
     $c      = memberSqlPrefix($alias);
-    // Must qualify member id — unqualified `id` inside EXISTS binds to payments.id, not the member.
-    $idCol  = $alias === '' ? 'members.id' : "{$alias}.id";
 
     return "(
         {$c}membership_renewal_year = ?
         AND ({$c}inactive = 0 OR {$c}inactive IS NULL)
         AND ({$c}suspended = 0 OR {$c}suspended IS NULL)
-        AND (
-            {$c}life_member = 1
-            OR {$c}free_membership = 1
-            OR EXISTS (
-                SELECT 1 FROM payments p
-                WHERE p.member_id = {$idCol} AND p.year = ?
-            )
-            OR EXISTS (
-                SELECT 1 FROM member_fulfillments f
-                WHERE f.member_id = {$idCol} AND f.year = ?
-            )
-        )
     )";
 }
 
 /**
- * Bound parameters for currentMemberWhereSql() (three copies of $year).
+ * Bound parameters for currentMemberWhereSql() (one year bind).
  *
  * @return int[]
  */
@@ -157,7 +144,7 @@ function currentMemberWhereParams(?int $year = null): array
 {
     $year = $year ?? membershipStatusYear();
 
-    return [$year, $year, $year];
+    return [$year];
 }
 
 /**
@@ -183,7 +170,10 @@ function notYetRenewedWhereParams(?int $year = null): array
 }
 
 /**
- * Whether a member row is current for the given year (uses preloaded renewed IDs when provided).
+ * Whether a member row is current for the given year.
+ *
+ * @param array<string, mixed> $member
+ * @param int[]|null           $renewedIds  Unused; kept for call-site compatibility.
  */
 function memberIsCurrent(array $member, ?int $year = null, ?array $renewedIds = null): bool
 {
@@ -191,18 +181,8 @@ function memberIsCurrent(array $member, ?int $year = null, ?array $renewedIds = 
     if (!empty($member['inactive']) || !empty($member['suspended'])) {
         return false;
     }
-    if ((int) ($member['membership_renewal_year'] ?? 0) !== $year) {
-        return false;
-    }
-    if (!empty($member['life_member']) || !empty($member['free_membership'])) {
-        return true;
-    }
-    $id = (int) ($member['id'] ?? 0);
-    if ($renewedIds === null) {
-        return false;
-    }
 
-    return in_array($id, $renewedIds, true);
+    return (int) ($member['membership_renewal_year'] ?? 0) === $year;
 }
 
 /**
@@ -230,13 +210,24 @@ function membershipStatusCounts(PDO $pdo, ?int $year = null): array
 }
 
 /**
- * Allowed membership filter values for the members list (mutually exclusive).
+ * Allowed membership filter values for the members-list chips (mutually exclusive).
+ * Active / Inactive partition on members.inactive so All = Active + Inactive.
  *
  * @return list<string>
  */
 function membersListStatusFilterKeys(): array
 {
-    return ['all', 'current'];
+    return ['all', 'active', 'inactive'];
+}
+
+/**
+ * Status values accepted on members.php (chips plus dashboard "current members").
+ *
+ * @return list<string>
+ */
+function membersListAcceptedStatusFilters(): array
+{
+    return ['all', 'active', 'inactive', 'current'];
 }
 
 /**
@@ -246,7 +237,7 @@ function membersListStatusFilterKeys(): array
  */
 function membersListFlagFilterKeys(): array
 {
-    return ['free', 'life', 'suspended', 'archived'];
+    return ['free', 'life', 'suspended'];
 }
 
 /**
@@ -260,9 +251,26 @@ function memberStatusFilterWhereSql(string $statusFilter, ?int $year = null, str
         return ['sql' => '1=1', 'params' => []];
     }
 
-    $year = $year ?? membershipStatusYear();
+    $c = memberSqlPrefix($alias === '' ? '' : $alias);
 
+    if ($statusFilter === 'active') {
+        return [
+            'sql'    => "({$c}inactive = 0 OR {$c}inactive IS NULL)",
+            'params' => [],
+        ];
+    }
+
+    if ($statusFilter === 'inactive') {
+        return [
+            'sql'    => "({$c}inactive = 1)",
+            'params' => [],
+        ];
+    }
+
+    // Dashboard / deep links: paid-up current members for the membership year.
     if ($statusFilter === 'current') {
+        $year = $year ?? membershipStatusYear();
+
         return [
             'sql'    => currentMemberWhereSql($alias === '' ? '' : $alias, $year),
             'params' => currentMemberWhereParams($year),
@@ -285,7 +293,6 @@ function memberFlagFilterWhereSql(string $flag, string $alias = 'm'): array
         'free'      => ['sql' => "({$c}free_membership = 1)", 'params' => []],
         'life'      => ['sql' => "({$c}life_member = 1)", 'params' => []],
         'suspended' => ['sql' => "({$c}suspended = 1)", 'params' => []],
-        'archived'  => ['sql' => "({$c}inactive = 1)", 'params' => []],
         default     => ['sql' => '1=1', 'params' => []],
     };
 }
@@ -330,16 +337,17 @@ function membersListCombinedFilterWhereSql(
 /**
  * Chip counts for membership filters on the members list.
  *
- * @return array{all:int, current:int}
+ * @return array{all:int, active:int, inactive:int}
  */
 function membersListStatusChipCounts(PDO $pdo, ?int $year = null): array
 {
-    $year = $year ?? membershipStatusYear();
-    $statusCounts = membershipStatusCounts($pdo, $year);
+    $total = (int) $pdo->query('SELECT COUNT(*) FROM members')->fetchColumn();
+    $inactiveCount = (int) $pdo->query('SELECT COUNT(*) FROM members WHERE inactive = 1')->fetchColumn();
 
     return [
-        'all'     => (int) ($statusCounts['total'] ?? 0),
-        'current' => (int) ($statusCounts['current'] ?? 0),
+        'all'      => $total,
+        'active'   => $total - $inactiveCount,
+        'inactive' => $inactiveCount,
     ];
 }
 
@@ -422,14 +430,14 @@ function membershipTypeSlotCounts(
 }
 
 /**
- * Type-slot counts for all and active membership (for filter chips when no flags selected).
+ * Type-slot counts for membership filter chips (plus current for dashboard deep links).
  *
  * @return array<string, array<int, int>>
  */
 function membershipTypeSlotCountsByStatus(PDO $pdo, ?int $year = null): array
 {
     $out = [];
-    foreach (membersListStatusFilterKeys() as $key) {
+    foreach (array_merge(membersListStatusFilterKeys(), ['current']) as $key) {
         $out[$key] = membershipTypeSlotCounts($pdo, $key, [], $year);
     }
 

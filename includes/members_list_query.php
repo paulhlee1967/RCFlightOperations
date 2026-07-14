@@ -99,14 +99,15 @@ function members_list_parse_request(array $get): array
         }
     }
 
-    $statusFilter = (string) ($get['status'] ?? 'current');
-    if ($statusFilter === 'active') {
-        $statusFilter = 'current';
+    $statusFilter = (string) ($get['status'] ?? 'active');
+    if ($statusFilter === 'archived') {
+        // Legacy URL: archived flag-as-status → Inactive chip
+        $statusFilter = 'inactive';
     }
 
     $flagFilters = members_list_parse_flag_filters($get);
 
-    // Legacy URLs: status=suspended|free|life → all + flag; status=inactive → all
+    // Legacy URLs: status=suspended|free|life → all + flag
     $legacyFlagMap = [
         'suspended' => 'suspended',
         'free'      => 'free',
@@ -118,10 +119,8 @@ function members_list_parse_request(array $get): array
         }
         sort($flagFilters);
         $statusFilter = 'all';
-    } elseif ($statusFilter === 'inactive') {
-        $statusFilter = 'all';
-    } elseif (!in_array($statusFilter, membersListStatusFilterKeys(), true)) {
-        $statusFilter = 'current';
+    } elseif (!in_array($statusFilter, membersListAcceptedStatusFilters(), true)) {
+        $statusFilter = 'active';
     }
 
     $orderByMap = members_list_order_by_map();
@@ -160,7 +159,7 @@ function members_list_parse_request(array $get): array
  * @return array{
  *   members: array<int, array>,
  *   totalCount: int,
- *   chipCounts: array{all:int,current:int},
+ *   chipCounts: array{all:int,active:int,inactive:int},
  *   flagChipCounts: array<string, int>,
  *   typeCounts: array<int, int>,
  *   typeCountsByStatus: array,

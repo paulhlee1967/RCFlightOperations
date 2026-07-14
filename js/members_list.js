@@ -54,9 +54,8 @@
     // ── Type chip counts follow URL status ──
     function membersPageStatus() {
         const s = new URLSearchParams(window.location.search).get('status');
-        if (s === 'active') return 'current';
-        if (s === 'all' || s === 'current') return s;
-        return 'current';
+        if (s === 'all' || s === 'active' || s === 'inactive' || s === 'current') return s;
+        return 'active';
     }
 
     function refreshTypeChipCounts() {

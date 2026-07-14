@@ -292,7 +292,7 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                         <div class="col-12">
                             <div class="d-flex flex-wrap gap-3">
-                                <div class="form-check"><input class="form-check-input" type="checkbox" name="inactive" value="1"<?= checked($member['inactive'] ?? 0) ?>><label class="form-check-label">Inactive (archived — not a current member)</label></div>
+                                <div class="form-check"><input class="form-check-input" type="checkbox" name="inactive" value="1"<?= checked($member['inactive'] ?? 0) ?>><label class="form-check-label">Inactive (not a current member)</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="life_member" value="1"<?= checked($member['life_member'] ?? 0) ?>><label class="form-check-label">Life member</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="free_membership" value="1"<?= checked($member['free_membership'] ?? 0) ?>><label class="form-check-label">Free membership</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="suspended" value="1"<?= checked($member['suspended'] ?? 0) ?>><label class="form-check-label">Suspended</label></div>
