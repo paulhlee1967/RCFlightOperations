@@ -275,7 +275,7 @@ if ((canEditMembers() || canProcessMemberships()) && $fulfillmentPending > 0) {
     $pipelineItems[] = [
         'count' => $fulfillmentPending,
         'label' => 'recorded signup/renewal' . ($fulfillmentPending !== 1 ? 's' : '') . ' with fulfillment still open',
-        'link'  => 'members.php?status=current&fulfillment=pending',
+        'link'  => 'members.php?status=all&fulfillment=pending&year=' . (int) $renewalYear,
         'cta'   => 'View members →',
     ];
 }

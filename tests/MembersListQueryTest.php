@@ -18,6 +18,8 @@ final class MembersListQueryTest extends TestCase
         $this->assertSame('active', $f['statusFilter']);
         $this->assertSame([], $f['flagFilters']);
         $this->assertSame('', $f['badgeFilter']);
+        $this->assertSame('', $f['fulfillmentFilter']);
+        $this->assertNull($f['fulfillmentYear']);
         $this->assertSame('name', $f['sort']);
     }
 
@@ -157,6 +159,42 @@ final class MembersListQueryTest extends TestCase
         $f = members_list_parse_request(['badge' => 'printed']);
 
         $this->assertSame('', $f['badgeFilter']);
+    }
+
+    public function testParseRequestAcceptsFulfillmentPendingFilter(): void
+    {
+        $f = members_list_parse_request(['fulfillment' => 'pending', 'year' => '2027']);
+
+        $this->assertSame('pending', $f['fulfillmentFilter']);
+        $this->assertSame(2027, $f['fulfillmentYear']);
+    }
+
+    public function testParseRequestRejectsInvalidFulfillmentFilter(): void
+    {
+        $f = members_list_parse_request(['fulfillment' => 'done']);
+
+        $this->assertSame('', $f['fulfillmentFilter']);
+        $this->assertNull($f['fulfillmentYear']);
+    }
+
+    public function testParseRequestCoercesCurrentStatusWhenFulfillmentPending(): void
+    {
+        $f = members_list_parse_request([
+            'status'      => 'current',
+            'fulfillment' => 'pending',
+            'year'        => '2027',
+        ]);
+
+        $this->assertSame('all', $f['statusFilter']);
+        $this->assertSame('pending', $f['fulfillmentFilter']);
+        $this->assertSame(2027, $f['fulfillmentYear']);
+    }
+
+    public function testParseRequestIgnoresYearWithoutFulfillmentFilter(): void
+    {
+        $f = members_list_parse_request(['year' => '2027']);
+
+        $this->assertNull($f['fulfillmentYear']);
     }
 
     public function testOrderByMapDefinesExpectedSortKeys(): void

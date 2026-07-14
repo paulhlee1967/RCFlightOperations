@@ -75,6 +75,8 @@ function members_list_parse_flag_filters(array $get): array
  *   statusFilter:string,
  *   flagFilters:array<int, string>,
  *   badgeFilter:string,
+ *   fulfillmentFilter:string,
+ *   fulfillmentYear:?int,
  *   sort:string
  * }
  */
@@ -139,6 +141,21 @@ function members_list_parse_request(array $get): array
         $fulfillmentFilter = '';
     }
 
+    // Open fulfillments follow the working renewal year (may be next calendar year
+    // during pre-book). status=current is calendar-year — combining the two empties
+    // the list when early renewals have bumped membership_renewal_year ahead.
+    if ($fulfillmentFilter === 'pending' && $statusFilter === 'current') {
+        $statusFilter = 'all';
+    }
+
+    $fulfillmentYear = null;
+    if ($fulfillmentFilter === 'pending' && isset($get['year']) && is_numeric($get['year'])) {
+        $y = (int) $get['year'];
+        if ($y >= 2000 && $y <= 2100) {
+            $fulfillmentYear = $y;
+        }
+    }
+
     return [
         'searchQ'              => $searchQ,
         'perPage'              => $perPage,
@@ -149,6 +166,7 @@ function members_list_parse_request(array $get): array
         'flagFilters'          => $flagFilters,
         'badgeFilter'          => $badgeFilter,
         'fulfillmentFilter'    => $fulfillmentFilter,
+        'fulfillmentYear'      => $fulfillmentYear,
         'sort'                 => $sort,
     ];
 }
@@ -211,7 +229,8 @@ function members_list_fetch_export_rows(PDO $pdo, array $request, int $currentYe
  *   totalPages: int,
  *   from: int,
  *   to: int,
- *   queryParams: array<string, mixed>
+ *   queryParams: array<string, mixed>,
+ *   fulfillmentYear: ?int
  * }
  */
 function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
@@ -224,7 +243,15 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
     $flagFilters          = $filters['flagFilters'];
     $badgeFilter          = $filters['badgeFilter'];
     $fulfillmentFilter    = $filters['fulfillmentFilter'];
+    $fulfillmentYear      = isset($filters['fulfillmentYear']) && is_int($filters['fulfillmentYear'])
+        ? $filters['fulfillmentYear']
+        : null;
     $sort                 = $filters['sort'];
+
+    // Match dashboard countRecordedUnfulfilled(defaultRenewalYear), not calendar year.
+    if ($fulfillmentFilter === 'pending' && ($fulfillmentYear === null || $fulfillmentYear < 2000)) {
+        $fulfillmentYear = defaultRenewalYear($pdo);
+    }
 
     $orderByMap    = members_list_order_by_map();
     $orderBy       = $orderByMap[$sort]['main'];
@@ -261,7 +288,7 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
         if ($fulfillmentFilter === 'pending') {
             $baseSql  .= ' AND ' . fulfillmentPendingWhereSql('');
             $countSql .= ' AND ' . fulfillmentPendingWhereSql('');
-            $params    = array_merge($params, fulfillmentPendingWhereParams($currentYear));
+            $params    = array_merge($params, fulfillmentPendingWhereParams((int) $fulfillmentYear));
         }
         $baseSql .= " $orderBy";
     } else {
@@ -329,7 +356,7 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
             $params = array_merge($params, badgeUnprintedWhereParams($currentYear));
         }
         if ($fulfillmentFilter === 'pending') {
-            $params = array_merge($params, fulfillmentPendingWhereParams($currentYear));
+            $params = array_merge($params, fulfillmentPendingWhereParams((int) $fulfillmentYear));
         }
     }
 
@@ -365,6 +392,7 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
         'flag'        => $flagFilters !== [] ? $flagFilters : null,
         'badge'       => $badgeFilter !== '' ? $badgeFilter : null,
         'fulfillment' => $fulfillmentFilter !== '' ? $fulfillmentFilter : null,
+        'year'        => ($fulfillmentFilter === 'pending' && $fulfillmentYear !== null) ? $fulfillmentYear : null,
         'sort'        => $sort !== 'name' ? $sort : null,
     ], static fn ($v) => $v !== null && $v !== []);
 
@@ -379,5 +407,6 @@ function members_list_fetch(PDO $pdo, array $filters, int $currentYear): array
         'from'               => $from,
         'to'                 => $to,
         'queryParams'        => $queryParams,
+        'fulfillmentYear'    => $fulfillmentYear,
     ];
 }

@@ -59,6 +59,9 @@ $totalPages           = $list['totalPages'];
 $from                 = $list['from'];
 $to                   = $list['to'];
 $queryParams          = $list['queryParams'];
+$fulfillmentYear      = isset($list['fulfillmentYear']) && is_int($list['fulfillmentYear'])
+    ? $list['fulfillmentYear']
+    : ($fulfillmentFilter === 'pending' ? defaultRenewalYear($pdo) : null);
 
 $flagChipLabels = [
     'free'      => 'Free',
@@ -257,6 +260,12 @@ render_page_header([
         <?php if ($badgeFilter !== ''): ?>
         <input type="hidden" name="badge" value="<?= htmlspecialchars($badgeFilter) ?>">
         <?php endif; ?>
+        <?php if ($fulfillmentFilter !== ''): ?>
+        <input type="hidden" name="fulfillment" value="<?= htmlspecialchars($fulfillmentFilter) ?>">
+        <?php endif; ?>
+        <?php if ($fulfillmentFilter === 'pending' && $fulfillmentYear !== null): ?>
+        <input type="hidden" name="year" value="<?= (int) $fulfillmentYear ?>">
+        <?php endif; ?>
 
         <div class="col flex-grow-1" style="min-width:180px;">
             <label for="member-search" class="visually-hidden">Search members</label>
@@ -277,7 +286,7 @@ render_page_header([
         </div>
         <div class="col-auto d-flex gap-1">
             <button type="submit" class="btn btn-sm btn-outline-primary">Search</button>
-            <?php if ($searchQ !== '' || $memberTypeFilter !== '' || $statusFilter !== 'active' || $flagFilters !== [] || $badgeFilter !== '' || $sort !== 'name'): ?>
+            <?php if ($searchQ !== '' || $memberTypeFilter !== '' || $statusFilter !== 'active' || $flagFilters !== [] || $badgeFilter !== '' || $fulfillmentFilter !== '' || $sort !== 'name'): ?>
             <a href="members.php" class="btn btn-sm btn-outline-secondary">Clear</a>
             <?php endif; ?>
         </div>
@@ -319,7 +328,7 @@ render_page_header([
     <?php endif; ?>
     <?php if ($fulfillmentFilter === 'pending'): ?>
     <p class="text-muted small mt-1 mb-0">
-        Showing members with a recorded signup/renewal for <?= (int) $currentYear ?> whose card or mailer is not yet complete.
+        Showing members with a recorded signup/renewal for <?= (int) ($fulfillmentYear ?? $currentYear) ?> whose card or mailer is not yet complete.
     </p>
     <?php endif; ?>
 </div>
