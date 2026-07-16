@@ -166,6 +166,16 @@ CREATE TABLE `incidents` (
   KEY `incident_date` (`incident_date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `incident_photos` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `incident_id` int unsigned NOT NULL,
+  `file_path` varchar(512) NOT NULL DEFAULT '',
+  `original_filename` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_incident_photos_incident` (`incident_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- ---------------------------------------------------------------------------
@@ -999,3 +1009,97 @@ SET @sql_mem_rem = IF(
 PREPARE stmt_mem_rem FROM @sql_mem_rem;
 EXECUTE stmt_mem_rem;
 DEALLOCATE PREPARE stmt_mem_rem;
+
+-- -----------------------------------------------------------------------------
+-- Migration: application status emails + staff information-request history
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `member_application_emails` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `application_id` int unsigned NOT NULL,
+  `email_type` enum('received','approved','request_info') NOT NULL,
+  `idempotency_key` varchar(128) NOT NULL,
+  `recipient` varchar(255) NOT NULL DEFAULT '',
+  `subject` varchar(255) NOT NULL DEFAULT '',
+  `status` enum('pending','sent','failed') NOT NULL DEFAULT 'pending',
+  `error_message` text DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_idempotency_key` (`idempotency_key`),
+  KEY `idx_application_emails_app` (`application_id`),
+  KEY `idx_application_emails_type_status` (`email_type`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `member_application_info_requests` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `application_id` int unsigned NOT NULL,
+  `message` text NOT NULL,
+  `requested_by` int unsigned NOT NULL,
+  `dedup_key` varchar(64) NOT NULL,
+  `requested_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_info_request_dedup` (`dedup_key`),
+  KEY `idx_info_requests_application` (`application_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET @latest_info_msg_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_applications' AND COLUMN_NAME = 'latest_info_request_message'
+);
+SET @sql_latest_info_msg = IF(
+  @latest_info_msg_col = 0,
+  'ALTER TABLE `member_applications` ADD COLUMN `latest_info_request_message` text DEFAULT NULL AFTER `rejection_reason`',
+  'SELECT 1'
+);
+PREPARE stmt_latest_info_msg FROM @sql_latest_info_msg;
+EXECUTE stmt_latest_info_msg;
+DEALLOCATE PREPARE stmt_latest_info_msg;
+
+SET @latest_info_at_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_applications' AND COLUMN_NAME = 'latest_info_request_at'
+);
+SET @sql_latest_info_at = IF(
+  @latest_info_at_col = 0,
+  'ALTER TABLE `member_applications` ADD COLUMN `latest_info_request_at` datetime DEFAULT NULL AFTER `latest_info_request_message`',
+  'SELECT 1'
+);
+PREPARE stmt_latest_info_at FROM @sql_latest_info_at;
+EXECUTE stmt_latest_info_at;
+DEALLOCATE PREPARE stmt_latest_info_at;
+
+-- -----------------------------------------------------------------------------
+-- Migration: monthly board packet automatic delivery
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `board_packet_deliveries` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `month` varchar(7) NOT NULL COMMENT 'YYYY-MM calendar month',
+  `recipients` text NOT NULL,
+  `status` enum('claimed','sending','sent','failed') NOT NULL DEFAULT 'claimed',
+  `error_message` text DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_board_packet_month` (`month`),
+  KEY `idx_board_packet_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
+  ('board_packet_enabled', '0'),
+  ('board_packet_send_day', '1'),
+  ('board_packet_recipients', '');
+
+-- -----------------------------------------------------------------------------
+-- Migration: incident photo attachments
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `incident_photos` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `incident_id` int unsigned NOT NULL,
+  `file_path` varchar(512) NOT NULL DEFAULT '',
+  `original_filename` varchar(255) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_incident_photos_incident` (`incident_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

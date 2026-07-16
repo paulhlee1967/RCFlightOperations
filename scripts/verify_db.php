@@ -43,7 +43,7 @@ function tableExists(PDO $pdo, string $table): bool {
 $expectedTables = [
     'club', 'users', 'members',
     'payments', 'dues_rules', 'badge_templates',
-    'incidents',
+    'incidents', 'incident_photos',
     'member_fulfillments', 'member_membership_years',
     'system_config', 'operator_messages',
     'audit_log', 'login_attempts', 'password_reset_tokens', 'password_reset_ip_events',
@@ -72,6 +72,9 @@ $expectedColumns = [
         'id', 'incident_date', 'location', 'incident_type',
         'severity', 'status', 'member_id', 'description', 'action_taken',
         'ama_reported', 'ama_report_ref', 'reported_by', 'created_at', 'updated_at',
+    ],
+    'incident_photos' => [
+        'id', 'incident_id', 'file_path', 'original_filename', 'created_at',
     ],
     'member_fulfillments' => ['id', 'member_id', 'year', 'processed_at', 'processed_by', 'renewal_type', 'card_printed_at', 'card_printed_by', 'mailer_printed_at', 'mailer_printed_by', 'created_at', 'updated_at'],
     'member_membership_years' => ['id', 'member_id', 'year', 'recorded_at', 'source'],

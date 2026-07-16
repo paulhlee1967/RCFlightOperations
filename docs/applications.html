@@ -41,6 +41,7 @@
     <a href="#filters">Filters &amp; pagination</a>
     <a href="#payment">Payment display</a>
     <a href="#email-preferences">Email preferences</a>
+    <a href="#applicant-emails">Applicant emails</a>
     <a href="#approve">Approve &amp; reject</a>
     <a href="#badge-photo">Badge photo</a>
     <a href="#setup">Website setup</a>
@@ -118,6 +119,7 @@
       <li>Select an applicant from the list to open the detail panel.</li>
       <li>Check the suggested member match and any <strong>Changes vs matched member</strong> table.</li>
       <li>Review payment info, <a href="#email-preferences">email preferences</a>, and uploaded file links (badge photo is copied to the member record on approve).</li>
+      <li>Use <strong>Request information</strong> if you need more details from the applicant (application stays pending).</li>
       <li>Adjust <strong>Renewal type</strong> and <strong>Renewal year</strong> if needed.</li>
       <li>Click <strong>Approve &amp; process</strong> or <strong>Reject</strong>.</li>
     </ol>
@@ -201,6 +203,22 @@
       before transactional status changes.
     </p>
 
+    <h2 id="applicant-emails">Applicant emails</h2>
+    <p>
+      Branded status emails are sent automatically at key points in the application lifecycle.
+      Club name and contact details come from <strong>Configuration</strong> and
+      <strong>Administration → Installation</strong> — nothing is hardcoded to a specific club.
+    </p>
+    <ul>
+      <li><strong>Application received</strong> — sent when the submission is finalized (payment confirmed or waived). Duplicate sends are prevented atomically; if SMTP fails, the detail panel shows a failed status with a <strong>Retry received email</strong> button.</li>
+      <li><strong>Application approved</strong> — sent after staff approve the application. Approval succeeds even when email fails; use <strong>Retry approval email</strong> if needed.</li>
+      <li><strong>Request information</strong> — staff enter a required message; the application stays <strong>pending</strong> (no separate status). The latest message and full history appear in the detail panel. Accidental double-clicks on the same message are deduplicated for about two minutes; you can send new requests later.</li>
+    </ul>
+    <p>
+      Approve, reject, and request-information actions are recorded in the
+      <a href="admin.html">audit log</a> (Administrator).
+    </p>
+
     <h2 id="approve">Approve &amp; reject</h2>
     <h3>Approve</h3>
     <ul>
@@ -212,7 +230,14 @@
     <h3>Reject</h3>
     <p>
       Rejecting moves the application off the Pending tab and keeps it under <strong>Rejected</strong>
-      with an optional reason. Rejected rows remain in the database for reference.
+      with an optional reason. Rejected rows remain in the database for reference. No automatic email is sent on reject.
+    </p>
+
+    <h3>Request information</h3>
+    <p>
+      Open <strong>Request information</strong>, enter a required message, and click
+      <strong>Send request</strong>. The applicant receives a branded email asking them to reply to the club support address.
+      The application remains pending until you approve or reject it.
     </p>
 
     <h2 id="badge-photo">Uploaded files</h2>

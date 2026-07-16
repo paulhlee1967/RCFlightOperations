@@ -124,6 +124,7 @@ $canEmailMembers = $canEmailReport
 $yearQs = $needsYear ? '&amp;year=' . (int) $year : '';
 ob_start();
 ?>
+        <a class="btn btn-primary btn-sm" href="board_packet.php">Board packet</a>
         <?php if ($needsYear): ?>
         <form method="get" action="reports.php" class="d-flex align-items-center gap-1">
             <input type="hidden" name="report" value="<?= h($slug) ?>">
@@ -182,6 +183,13 @@ render_page_header([
                     <div class="small <?= $rSlug === $slug ? '' : 'text-muted' ?>"><?= h($meta['description']) ?></div>
                 </a>
                 <?php endforeach; ?>
+                <div class="border-top">
+                    <a href="board_packet.php"
+                       class="sidebar-nav-link<?= navActive('board_packet.php') ?>">
+                        <div class="fw-semibold">Board packet</div>
+                        <div class="small text-muted">Monthly summary for the board — roster, renewals, revenue, incidents.</div>
+                    </a>
+                </div>
             </div>
         </nav>
     </div>

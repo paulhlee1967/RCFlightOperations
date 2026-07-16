@@ -133,11 +133,13 @@
       three tabs: General, Design, and Membership &amp; Dues.
     </p>
     <p>
-      Separately, <strong>Administration → Installation</strong> covers app-wide SMTP, maintenance mode,
-      Sender.net reminder opt-out (see <a href="#sender-opt-out">below</a>), and related host settings:
+      Separately, <strong>Administration → Installation</strong> covers app-wide host settings
+      organized in tabs (General, Applications, Email, Board packet, Tools &amp; status):
+      SMTP and Sender.net reminder opt-out (see <a href="#sender-opt-out">below</a>),
       <strong>Renewal year default — pre-book starts</strong> (first month when “next calendar year” becomes the
       default renewal year in <strong>Process Signup / Renewal</strong>; default October),
-      <strong>Reports — complete data starting year</strong>, and
+      <strong>Reports — complete data starting year</strong>,
+      monthly board packet recipients, and
       <strong>Membership application (Stripe)</strong> keys and signing secret for the public
       <code>apply.php</code> form — see <a href="applications.html#setup">Applications — Public form setup</a>.
       The pre-book month also drives the default <strong>Renewal year</strong> filter on
@@ -204,7 +206,7 @@
     <!-- ── Email ── -->
     <h2 id="email">Email Configuration</h2>
     <p>
-      Prefer <strong>Administration → Installation</strong> in the app to test email and review SMTP-related options
+      Prefer <strong>Administration → Installation → Email</strong> in the app to test email and review SMTP-related options
       when your build exposes them. Under the hood, outgoing mail is still driven by <code>config.php</code>
       (SMTP or PHP <code>mail()</code>) on most installs. The app uses it for
       <strong>Email report</strong> (one formatted message to an address you choose), <strong>Email members</strong>
@@ -232,7 +234,7 @@
     <h2 id="sender-opt-out">Sender.net Opt-Out (Scheduled Reminders)</h2>
     <p>
       If your club uses <strong>Sender.net</strong> for newsletters and member list management, configure
-      <strong>Administration → Installation → Sender.net (reminder opt-out)</strong>:
+      <strong>Administration → Installation → Email → Sender.net (reminder opt-out)</strong>:
     </p>
     <ul>
       <li><strong>API access token</strong> — from Sender → Settings → API access tokens. Used to ensure subscribers exist (lowercase email), check <strong>transactional (reminder)</strong> status, assign the members group, and send reminders via Sender’s API.</li>

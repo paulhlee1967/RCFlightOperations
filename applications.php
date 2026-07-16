@@ -9,7 +9,9 @@ require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/flash.php';
 require_once __DIR__ . '/includes/member_applications.php';
 require_once __DIR__ . '/includes/membership_application.php';
+require_once __DIR__ . '/includes/application_emails.php';
 require_once __DIR__ . '/includes/dues_helpers.php';
+require_once __DIR__ . '/includes/audit_log.php';
 
 requireLogin();
 if (!canEditMembers() && !canProcessMemberships()) {
@@ -72,6 +74,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if ($action === 'request_info' && $appId > 0) {
+        $infoMessage = trim((string) ($_POST['info_request_message'] ?? ''));
+        $result = application_request_info($pdo, $appId, $userId, $infoMessage);
+        if (!$result['ok']) {
+            flash($result['error'] ?? 'Could not send information request.', 'warning');
+        } elseif (!empty($result['duplicate'])) {
+            flash('That information request was already recorded.', 'info');
+        } else {
+            if (!empty($result['email_sent'])) {
+                flash('Information request saved and emailed to the applicant.', 'success');
+            } else {
+                flash('Information request saved, but the email could not be sent. Check SMTP settings and try again.', 'warning');
+            }
+        }
+
+        if ($result['ok']) {
+            audit_log($pdo, $userId, 'application_request_info', 'member_application', $appId, json_encode([
+                'duplicate'   => !empty($result['duplicate']),
+                'email_sent'  => !empty($result['email_sent']),
+                'request_id'  => $result['request_id'] ?? null,
+            ]));
+        }
+
+        header('Location: applications.php?id=' . $appId);
+        exit;
+    }
+
+    if ($action === 'retry_email' && $appId > 0) {
+        $emailType = trim((string) ($_POST['email_type'] ?? ''));
+        if ($emailType === 'received') {
+            application_email_send_received($pdo, $appId);
+            flash('Attempted to resend the application received email.', 'info');
+        } elseif ($emailType === 'approved') {
+            application_email_send_approved($pdo, $appId);
+            flash('Attempted to resend the application approved email.', 'info');
+        } else {
+            flash('Unknown email type.', 'warning');
+        }
+        header('Location: applications.php?id=' . $appId);
+        exit;
+    }
+
     if ($action === 'reject' && $appId > 0) {
         $reason = trim((string) ($_POST['rejection_reason'] ?? ''));
         $result = application_reject($pdo, $appId, $userId, $reason);
@@ -94,6 +138,9 @@ $breadcrumbs = [
 $application = null;
 $candidates  = [];
 $diff        = [];
+$infoRequestHistory = [];
+$receivedEmailStatus = null;
+$approvedEmailStatus = null;
 
 if ($viewId > 0) {
     $application = application_fetch($pdo, $viewId);
@@ -103,6 +150,9 @@ if ($viewId > 0) {
         exit;
     }
     $diff = application_member_diff($pdo, $application);
+    $infoRequestHistory = application_info_request_history($pdo, $viewId);
+    $receivedEmailStatus = application_email_delivery_status($pdo, $viewId, 'received');
+    $approvedEmailStatus = application_email_delivery_status($pdo, $viewId, 'approved');
     if ($application['match_confidence'] === 'ambiguous') {
         $match = member_match_find(
             $pdo,
@@ -372,6 +422,94 @@ render_page_header([
                     <?php endif; ?>
                 </div>
                 <?php endif; ?>
+
+                <?php if ($receivedEmailStatus !== null || $approvedEmailStatus !== null): ?>
+                <h2 class="h6">Applicant emails</h2>
+                <ul class="small mb-3">
+                    <?php if ($receivedEmailStatus !== null): ?>
+                    <li>
+                        Received confirmation:
+                        <?php if (($receivedEmailStatus['status'] ?? '') === 'sent'): ?>
+                        <span class="text-success">Sent</span>
+                        <?php if (!empty($receivedEmailStatus['sent_at'])): ?>
+                        · <?= h(date('M j, Y g:i A', strtotime((string) $receivedEmailStatus['sent_at']))) ?>
+                        <?php endif; ?>
+                        <?php elseif (($receivedEmailStatus['status'] ?? '') === 'failed'): ?>
+                        <span class="text-danger">Failed</span>
+                        <?php if (!empty($receivedEmailStatus['error_message'])): ?>
+                        — <?= h((string) $receivedEmailStatus['error_message']) ?>
+                        <?php endif; ?>
+                        <?php else: ?>
+                        <span class="text-muted">Pending</span>
+                        <?php endif; ?>
+                    </li>
+                    <?php endif; ?>
+                    <?php if ($approvedEmailStatus !== null): ?>
+                    <li>
+                        Approval notice:
+                        <?php if (($approvedEmailStatus['status'] ?? '') === 'sent'): ?>
+                        <span class="text-success">Sent</span>
+                        <?php if (!empty($approvedEmailStatus['sent_at'])): ?>
+                        · <?= h(date('M j, Y g:i A', strtotime((string) $approvedEmailStatus['sent_at']))) ?>
+                        <?php endif; ?>
+                        <?php elseif (($approvedEmailStatus['status'] ?? '') === 'failed'): ?>
+                        <span class="text-danger">Failed</span>
+                        <?php if (!empty($approvedEmailStatus['error_message'])): ?>
+                        — <?= h((string) $approvedEmailStatus['error_message']) ?>
+                        <?php endif; ?>
+                        <?php else: ?>
+                        <span class="text-muted">Pending</span>
+                        <?php endif; ?>
+                    </li>
+                    <?php endif; ?>
+                </ul>
+                <?php if (
+                    ($receivedEmailStatus['status'] ?? '') === 'failed'
+                    || ($approvedEmailStatus['status'] ?? '') === 'failed'
+                ): ?>
+                <form method="post" class="mb-3">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="application_id" value="<?= (int) $application['id'] ?>">
+                    <input type="hidden" name="action" value="retry_email">
+                    <div class="d-flex flex-wrap gap-2">
+                        <?php if (($receivedEmailStatus['status'] ?? '') === 'failed'): ?>
+                        <button type="submit" name="email_type" value="received" class="btn btn-outline-secondary btn-sm">Retry received email</button>
+                        <?php endif; ?>
+                        <?php if (($approvedEmailStatus['status'] ?? '') === 'failed'): ?>
+                        <button type="submit" name="email_type" value="approved" class="btn btn-outline-secondary btn-sm">Retry approval email</button>
+                        <?php endif; ?>
+                    </div>
+                </form>
+                <?php endif; ?>
+                <?php endif; ?>
+
+                <?php if (!empty($application['latest_info_request_message'])): ?>
+                <h2 class="h6">Latest information request</h2>
+                <div class="alert alert-warning py-2 small mb-3">
+                    <div class="mb-1"><?= nl2br(h((string) $application['latest_info_request_message'])) ?></div>
+                    <?php if (!empty($application['latest_info_request_at'])): ?>
+                    <div class="opacity-75 mb-0">Sent <?= h(date('M j, Y g:i A', strtotime((string) $application['latest_info_request_at']))) ?></div>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($infoRequestHistory)): ?>
+                <h2 class="h6">Information request history</h2>
+                <ul class="small mb-3">
+                    <?php foreach ($infoRequestHistory as $req): ?>
+                    <li class="mb-2">
+                        <div><?= nl2br(h((string) ($req['message'] ?? ''))) ?></div>
+                        <div class="text-muted">
+                            <?= !empty($req['requested_at']) ? h(date('M j, Y g:i A', strtotime((string) $req['requested_at']))) : '' ?>
+                            <?php if (!empty($req['requested_by_name'])): ?>
+                            · <?= h((string) $req['requested_by_name']) ?>
+                            <?php endif; ?>
+                        </div>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php endif; ?>
+
                 <div class="row g-3 mb-3">
                     <div class="col-sm-6">
                         <div class="text-muted small">Applicant</div>
@@ -654,7 +792,16 @@ render_page_header([
                         <?php if (application_can_approve($application['status'] ?? null)): ?>
                         <button type="submit" name="action" value="approve" class="btn btn-primary">Approve &amp; process</button>
                         <?php endif; ?>
+                        <button type="button" class="btn btn-outline-warning" data-bs-toggle="collapse" data-bs-target="#requestInfoPanel">Request information</button>
                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#rejectPanel">Reject</button>
+                    </div>
+
+                    <div class="collapse mt-3" id="requestInfoPanel">
+                        <label class="form-label" for="info_request_message">Message to applicant <span class="text-danger">*</span></label>
+                        <textarea class="form-control mb-2" id="info_request_message" name="info_request_message" rows="3"
+                                  placeholder="Describe what you need from the applicant…"></textarea>
+                        <p class="small text-muted mb-2">The application stays pending. The applicant receives a branded email with your message.</p>
+                        <button type="submit" name="action" value="request_info" class="btn btn-warning btn-sm">Send request</button>
                     </div>
 
                     <div class="collapse mt-3" id="rejectPanel">

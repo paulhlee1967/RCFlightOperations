@@ -14,6 +14,7 @@ require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit_log.php';
 require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/flash.php';
+require_once __DIR__ . '/includes/incident_photos.php';
 
 requireLogin();
 requireAdmin(); // Delete is admin-only to protect the safety record
@@ -43,6 +44,7 @@ if (!$incident) {
 // POST: confirmed delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['confirm'] ?? '') === '1') {
     csrf_validate();
+    incident_photos_delete_all($pdo, $incidentId);
     $pdo->prepare('DELETE FROM incidents WHERE id = ?')
         ->execute([$incidentId]);
     audit_log($pdo, $userId, 'incident_delete', 'incident', $incidentId,

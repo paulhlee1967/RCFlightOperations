@@ -1927,6 +1927,8 @@ function membership_application_finalize_submission(PDO $pdo, int $applicationId
         return false;
     }
     if (($app['status'] ?? '') === 'pending') {
+        require_once __DIR__ . '/application_emails.php';
+        application_email_send_received($pdo, $applicationId);
         return true;
     }
 
@@ -1946,7 +1948,8 @@ function membership_application_finalize_submission(PDO $pdo, int $applicationId
     ]);
 
     application_notify_new_submission($pdo, $applicationId);
-    membership_application_send_applicant_confirmation($pdo, $applicationId);
+    require_once __DIR__ . '/application_emails.php';
+    application_email_send_received($pdo, $applicationId);
 
     $app = application_fetch($pdo, $applicationId);
     if ($app !== null) {
@@ -1956,36 +1959,13 @@ function membership_application_finalize_submission(PDO $pdo, int $applicationId
     return true;
 }
 
+/**
+ * @deprecated Use application_email_send_received() in includes/application_emails.php
+ */
 function membership_application_send_applicant_confirmation(PDO $pdo, int $applicationId): void
 {
-    require_once __DIR__ . '/member_applications.php';
-    require_once __DIR__ . '/mail.php';
-    require_once __DIR__ . '/installation_config.php';
-
-    $app = application_fetch($pdo, $applicationId);
-    if ($app === null || empty($app['email'])) {
-        return;
-    }
-
-    $name = trim((string) $app['first_name']);
-    $total = isset($app['payment_total']) ? number_format((float) $app['payment_total'], 2) : '0.00';
-    $address = trim(implode(', ', array_filter([
-        $app['address_street'] ?? '',
-        $app['address_city'] ?? '',
-        $app['address_state'] ?? '',
-        $app['address_postal_code'] ?? '',
-    ])));
-
-    $subject = 'PVMAC membership application received';
-    $body = '<p>Hi ' . htmlspecialchars($name) . ',</p>'
-        . '<p>We received your membership application and will review it shortly.</p>'
-        . '<p><strong>Total paid:</strong> $' . htmlspecialchars($total) . '</p>'
-        . '<p><strong>Badge mailing address:</strong><br>' . nl2br(htmlspecialchars($address)) . '</p>'
-        . '<p>Thanks for applying,<br>PVMAC</p>';
-
-    $config = installation_load_system_config($pdo);
-    $mailConfig = installation_mail_config($pdo, $config);
-    send_mail((string) $app['email'], $subject, $body, strip_tags($body), $mailConfig);
+    require_once __DIR__ . '/application_emails.php';
+    application_email_send_received($pdo, $applicationId);
 }
 
 /**

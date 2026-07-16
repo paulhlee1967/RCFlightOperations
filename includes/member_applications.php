@@ -650,6 +650,16 @@ function application_approve(
 
     membership_application_sync_sender_email_preferences($pdo, $app, 'approve');
 
+    require_once __DIR__ . '/audit_log.php';
+    audit_log($pdo, $reviewedBy, 'application_approve', 'member_application', $applicationId, json_encode([
+        'member_id'    => $memberId,
+        'renewal_type' => $finalRenewalType,
+        'renewal_year' => $finalRenewalYear,
+    ]));
+
+    require_once __DIR__ . '/application_emails.php';
+    application_email_send_approved($pdo, $applicationId);
+
     return [
         'ok'             => true,
         'member_id'      => $memberId,
@@ -683,6 +693,11 @@ function application_reject(PDO $pdo, int $applicationId, int $reviewedBy, strin
         SET status = \'rejected\', reviewed_at = NOW(), reviewed_by = ?, rejection_reason = ?
         WHERE id = ?
     ')->execute([$reviewedBy, $reason !== '' ? $reason : null, $applicationId]);
+
+    require_once __DIR__ . '/audit_log.php';
+    audit_log($pdo, $reviewedBy, 'application_reject', 'member_application', $applicationId, json_encode([
+        'reason' => $reason !== '' ? $reason : null,
+    ]));
 
     return ['ok' => true, 'error' => null];
 }

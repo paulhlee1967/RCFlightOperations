@@ -45,6 +45,7 @@
     <a href="#export">Download CSV &amp; PDF</a>
     <a href="#email-snapshot">Email a Report</a>
     <a href="#email-members">Email Members (Cohort)</a>
+    <a href="#board-packet">Monthly Board Packet</a>
     <a href="#faq">FAQ</a>
     <hr class="sidebar-divider">
     <div class="sidebar-title">Other Docs</div>
@@ -356,6 +357,40 @@
     Membership Managers and Club Staff.
   </div>
 </div>
+
+<!-- ── Board packet ── -->
+<h2 id="board-packet">Monthly Board Packet</h2>
+<p>
+  The <strong>Board packet</strong> page (<code>board_packet.php</code>) compiles a one-click monthly
+  summary for directors: roster counts (summary only), renewal pipeline, current-year revenue, and
+  open safety incidents. It is linked from the Reports page sidebar and header.
+</p>
+<p>Anyone who can view reports may preview, download a branded PDF, or email the packet.</p>
+<h3>What is included</h3>
+<ul>
+  <li><strong>Roster snapshot</strong> — current member count, prior-year count, and change (no full roster or credential data).</li>
+  <li><strong>Renewal pipeline</strong> — compact summary for the working renewal year (prior-year members, renewed, not yet renewed, renewal rate) with a link to the full Not yet renewed report. No member name list.</li>
+  <li><strong>Revenue</strong> — payments for the current membership year only.</li>
+  <li><strong>Open incidents</strong> — incidents with status Open or Under review (date, type, severity, location, member, short description).</li>
+</ul>
+<p>
+  Counts use the same membership rules as the dashboard and individual reports. Sections that touch
+  historical years may show the standard data-accuracy footnote when configured in Installation.
+</p>
+<h3>Automatic email (cron)</h3>
+<p>
+  Administrators can enable automatic delivery under <strong>Administration → Installation → Board packet</strong>:
+  enable switch, send day (1–28), and explicit recipient addresses (validated on save; default disabled).
+</p>
+<p>Run the migration on existing sites before enabling:</p>
+<pre><code>mysql -u USER -p DBNAME &lt; scripts/migrate_board_packet.sql</code></pre>
+<p>Daily cron (sends once per calendar month on the configured day):</p>
+<pre><code>php /path/to/RCFlightOperations/scripts/send_board_packet.php</code></pre>
+<ul>
+  <li><code>--dry-run</code> — preview without sending or recording delivery.</li>
+  <li><code>--test-email=you@example.com</code> — send to one test address; does not use the monthly send slot.</li>
+  <li><code>--force</code> — bypass send-day and monthly idempotency (still requires enabled + recipients unless testing).</li>
+</ul>
 
 <!-- ── FAQ ── -->
 <h2 id="faq">FAQ</h2>

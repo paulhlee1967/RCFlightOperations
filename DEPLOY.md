@@ -83,6 +83,9 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_single_address.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_drop_comm_prefs.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_applications.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_email_opt_in.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_application_emails.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_board_packet.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_incident_photos.sql
 ```
 
 | Script | What it does |
@@ -92,6 +95,9 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_email_opt_in.sql
 | `migrate_drop_comm_prefs.sql` | Drops `allow_email` and `allow_postal` (opt-out lives in Sender.net or similar) |
 | `migrate_member_applications.sql` | Creates `member_applications` queue table |
 | `migrate_email_opt_in.sql` | Adds `email_opt_in_club_events` and `email_opt_in_expiry_reminders` to `member_applications` and `members` |
+| `migrate_application_emails.sql` | Adds applicant email delivery tracking and staff information-request history |
+| `migrate_board_packet.sql` | Creates `board_packet_deliveries` log table and board packet `system_config` keys |
+| `migrate_incident_photos.sql` | Creates `incident_photos` table for incident photo attachments |
 
 **Note:** If a member had multiple phones or addresses, only the preferred one is kept (same rules as local dev). Extra rows in the old tables are discarded when those tables are dropped — back up before migrating if you need to audit them.
 
@@ -179,6 +185,13 @@ After uploading files and importing the database:
    Use `--dry-run` to preview sends and opt-out skips. Use `--test-email=you@example.com` with optional `--test-limit=3` to sample templates. Use `--dump-sender-payload` to write the first Sender API body to `logs/sender_payload_dump.json` (token redacted).
 
    **Sender.net (recommended):** In **Administration → Installation**, set the Sender API token and **members group ID**. Set `canonical_host` (or `public_base_url`) in `config.php` so reminder emails include working logo and unsubscribe links. Reminders check **transactional** opt-out only — newsletter unsubscribes in Sender do not block reminders. Each reminder includes a signed link to `unsubscribe.php` for reminder-only opt-out.
+
+14. **Monthly board packet (cron, optional)**
+   After running `scripts/migrate_board_packet.sql`, enable automatic delivery in **Administration → Installation → Monthly board packet** (recipients, send day 1–28). Configure a **daily** cron job:
+   ```bash
+   php /path/to/RCFlightOperations/scripts/send_board_packet.php
+   ```
+   The script sends once per calendar month on the configured day. Use `--dry-run` to preview. Use `--test-email=you@example.com` to verify content without consuming the month's send slot. Use `--force` to bypass send-day and idempotency checks (still requires enabled + recipients unless testing).
 
 ---
 
