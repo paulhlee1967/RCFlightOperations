@@ -95,7 +95,7 @@ final class MemberPortalTest extends TestCase
     public function test_link_url_uses_public_base(): void
     {
         $url = member_portal_link_url('tok123', ['public_base_url' => 'https://club.example/flightops']);
-        $this->assertSame('https://club.example/flightops/my_link.php?token=tok123', $url);
+        $this->assertSame('https://club.example/flightops/membership_link.php?token=tok123', $url);
     }
 
     public function test_normalize_token_strips_email_junk(): void
@@ -104,6 +104,37 @@ final class MemberPortalTest extends TestCase
         $this->assertSame(
             'abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789',
             member_portal_normalize_token($raw)
+        );
+    }
+
+    public function test_format_change_lines_for_staff_email(): void
+    {
+        $lines = member_portal_format_change_lines([
+            'phone' => ['from' => '111', 'to' => '222'],
+            'photo_path' => ['from' => 'a.jpg', 'to' => 'b.jpg'],
+            'email_opt_in_club_events' => ['from' => 0, 'to' => 1],
+        ]);
+        $this->assertContains('Phone: 111 → 222', $lines);
+        $this->assertContains('Badge photo: updated', $lines);
+        $this->assertContains('Club event emails: no → yes', $lines);
+    }
+
+    public function test_request_page_url_uses_public_base(): void
+    {
+        $this->assertSame(
+            'https://club.example/flightops/membership.php',
+            member_portal_request_page_url(['public_base_url' => 'https://club.example/flightops'])
+        );
+    }
+
+    public function test_request_page_url_prefills_email(): void
+    {
+        $this->assertSame(
+            'https://club.example/flightops/membership.php?email=member%40club.org',
+            member_portal_request_page_url(
+                ['public_base_url' => 'https://club.example/flightops'],
+                'Member@Club.org'
+            )
         );
     }
 

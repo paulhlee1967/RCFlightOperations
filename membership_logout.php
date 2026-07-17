@@ -1,6 +1,6 @@
 <?php
 /**
- * my_logout.php — End the member portal session.
+ * membership_logout.php — End the member portal session.
  */
 
 require_once __DIR__ . '/includes/db.php';
@@ -11,5 +11,5 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 member_portal_session_clear();
-header('Location: my.php');
+header('Location: membership.php');
 exit;

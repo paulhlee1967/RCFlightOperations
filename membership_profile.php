@@ -1,6 +1,6 @@
 <?php
 /**
- * my_profile.php — Member self-service profile (magic-link session).
+ * membership_profile.php — Member self-service profile (magic-link session).
  */
 
 require_once __DIR__ . '/includes/db.php';
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             flash(implode(' ', array_values($result['errors'])), 'warning');
         }
-        header('Location: my_profile.php');
+        header('Location: membership_profile.php');
         exit;
     }
 }
@@ -37,7 +37,7 @@ $stmt->execute([$memberId]);
 $member = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$member || !empty($member['suspended'])) {
     member_portal_session_clear();
-    header('Location: my.php');
+    header('Location: membership.php');
     exit;
 }
 
@@ -106,7 +106,7 @@ $flash = getFlash();
                 <?= h(trim(($member['first_name'] ?? '') . ' ' . ($member['last_name'] ?? ''))) ?>
             </p>
         </div>
-        <a href="my_logout.php" class="btn btn-outline-secondary btn-sm">Sign out</a>
+        <a href="membership_logout.php" class="btn btn-outline-secondary btn-sm">Sign out</a>
     </div>
 
     <?php if ($flash): ?>
@@ -166,7 +166,7 @@ $flash = getFlash();
         </p>
     </section>
 
-    <form method="post" action="my_profile.php" enctype="multipart/form-data" id="member-portal-form">
+    <form method="post" action="membership_profile.php" enctype="multipart/form-data" id="member-portal-form">
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="save_profile">
         <input type="hidden" id="page_csrf_token" value="<?= h(csrf_token()) ?>">
@@ -178,7 +178,7 @@ $flash = getFlash();
                     <label class="form-label">Badge photo</label>
                     <?php if ($hasPhoto): ?>
                         <p class="mb-2">
-                            <img src="my_media.php?type=photo&amp;t=<?= time() ?>" alt="Badge photo"
+                            <img src="membership_media.php?type=photo&amp;t=<?= time() ?>" alt="Badge photo"
                                  class="img-thumbnail rounded d-block" style="max-width:140px;max-height:140px;object-fit:cover;">
                         </p>
                     <?php else: ?>
@@ -296,10 +296,10 @@ $flash = getFlash();
                                         <?php if ($hasFaaCard): ?>
                                             <div class="bg-white border rounded p-2">
                                                 <?php if ($faaIsImage): ?>
-                                                    <img src="my_media.php?type=faa&amp;t=<?= time() ?>" alt="FAA card"
+                                                    <img src="membership_media.php?type=faa&amp;t=<?= time() ?>" alt="FAA card"
                                                          class="img-fluid rounded d-block mx-auto" style="max-height:220px;object-fit:contain;">
                                                 <?php elseif ($faaIsPdf): ?>
-                                                    <iframe src="my_media.php?type=faa#toolbar=0" title="FAA card"
+                                                    <iframe src="membership_media.php?type=faa#toolbar=0" title="FAA card"
                                                             class="w-100 rounded border-0" style="height:220px;"></iframe>
                                                 <?php else: ?>
                                                     <p class="text-muted small mb-0 py-3 text-center">Card on file</p>
@@ -342,7 +342,7 @@ $flash = getFlash();
 
         <div class="d-flex flex-wrap gap-2 mb-4">
             <button type="submit" class="btn btn-primary">Save changes</button>
-            <a href="my_logout.php" class="btn btn-outline-secondary">Sign out</a>
+            <a href="membership_logout.php" class="btn btn-outline-secondary">Sign out</a>
         </div>
     </form>
 
@@ -372,5 +372,5 @@ $flash = getFlash();
     <?php endif; ?>
 </div>
 
-<script src="js/my_profile.js" defer></script>
+<script src="js/membership_profile.js" defer></script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

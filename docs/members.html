@@ -281,7 +281,14 @@
     <h2 id="self-service">Member Self-Service</h2>
     <p>
       Members do not get staff logins. Instead they use a passwordless
-      <strong>My Membership</strong> page at <code>/my.php</code> (also rewritten as <code>/my</code>).
+      <strong>Membership</strong> page at <code>/membership.php</code>
+      (pretty URL <code>/membership</code>).
+    </p>
+    <p>
+      Link this from your public club website the same way you link
+      <code>/apply.php</code> — for example “Update my membership info” →
+      <code>https://your-flightops-host/membership</code>. Keep the form in Flight Ops
+      (do not rebuild it inside WordPress); a simple outbound link is enough.
     </p>
     <ol>
       <li>The member enters the email address on their roster record.</li>
@@ -299,14 +306,20 @@
       Name, primary email, birthday, membership type/year, status flags, gate key, notes,
       and payment recording stay staff-only. Successful self-service saves write an
       <code>audit_log</code> entry (<code>member_self_update</code>, <code>user_id = 0</code>)
-      with a JSON summary of changed fields.
+      with a JSON summary of changed fields, and email the
+      <strong>Membership email</strong> under <strong>Administration → Installation → General</strong>
+      (falls back to Support email, then the first active admin user) so officers can review the change.
     </p>
     <p>
+      AMA/FAA expiry reminder emails include
+      <strong>Update club record after renewing</strong>, which opens the durable
+      <code>/membership</code> page (email prefilled). That page does <em>not</em> expire with the
+      reminder — the member requests a fresh one-hour magic link when they are ready.
       Officers can also click <strong>Send profile link</strong> on a member’s edit page
-      to email a fresh link. SMTP must be configured under
-      <strong>Administration → Installation → Email</strong>, and
-      <code>public_base_url</code> (or a correct request host) should be set so links in email resolve correctly.
-      Run <code>scripts/migrate_member_portal.sql</code> on existing installs.
+      (that staff-sent link <em>does</em> expire in about one hour).
+      SMTP must be configured under <strong>Administration → Installation → Email</strong>, and
+      <code>public_base_url</code> or <code>canonical_host</code> should be set so cron reminder
+      links resolve correctly. Run <code>scripts/migrate_member_portal.sql</code> on existing installs.
     </p>
 
     <!-- ── Delete ── -->

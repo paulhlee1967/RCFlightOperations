@@ -20,9 +20,9 @@
     RewriteRule ^apply/confirm/?$ apply_confirm.php [L,QSA]
 
     # Member self-service profile (magic link)
-    RewriteRule ^my/?$ my.php [L,QSA]
-    RewriteRule ^my/profile/?$ my_profile.php [L,QSA]
-    RewriteRule ^my/link/?$ my_link.php [L,QSA]
+    RewriteRule ^membership/?$ membership.php [L,QSA]
+    RewriteRule ^membership/profile/?$ membership_profile.php [L,QSA]
+    RewriteRule ^membership/link/?$ membership_link.php [L,QSA]
 </IfModule>
 
 # Disable directory listing.

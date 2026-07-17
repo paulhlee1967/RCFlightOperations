@@ -5,7 +5,7 @@
  * Urgent reminder: FAA drone registration expires in ~30 days.
  *
  * $vars: first_name, last_name, email, faa_number, faa_expiration,
- *        days_remaining, club_name
+ *        days_remaining, club_name, profile_update_url
  */
 
 require_once __DIR__ . '/email_layout.php';
@@ -18,6 +18,7 @@ $clubNameEsc   = htmlspecialchars($club_name      ?? 'RC Flight Operations');
 $theme         = emailTheme(['club_name' => $vars['club_name'] ?? 'RC Flight Operations'], $pdo ?? null);
 $btnBg         = $theme['color_primary_dark'];
 $btnText       = $theme['on_primary_dark'];
+require __DIR__ . '/reminder_profile_update_cta.php';
 
 $subject = ($club_name ?? 'RC Flight Operations')
     . ' – FAA expires in ' . $daysRemaining . ' days – renew soon';
@@ -27,15 +28,13 @@ $bodyText =
     . "Reminder: Your FAA registration ({$faaNumber}) expires on {$faaExpiration}.\n"
     . "That's only {$daysRemaining} days away — renew at https://faadronezone.faa.gov "
     . "to keep your registration current and stay legal to fly at the field.\n\n"
-    . "After renewing, please email membership@pvmac.com with your updated FAA registration number/expiration date and a copy of your new FAA card so we can update club records.\n\n"
-    . "Please do not reply to this address. If you need to contact the club, email info@pvmac.com.\n\n"
+    . "After renewing, update your club membership profile"
+    . $profileUpdatePlainSuffix
     . "— {$clubNameEsc}";
 
 $content = <<<HTML
-<!-- Greeting -->
 <p style="margin:0 0 20px;font-size:17px;font-weight:600;">Hi {$firstName},</p>
 
-<!-- Urgent alert card -->
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
        style="margin-bottom:24px;">
 <tr>
@@ -59,7 +58,6 @@ $content = <<<HTML
 </tr>
 </table>
 
-<!-- Details table -->
 <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
        style="margin-bottom:24px;border:1px solid #e8e0d4;border-radius:8px;overflow:hidden;">
 <tr style="background:#f9f6f1;">
@@ -79,13 +77,11 @@ $content = <<<HTML
   at the field</strong> to remain compliant.
 </p>
 <p style="margin:0 0 20px;line-height:1.7;">
-  Renewing is quick online. After you renew, please email
-  <a href="mailto:membership@pvmac.com" style="color:#6f7c3d;">membership@pvmac.com</a>
-  with your updated FAA registration number/expiration date and a copy of your new FAA card so we can update club records.
+  Renewing is quick online. After you renew, update your club record with the new
+  expiration date and upload your FAA card.
 </p>
 
-<!-- CTA button -->
-<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
 <tr>
   <td style="border-radius:6px;background:{$btnBg};">
     <a href="https://faadronezone.faa.gov"
@@ -96,7 +92,7 @@ $content = <<<HTML
   </td>
 </tr>
 </table>
-
+{$profileUpdateCtaHtml}
 <p style="margin:0;font-size:13px;color:#9e8f7e;line-height:1.6;">
   Questions about FAA registration? Visit
   <a href="https://faadronezone.faa.gov" style="color:#6f7c3d;">faadronezone.faa.gov</a>
@@ -105,4 +101,3 @@ $content = <<<HTML
 HTML;
 
 $bodyHtml = emailWrap($content, emailWrapVarsFromTemplate($vars), $pdo ?? null);
-

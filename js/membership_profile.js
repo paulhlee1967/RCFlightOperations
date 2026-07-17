@@ -1,5 +1,5 @@
 /**
- * js/my_profile.js — AMA status badge + verify on member portal profile.
+ * js/membership_profile.js — AMA status badge + verify on member portal profile.
  */
 (function () {
     'use strict';

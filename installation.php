@@ -282,6 +282,10 @@ $bpDay = isset($configRows['board_packet_send_day'])
                             <label class="form-label" for="membership_email">Membership email</label>
                             <input type="email" class="form-control" id="membership_email" name="membership_email"
                                    value="<?= h($configRows['membership_email'] ?? '') ?>">
+                            <div class="form-text">
+                                New application notices and member self-service profile-update alerts go here.
+                                Falls back to Support email, then the first active admin user, if blank.
+                            </div>
                             <div class="form-text">New application notifications are sent here. If blank, support email is used.</div>
                         </div>
                         <div class="col-md-6">

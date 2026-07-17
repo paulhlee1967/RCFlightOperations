@@ -1,6 +1,6 @@
 <?php
 /**
- * my_link.php — Redeem a one-time magic link and open the member profile.
+ * membership_link.php — Redeem a one-time magic link and open the member profile.
  */
 
 require_once __DIR__ . '/includes/db.php';
@@ -18,7 +18,7 @@ $result = member_portal_redeem_token(
 );
 
 if ($result['ok']) {
-    header('Location: my_profile.php');
+    header('Location: membership_profile.php');
     exit;
 }
 
@@ -36,7 +36,7 @@ require_once __DIR__ . '/includes/header.php';
                 <h1 class="h4 mb-3">Access link problem</h1>
                 <div class="alert alert-danger"><?= h($error) ?></div>
                 <p class="mb-0">
-                    <a href="my.php" class="btn btn-primary">Request a new link</a>
+                    <a href="membership.php" class="btn btn-primary">Request a new link</a>
                 </p>
             </div>
         </div>

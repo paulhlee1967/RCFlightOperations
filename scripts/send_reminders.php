@@ -107,6 +107,7 @@ try {
     require $baseDir . '/includes/email_templates.php';
     require $baseDir . '/includes/installation_config.php';
     require $baseDir . '/includes/sender_net.php';
+    require $baseDir . '/includes/member_portal.php';
     require $baseDir . '/templates/email/email_layout.php';
 } catch (Throwable $e) {
     send_reminders_out('Bootstrap failed: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine(), true);
@@ -315,6 +316,16 @@ function send_reminder_message(
     }
 
     try {
+        // One-click profile update for AMA/FAA date/card after renewing externally.
+        // Skip persisting tokens on dry-run so we do not consume magic links.
+        member_portal_attach_profile_update_vars(
+            $pdo,
+            $member,
+            $vars,
+            $appConfig,
+            !$dryRun
+        );
+
         $data = render_email_template($templateKey, $vars, $pdo);
         $text = $data['text'];
         $unsubUrl = trim((string) ($vars['unsubscribe_url'] ?? ''));

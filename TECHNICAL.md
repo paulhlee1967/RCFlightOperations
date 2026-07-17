@@ -92,8 +92,8 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **member_wizard_styles.php** | Inline CSS for wizard stepper (included by `member_wizard.php` and `member_process.php?wizard=1`). |
 | **member_match.php** | Duplicate member detection (AMA + tiered name/email/birthday). Used by CSV import and online applications. |
 | **member_import_helpers.php** | Shared `parseDateForDb()`, `normalizeMembershipTypeSlot()`, `normalizeBool()` for import and applications. |
+| **member_portal.php** | Passwordless member self-service: magic-link create/redeem, member session, allowlisted profile save + audit log + membership-email staff notify. Used by `membership.php`, `membership_link.php`, `membership_profile.php`. |
 | **membership_application.php** | Public `apply.php` flow: AMA gate, club-record prefill, renewal eligibility, dues quote, Stripe payment, file uploads, optional email opt-in checkboxes, complimentary invite redemption, confirmation tokens, Sender preference sync on submit. |
-| **member_portal.php** | Passwordless member self-service: magic-link create/redeem, member session, allowlisted profile save + audit log. Used by `my.php`, `my_link.php`, `my_profile.php`. |
 | **member_applications.php** | Staff review queue: list filters, payment breakdown, approve/reject into member records, email opt-in copy to `members`, Sender sync on approve, notifications. |
 | **membership_comp_invites.php** | Complimentary invite CRUD, matching (email/AMA), redeem on apply submit, apply flags to member on approve. |
 | **member_sender_status.php** | Read-only Sender.net campaign/transactional status panel for the member contact tab. |
@@ -130,7 +130,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **import.php** | CSV import: upload, column mapping, preview, insert/update members (and optional payment rows). |
 | **applications.php** | Online membership application review queue: status tabs, renewal-year filter, search, pagination, detail/diff, payment breakdown, email preferences, approve (upsert member, copy uploads, → `member_process.php`), reject. |
 | **apply.php** / **apply_confirm.php** | Public membership application: AMA gate, club-record prefill, Stripe quote/pay, email opt-in, uploads, confirmation. |
-| **my.php** / **my_link.php** / **my_profile.php** | Member self-service: request magic link, redeem token, edit allowlisted profile fields (AMA verify, uploads, email prefs). |
+| **membership.php** / **membership_link.php** / **membership_profile.php** | Member self-service: request magic link, redeem token, edit allowlisted profile fields (AMA verify, uploads, email prefs). |
 | **comp_invites.php** | Staff complimentary membership invites (create, cancel, filter open/redeemed). |
 | **api_stripe_webhook.php** | Stripe `payment_intent.succeeded` webhook; finalizes paid applications. |
 | **export.php** / **export_options.php** | CSV export (full, short, email-only); filters by year/renewal status. **`export.php` is POST + CSRF only** (forms in the UI and `export_options.php`). |

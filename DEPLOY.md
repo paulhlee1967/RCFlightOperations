@@ -202,13 +202,13 @@ After uploading files and importing the database:
    The script sends once per calendar month on the configured day. Use `--dry-run` to preview. Use `--test-email=you@example.com` to verify content without consuming the month's send slot. Use `--force` to bypass send-day and idempotency checks (still requires enabled + recipients unless testing).
 
 15. **Member self-service portal (optional)**
-   After running `scripts/migrate_member_portal.sql`, members can request a magic link at `/my.php` (or `/my`). SMTP must work, and email links should resolve via the current host or `public_base_url` / `canonical_host` in `config.php`. Officers can also **Send profile link** from a member’s edit page.
+   After running `scripts/migrate_member_portal.sql`, members can request a magic link at `/membership.php` (or `/membership`). SMTP must work, and email links should resolve via the current host or `public_base_url` / `canonical_host` in `config.php`. Officers can also **Send profile link** from a member’s edit page. Set **Membership email** under Installation → General so profile self-updates notify the membership director. You can link to `/membership` from the public club website (same pattern as `/apply`).
 
 ---
 
 ## Quick reference
 
 - **Login URL:** `https://yourdomain.com/yourfolder/login.php` (or document root).
-- **Member profile:** `https://yourdomain.com/yourfolder/my.php`.
+- **Member profile:** `https://yourdomain.com/yourfolder/membership.php` (or `/membership`).
 - **Installation (admin):** after logging in as admin, **Administration → Installation** — SMTP, Sender.net reminder opt-out, maintenance mode, health, etc.
 - **Do not commit:** `config.php`, `export_for_cpanel.sql`, `.env`, or uploaded files under `uploads/` (see [.gitignore](.gitignore)). Note: `uploads/.htaccess` is included for hardening.

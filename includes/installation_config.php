@@ -162,17 +162,41 @@ function reports_accurate_from_year(PDO $pdo): int {
 }
 
 /**
- * Inbox for new membership application staff notifications.
- * Uses membership_email when set; otherwise falls back to support_email.
+ * Inbox for membership staff notifications (new applications, member self-updates).
+ * Prefers membership_email, then support_email, then the first active admin user email.
+ *
+ * @param array<string, string> $sysConfig
+ * @param PDO|null $pdo When set, used for admin-user fallback
  */
-function application_notify_recipient_email(array $sysConfig): string
+function application_notify_recipient_email(array $sysConfig, ?PDO $pdo = null): string
 {
     $membership = trim((string) ($sysConfig['membership_email'] ?? ''));
-    if ($membership !== '') {
+    if ($membership !== '' && filter_var($membership, FILTER_VALIDATE_EMAIL)) {
         return $membership;
     }
 
-    return trim((string) ($sysConfig['support_email'] ?? ''));
+    $support = trim((string) ($sysConfig['support_email'] ?? ''));
+    if ($support !== '' && filter_var($support, FILTER_VALIDATE_EMAIL)) {
+        return $support;
+    }
+
+    if ($pdo instanceof PDO) {
+        try {
+            $email = $pdo->query(
+                'SELECT email FROM users
+                 WHERE role = \'admin\' AND COALESCE(active, 1) = 1 AND email != \'\'
+                 ORDER BY id ASC
+                 LIMIT 1'
+            )->fetchColumn();
+            $email = trim((string) $email);
+            if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return $email;
+            }
+        } catch (Throwable $e) {
+        }
+    }
+
+    return '';
 }
 
 /** Whether automatic monthly board packet email is enabled. Default false. */

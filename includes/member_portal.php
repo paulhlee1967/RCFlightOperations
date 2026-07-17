@@ -117,8 +117,11 @@ function member_portal_create_magic_link(
     $tokenHash = member_portal_hash_token($token);
 
     try {
-        $pdo->prepare('DELETE FROM member_magic_links WHERE member_id = ? AND used_at IS NULL')
-            ->execute([$memberId]);
+        // Keep other unused tokens valid (e.g. AMA + FAA reminder emails the same week).
+        $pdo->prepare(
+            'DELETE FROM member_magic_links
+             WHERE member_id = ? AND (expires_at < NOW() OR used_at IS NOT NULL)'
+        )->execute([$memberId]);
         $pdo->prepare(
             'INSERT INTO member_magic_links (member_id, token_hash, expires_at, requested_ip)
              VALUES (?, ?, DATE_ADD(NOW(), INTERVAL ? MINUTE), ?)'
@@ -152,7 +155,7 @@ function member_portal_link_url(string $token, ?array $config = null): ?string
             $basePath = '';
         }
 
-        return $scheme . '://' . $httpHost . $basePath . '/my_link.php?token=' . rawurlencode($token);
+        return $scheme . '://' . $httpHost . $basePath . '/membership_link.php?token=' . rawurlencode($token);
     }
 
     $base = email_public_base_url($config);
@@ -160,7 +163,7 @@ function member_portal_link_url(string $token, ?array $config = null): ?string
         return null;
     }
 
-    return $base . '/my_link.php?token=' . rawurlencode($token);
+    return $base . '/membership_link.php?token=' . rawurlencode($token);
 }
 
 /**
@@ -438,13 +441,13 @@ function member_portal_current_member_id(): int
 }
 
 /**
- * Require an active member portal session; redirect to my.php when missing.
+ * Require an active member portal session; redirect to membership.php when missing.
  */
 function member_portal_require_member(): int
 {
     $id = member_portal_current_member_id();
     if ($id <= 0) {
-        header('Location: my.php');
+        header('Location: membership.php');
         exit;
     }
 
@@ -666,9 +669,216 @@ function member_portal_save(PDO $pdo, int $memberId, array $post, array $files =
             $detail = substr($detail, 0, 997) . '...';
         }
         audit_log($pdo, 0, 'member_self_update', 'member', $memberId, $detail);
+        member_portal_notify_staff_of_self_update($pdo, $memberId, $before, $diff);
     }
 
     return ['ok' => true, 'errors' => [], 'changed' => $diff];
+}
+
+/**
+ * Public landing URL for requesting a membership profile link (no token).
+ * Optionally prefill the email query string for reminder emails.
+ */
+function member_portal_request_page_url(?array $config = null, string $email = ''): ?string
+{
+    $email = normalize_email($email);
+    $query = ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL))
+        ? ('?email=' . rawurlencode($email))
+        : '';
+
+    if (PHP_SAPI !== 'cli' && !empty($_SERVER['HTTP_HOST'])) {
+        if ($config === null) {
+            $cf = dirname(__DIR__) . '/config.php';
+            $config = is_file($cf) ? require $cf : [];
+        }
+        require_once __DIR__ . '/session_ini.php';
+        $scheme = flightops_request_scheme(is_array($config) ? $config : []);
+        $httpHost = (string) $_SERVER['HTTP_HOST'];
+        $basePath = rtrim(dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '')), '/');
+        if ($basePath === '/' || $basePath === '\\') {
+            $basePath = '';
+        }
+
+        return $scheme . '://' . $httpHost . $basePath . '/membership.php' . $query;
+    }
+
+    $base = email_public_base_url($config);
+    if ($base === null) {
+        return null;
+    }
+
+    return $base . '/membership.php' . $query;
+}
+
+/**
+ * Profile-update URL for reminder emails: durable /membership page (email prefilled).
+ * Does not create a short-lived magic link — reminders may be opened days later.
+ *
+ * @return array{url:?string, is_magic:bool}
+ */
+function member_portal_profile_update_url_for_member(
+    PDO $pdo,
+    int $memberId,
+    ?array $config = null,
+    bool $persistToken = true
+): array {
+    unset($persistToken); // Reminders intentionally use the durable request page.
+    $email = '';
+    if ($memberId > 0) {
+        try {
+            $stmt = $pdo->prepare('SELECT email FROM members WHERE id = ? LIMIT 1');
+            $stmt->execute([$memberId]);
+            $email = normalize_email((string) ($stmt->fetchColumn() ?: ''));
+        } catch (Throwable $e) {
+        }
+    }
+
+    return [
+        'url' => member_portal_request_page_url($config, $email),
+        'is_magic' => false,
+    ];
+}
+
+/**
+ * Attach profile_update_url to reminder template vars (durable membership portal link).
+ *
+ * @param array<string, mixed> $member
+ * @param array<string, mixed> $vars
+ * @param array<string, mixed>|null $config
+ */
+function member_portal_attach_profile_update_vars(
+    PDO $pdo,
+    array $member,
+    array &$vars,
+    ?array $config = null,
+    bool $persistToken = true
+): void {
+    $memberId = (int) ($member['id'] ?? 0);
+    // Prefer email already on the member row (avoids an extra query when present).
+    $email = normalize_email((string) ($member['email'] ?? ''));
+    if ($email !== '') {
+        $vars['profile_update_url'] = member_portal_request_page_url($config, $email) ?? '';
+        $vars['profile_update_is_magic'] = false;
+        return;
+    }
+    $link = member_portal_profile_update_url_for_member($pdo, $memberId, $config, $persistToken);
+    $vars['profile_update_url'] = $link['url'] ?? '';
+    $vars['profile_update_is_magic'] = false;
+}
+
+/**
+ * Human-readable labels for allowlisted portal fields (staff notification email).
+ *
+ * @return array<string, string>
+ */
+function member_portal_field_labels(): array
+{
+    return [
+        'phone' => 'Phone',
+        'address_street' => 'Street',
+        'address_street2' => 'Street 2',
+        'address_city' => 'City',
+        'address_state' => 'State',
+        'address_postal_code' => 'Postal code',
+        'emergency_contact_name' => 'Emergency contact name',
+        'emergency_contact_relationship' => 'Emergency contact relationship',
+        'emergency_contact_phone' => 'Emergency contact phone',
+        'ama_number' => 'AMA number',
+        'ama_expiration' => 'AMA expiration',
+        'ama_life_member' => 'AMA life member',
+        'faa_number' => 'FAA number',
+        'faa_expiration' => 'FAA expiration',
+        'email_opt_in_club_events' => 'Club event emails',
+        'email_opt_in_expiry_reminders' => 'Expiry reminder emails',
+        'photo_path' => 'Badge photo',
+        'faa_card_path' => 'FAA card',
+    ];
+}
+
+/**
+ * Format a change diff for staff email (plain text lines).
+ *
+ * @param array<string, array{from:mixed, to:mixed}> $diff
+ * @return list<string>
+ */
+function member_portal_format_change_lines(array $diff): array
+{
+    $labels = member_portal_field_labels();
+    $lines = [];
+    foreach ($diff as $field => $change) {
+        $label = $labels[$field] ?? $field;
+        $from = $change['from'] ?? null;
+        $to = $change['to'] ?? null;
+        if (in_array($field, ['photo_path', 'faa_card_path'], true)) {
+            $lines[] = $label . ': updated';
+            continue;
+        }
+        if (in_array($field, ['ama_life_member', 'email_opt_in_club_events', 'email_opt_in_expiry_reminders'], true)) {
+            $fromLabel = ((string) $from === '1' || $from === 1) ? 'yes' : 'no';
+            $toLabel = ((string) $to === '1' || $to === 1) ? 'yes' : 'no';
+            $lines[] = $label . ': ' . $fromLabel . ' → ' . $toLabel;
+            continue;
+        }
+        $fromDisp = ($from === null || $from === '') ? '(empty)' : (string) $from;
+        $toDisp = ($to === null || $to === '') ? '(empty)' : (string) $to;
+        $lines[] = $label . ': ' . $fromDisp . ' → ' . $toDisp;
+    }
+
+    return $lines;
+}
+
+/**
+ * Email the membership director when a member updates their own profile.
+ *
+ * @param array<string, mixed> $before
+ * @param array<string, array{from:mixed, to:mixed}> $diff
+ */
+function member_portal_notify_staff_of_self_update(PDO $pdo, int $memberId, array $before, array $diff): void
+{
+    if ($diff === []) {
+        return;
+    }
+
+    $sysConfig = installation_load_system_config($pdo);
+    $to = application_notify_recipient_email($sysConfig, $pdo);
+    if ($to === '' || !filter_var($to, FILTER_VALIDATE_EMAIL)) {
+        return;
+    }
+
+    $name = trim((string) (($before['first_name'] ?? '') . ' ' . ($before['last_name'] ?? '')));
+    if ($name === '') {
+        $name = 'Member #' . $memberId;
+    }
+    $memberEmail = trim((string) ($before['email'] ?? ''));
+    $clubName = member_portal_club_name($pdo);
+    $lines = member_portal_format_change_lines($diff);
+    $editUrl = null;
+    $base = email_public_base_url();
+    if ($base !== null) {
+        $editUrl = $base . '/member_edit.php?id=' . $memberId;
+    }
+
+    try {
+        $rendered = render_email_template('member_portal_staff_notify', [
+            'club_name'     => $clubName,
+            'member_name'   => $name,
+            'member_email'  => $memberEmail,
+            'member_id'     => $memberId,
+            'change_lines'  => $lines,
+            'edit_url'      => $editUrl ?? '',
+            'eyebrow'       => 'Member self-service',
+        ], $pdo);
+        $mailCfg = installation_mail_config($pdo);
+        send_mail(
+            $to,
+            $rendered['subject'],
+            $rendered['html'],
+            $rendered['text'] ?? strip_tags($rendered['html']),
+            $mailCfg
+        );
+    } catch (Throwable $e) {
+        error_log('member_portal_notify_staff_of_self_update failed: ' . $e->getMessage());
+    }
 }
 
 /**

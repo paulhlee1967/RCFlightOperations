@@ -411,7 +411,7 @@ function application_notify_new_submission(PDO $pdo, int $applicationId): void
     }
 
     $config = installation_load_system_config($pdo);
-    $to = application_notify_recipient_email($config);
+    $to = application_notify_recipient_email($config, $pdo);
     if ($to === '') {
         return;
     }
