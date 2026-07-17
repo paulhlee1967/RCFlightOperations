@@ -1,41 +1,51 @@
 # RC Flight Operations – Plan & architecture
 
-LAMP app for club membership. **Source of truth:** `schema_full.sql` and the codebase.
+LAMP app for club membership. **Source of truth:** `schema_full.sql` and the codebase. For file-level detail see [TECHNICAL.md](TECHNICAL.md); for release history see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
 ## What the app does
 
 - **Single-club deployment:** One database per installation; branding and settings live in the **`club`** table (one row, typically `id = 1`).
-- **Members:** CRUD with Contact (single phone, single mailing address, photo, emergency contact), Compliance (AMA/FAA, verify AMA), Membership (type slot, renewal year, gate key, life/free/inactive/suspended), Payment history.
-- **Record signup/renewal:** On-time, late, or new prorated; configurable dues; complementary option; optional free membership / life member flag.
-- **Badge design & print:** CR80 card designer (Fabric.js): front (background, text fields, photo) and back (HTML). Multiple named designs per club; per-design backgrounds. Print front and/or back as separate jobs; front/back orientation independent. Shared Fabric helpers in `js/badge_fabric.js`.
-- **Reports:** Ten built-in reports — membership by year, incidents by year/type, retention & churn, type mix, not yet renewed, revenue, AMA/FAA compliance, birthdays this week, missing member data, and possible duplicate members — built on per-year membership history (`member_membership_years`, `payments`, `member_fulfillments`). Export CSV/PDF; email members with an address on file or a snapshot to a board address.
-- **Incidents:** Safety / field incident log (optional workflow for AMA or club records).
-- **Import/export:** CSV import for members; CSV/PDF export.
-- **Admin:** Users (roles: administrator, membership manager, club staff, report viewer), club config (General, Design: logo, favicon, colors), audit log viewer, **Installation** (SMTP, maintenance, health).
+- **Members:** CRUD with Contact (phone, mailing address, photo, emergency contact), Compliance (AMA/FAA, verify AMA), Membership (type slot, renewal year, gate key, life/free/inactive/suspended), Payment history, Sender.net email preference status when configured.
+- **New member wizard:** Guided signup (contact → compliance → membership → first payment → print & mail).
+- **Record signup/renewal:** On-time, late, or new prorated; configurable dues; complimentary option; optional free membership / life member flag. Staff ledger is for cash/check; online applicants pay via Stripe on `/apply.php`.
+- **Online applications:** Public form at `/apply.php` (AMA gate, club-record prefill, Stripe, email opt-in, complimentary invites); staff review in **Applications** with status emails.
+- **Member self-service:** Passwordless `/membership` magic-link profile for contact, AMA/FAA, uploads, and email prefs.
+- **Badge design & print:** CR80 card designer (Fabric.js): front (background, text fields, photo) and back (HTML). Multiple named designs; print front and/or back as separate jobs.
+- **Reports:** Built-in membership, retention, revenue, compliance, and related reports — on screen, CSV, branded PDF, or email. Monthly **board packet** (HTML/PDF) via Installation settings or cron.
+- **Incidents:** Safety / field incident log with optional photo attachments.
+- **Import/export:** CSV import for members; filter-aware CSV/PDF export.
+- **Admin:** Users (roles: administrator, membership manager, club staff, report viewer), club config, complimentary invites, audit log, **Installation** (SMTP, Stripe, Sender, applications, board packet, maintenance, health).
 
 ---
 
-## Data model
+## Data model (core)
 
-- **club** – Single row for the installation: `name`, `logo_path`, `favicon_path`, `color_*`, membership type labels, etc. Dues amounts live in **`dues_rules`** (per slot).
-- **users** – App logins. `email` (unique), `password_hash`, `name`, `role`, `active`.
-- **members** – One per person. Identity, contact (`phone`, `address_*`, emergency contact), `date_joined`, `membership_type_slot`, `membership_renewal_year`, `gate_key_number`, `badge_printed_at`, AMA/FAA, flags (inactive, suspended, life_member, free_membership).
-- **payments** – paid_at, year, amount_dues, amount_initiation, amount_late_fee, comp. Erroneous rows are hard-deleted (the action is recorded in `audit_log`).
-- **member_fulfillments** – One row per member per year: `renewal_type` (new/on_time/late/complementary), processed_at/by, card/mailer printed timestamps.
-- **member_membership_years** – Frozen per-year roster: who was a current member each calendar year. Append-only history that survives renewal-year overwrites; the basis for accurate year-over-year reporting.
-- **dues_rules** – Per membership type slot (1–4): `annual_dues`, `prorated_dues`, `initiation_fee`, prorate window months. Configured under Administration → Configuration → **Membership & Dues**.
-- **badge_templates** – JSON (canvas, background, orientation, backOrientation, backHtml).
-- **incidents** – Date, location, type, severity, status, optional linked member, description, AMA reporting fields.
+- **club** – Single row: name, branding, membership type labels. Dues live in **`dues_rules`** (per slot).
+- **users** – App logins: email, password_hash, name, role, active.
+- **members** – Identity, contact, membership fields, AMA/FAA, flags, email opt-in columns.
+- **payments** / **member_fulfillments** / **member_membership_years** – Ledger, per-year fulfillment, frozen year roster for reporting.
+- **member_applications** / **membership_comp_invites** – Public apply queue and complimentary invites.
+- **member_magic_links** – One-time tokens for member self-service.
+- **badge_templates** – JSON canvas designs.
+- **incidents** / **incident_photos** – Incident log and attachments.
+- **board_packet_deliveries** – Board packet send log (plus related `system_config` keys).
+- **rate_limit_events** – IP rate-limit counters for public/API endpoints.
 
 ---
 
 ## Tech stack
 
-- PHP 8.x, MySQL/MariaDB, Apache (or PHP built-in server for local). PDO.
+- PHP 8.2+, MySQL/MariaDB, Apache (or PHP built-in server for local). PDO.
 - UI: HTML, Bootstrap 5 (vendored in `assets/vendor/`), server-rendered; Fabric.js for badge designer; no front-end framework.
-- Composer: [dompdf](https://github.com/dompdf/dompdf) (PDF export), [PHPMailer](https://github.com/PHPMailer/PHPMailer) (SMTP / club and report email). Dev: PHPUnit (`composer test`).
+- Composer: [dompdf](https://github.com/dompdf/dompdf) (PDF), [PHPMailer](https://github.com/PHPMailer/PHPMailer) (email), [stripe/stripe-php](https://github.com/stripe/stripe-php) (apply payments). Dev: PHPUnit (`composer test`).
+
+---
+
+## Schema changes for existing installs
+
+Update `schema_full.sql`, add an idempotent `scripts/migrate_*.sql`, document it in [DEPLOY.md](DEPLOY.md), and extend `scripts/verify_db.php`. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 

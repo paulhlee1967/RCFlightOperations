@@ -2,50 +2,46 @@
 # RC Flight Operations — production server ignore rules (cPanel)
 # =============================================================================
 #
-# This file is for your LIVE server only. Do not replace the repo's .gitignore
-# in your development checkout — that one stays as-is.
+# Purpose: protect LIVE, untracked files on the server (config, uploads, logs,
+# vendor). This does NOT control what `git pull` downloads — tracked app code
+# (including docs/, tests/, .github/, markdown) still updates from GitHub.
+# That is intentional: docs/ is part of the production Help UI.
 #
-# SETUP (once on the server, after cloning):
+# Do not use this file in your development checkout. Dev uses .gitignore.
 #
-#   Option A — recommended (keeps dev .gitignore from the repo untouched):
-#     git config core.excludesfile /full/path/to/RCFlightOperations/.gitignore.production
+# ONE-TIME SETUP on the server (after clone):
 #
-#   Option B — use this file as the repo .gitignore:
-#     cp .gitignore.production .gitignore
-#     git update-index --skip-worktree .gitignore
+#   git config core.excludesfile /full/path/to/RCFlightOperations/.gitignore.production
+#   cp config.php.example config.php   # edit DB credentials, etc.
+#   git update-index --skip-worktree config.php
+#   composer install --no-dev
 #
-#   Then create config.php from config.php.example and run:
-#     composer install --no-dev
+# EACH UPDATE:
 #
-# IMPORTANT — git pull behavior:
-#   .gitignore only affects untracked files. Tracked dev files (tests/, docs/,
-#   .github/, etc.) will still be downloaded on `git pull`.
+#   git pull origin main
+#   composer install --no-dev          # when composer.lock changed
+#   # run any new scripts/migrate_*.sql from DEPLOY.md if needed
+#   php scripts/verify_db.php          # optional
 #
-#   To avoid pulling dev-only paths, use sparse-checkout (once):
-#     git sparse-checkout init --no-cone
-#     git sparse-checkout set \
-#       '/*' \
-#       '/includes/' '/js/' '/assets/' '/templates/' '/scripts/' '/logs/' '/uploads/' \
-#       '!/tests/' '!/docs/' '!/.github/'
-#
-#   Protect server-only config.php from ever being committed:
-#     git update-index --skip-worktree config.php
+# Optional (Option B): copy this file over .gitignore and
+#   git update-index --skip-worktree .gitignore
+# Prefer Option A (core.excludesfile) so the repo's .gitignore stays intact.
 #
 # =============================================================================
 
-# ── Server secrets and local config (never sync from git) ───────────────────
+# ── Server secrets and local config ───────────────────────────────────────────
 
 /config.php
 .env
 .env.local
 .env.*.local
 
-# ── Composer (install on server with: composer install --no-dev) ──────────────
+# ── Composer (install on server: composer install --no-dev) ────────────────────
 
 /vendor/
 composer.phar
 
-# ── User uploads and runtime data (live on server only) ───────────────────────
+# ── User uploads (live data; keep Apache uploads/.htaccess from the repo) ─────
 
 uploads/*
 !uploads/.htaccess
@@ -54,40 +50,18 @@ uploads/.ama_verify_cache.json
 # Legacy photo directory (removed in v1.5)
 pics/
 
-# Logs and temp files
+# ── Logs and temp ─────────────────────────────────────────────────────────────
+
 logs/*
 !logs/.htaccess
 !logs/.gitignore
 *.log
 .phpunit.cache/
 
-# Database dumps (export locally or on server — never commit)
+# ── Database dumps (never commit from the server) ─────────────────────────────
+
 export_for_cpanel.sql
 *.sql.gz
-
-# ── Development and CI (not needed to run the app) ───────────────────────────
-
-/tests/
-phpunit.xml
-
-/.github/
-
-# Static HTML documentation site (served from /docs/ in dev; not used in prod)
-/docs/
-
-# Project planning, contributing, and local-dev guides
-LOCAL_DEV.md
-PLAN.md
-CONTRIBUTING.md
-START_HERE.md
-
-# Release notes and deep technical write-ups (optional on server)
-CHANGELOG.md
-TECHNICAL.md
-README.md
-SECURITY.md
-LICENSE
-THIRD_PARTY_LICENSES.md
 
 # ── OS, editors, and accidental deploy artifacts ──────────────────────────────
 

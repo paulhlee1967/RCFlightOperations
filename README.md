@@ -30,7 +30,7 @@ End-user help lives in **[docs/](docs/)** (also linked from the app as **Help & 
 
 ## Tech stack
 
-PHP 8.x, MySQL/MariaDB, Bootstrap 5 (vendored under `assets/vendor/`). No application framework. Composer: **dompdf** (PDF export), **PHPMailer** (email), **PHPUnit** (dev tests — `composer test`).
+PHP 8.2+, MySQL/MariaDB, Bootstrap 5 (vendored under `assets/vendor/`). No application framework. Composer: **dompdf** (PDF export), **PHPMailer** (email), **stripe/stripe-php** (online apply payments), **PHPUnit** (dev tests — `composer test`).
 
 ## License
 

@@ -24,7 +24,10 @@ Thumbs.db
 # Database dump (used when migrating test data to cPanel – do not commit)
 export_for_cpanel.sql
 
-# Logs and temp
+# Logs and temp (keep logs/.htaccess and logs/.gitignore tracked)
+logs/*
+!logs/.htaccess
+!logs/.gitignore
 *.log
 .phpunit.cache/
 .env

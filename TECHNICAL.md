@@ -6,7 +6,7 @@ This document describes how the application is built and how its parts work toge
 
 ## Architecture overview
 
-- **Stack:** PHP 8.x, MySQL/MariaDB, no application framework. Bootstrap 5 for the UI; Composer for dependencies (Dompdf, PHPMailer).
+- **Stack:** PHP 8.2+, MySQL/MariaDB, no application framework. Bootstrap 5 for the UI; Composer for dependencies (Dompdf, PHPMailer, Stripe PHP).
 - **Single-club deployment:** One installation serves **one** club. Branding, dues, and settings live in the `club` table (typically `id = 1`).
 - **Typical page load:** `config.php` → `includes/db.php` → `includes/auth.php` (require login) → page logic → `includes/header.php` → content → `includes/footer.php`.
 
@@ -24,7 +24,7 @@ This document describes how the application is built and how its parts work toge
 | **js/** | `flightops_ui.js` (global UI helpers, deferred from footer). `badge_fabric.js` — shared Fabric.js helpers. `badge_design.js`, `badge_print.js`, `members_list.js`, `member_wizard.js` — page-specific logic extracted from large PHP entry points. |
 | **templates/** | Email and letter templates (PHP/HTML) |
 | **uploads/** | Member photos (`member_photos/`), FAA cards (`member_faa_cards/`), and club branding (written by the app; photos served via `badge_photo.php` / `faa_card.php`, not direct URLs) |
-| **vendor/** | Composer dependencies (Dompdf, PHPMailer, etc.) |
+| **vendor/** | Composer dependencies (Dompdf, PHPMailer, Stripe PHP, etc.) |
 | `schema_full.sql` | Full, ready-to-import schema (initial + embedded upgrades) |
 
 ---
@@ -61,6 +61,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **trusted_proxy.php** | `flightops_should_trust_forwarded_proto($config)` — gate `X-Forwarded-Proto` on optional `trusted_proxies`. |
 | **security_headers.php** | `flightops_send_security_headers()` — baseline headers and nonce-based CSP. |
 | **csp_nonce.php** | `flightops_csp_nonce()`, `csp_nonce_attr()` — one nonce per response for inline script/style. |
+| **rate_limit.php** | IP rate limiting (`rate_limit_check`, presets, trusted-proxy client IP) for public/API endpoints. See [SECURITY.md](SECURITY.md). |
 | **cli_only_script.php** | `flightops_require_cli()` — exit if not PHP CLI (used by every file in `scripts/`). |
 | **header.php** | Shared layout: HTML head, navbar (with club theme, active nav, user menu), breadcrumbs, flash toasts. Set `$pageTitle`, optional `$noNav`, optional `$breadcrumbs` before including. Loads theme from `club` (`id = 1`) via `club_theme.php` and defines `navActive()`. Nav items use `function_exists('canEditMembers')` (etc.) so including `header.php` without `auth.php` fails quietly — always include `auth.php` on app pages. |
 | **club_theme.php** | Shared club color defaults (`flightops_club_theme_defaults()`), hex→RGB, on-primary contrast (`flightops_on_primary_for()`), and harmonized status tokens. Used by `header.php`, `docs-theme.php`, and email/PDF layouts. |

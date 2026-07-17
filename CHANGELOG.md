@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Removed Archived flag chip** — Duplicate of Inactive (`inactive = 1`); use the Inactive membership chip instead.
 - **FAA card / badge photo uploads** — Saving a new file deletes sibling `{memberId}.*` files with other extensions. Member delete removes all photo and FAA card files for that id (including orphans).
 - **Documentation / deploy** — [DEPLOY.md](DEPLOY.md), [README.md](README.md), help docs, and `scripts/verify_db.php` updated for the new migrations and self-service portal.
+- **Repo hygiene** — [CONTRIBUTING.md](CONTRIBUTING.md) migration policy aligned with `scripts/migrate_*.sql`; [PLAN.md](PLAN.md) refreshed for 2.0; [SECURITY.md](SECURITY.md) documents rate limiting (removed standalone DoS review dumps); Stripe added to [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md); unused `assets/IMG_1493.PNG` removed.
 
 ## [1.6.0] - 2026-07-11
 
@@ -53,7 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Email public URLs** — `includes/email_urls.php` builds absolute HTTPS links for cron/Sender emails (`public_base_url` or `canonical_host` in `config.php`). Club logos in Sender sends use a public thumb URL (Sender strips `data:` URIs).
 - **Sender.net reminder opt-out** — `scripts/send_reminders.php` checks each recipient’s **transactional** (`temail`) status via the Sender.net API (`includes/sender_net.php`) before sending AMA/FAA expiry reminders. Missing subscribers are added with a normalized (lowercase) email and placed in the configured members group. Reminders send via Sender’s transactional API with per-recipient signed unsubscribe links on this app. **Administration → Installation** stores the API token and members group ID.
 - **New member wizard** — Guided five-step signup: `member_wizard.php` (contact, compliance, membership), then `member_process.php?wizard=1` (record signup, print & mail). Stepper in `includes/member_wizard_nav.php`; step JS in `js/member_wizard.js`. Shared save logic in `includes/member_save.php`. New members no longer open a blank `member_edit.php` form.
-- **WPForms applications** — Website membership applications via webhook (`api_webhook_application.php`, `applications.php`, `includes/wpforms_application.php`). Review queue with renewal-year filters and pagination. See [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md).
+- **WPForms applications** — Website membership applications via webhook (`api_webhook_application.php`, `applications.php`, `includes/wpforms_application.php`). Review queue with renewal-year filters and pagination. *(Removed in 1.6.0; replaced by native `/apply.php`. Legacy `WPFORMS_INTEGRATION.md` deleted.)*
 - **Shared club theme** — `includes/club_theme.php` centralizes default palette, WCAG on-primary text, and status color tokens. Used by `includes/header.php`, `docs/docs-theme.php`, and branded email/PDF layouts.
 - **Badge designer overhaul** — Tabbed sidebar (card options, add fields, selected field, live preview), undo/redo, fixed-width text boxes for alignment, emergency-contact merge fields, back-side merge-tag buttons with live HTML preview, design rename, and browser session backup for unsaved edits.
 
@@ -65,7 +66,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Reminder cron tooling** — `send_reminders.php` adds `--test-limit=N` (with `--test-email`) and `--dump-sender-payload[=path]` for debugging Sender API bodies (token redacted; default `logs/sender_payload_dump.json`).
 - **PHP 8.2 minimum** — `composer.json` and CI (PHPUnit 11 requires PHP ≥ 8.2). GitHub Actions matrix updated from 8.1/8.4 to 8.2/8.4.
 - **Unified UI/UX** — Consistent sidebar tool panels, card layout, and club-themed CSS variables across dashboard, members, reports, badge designer, configuration, incidents, and help docs (`docs/docs.css`, `docs/docs-theme.php`).
-- **Documentation** — Help center, [TECHNICAL.md](TECHNICAL.md), [WPFORMS_INTEGRATION.md](WPFORMS_INTEGRATION.md), [DEPLOY.md](DEPLOY.md), and [LOCAL_DEV.md](LOCAL_DEV.md) updated for reminder unsubscribe, Sender transactional vs campaign opt-out, WPForms, and simplified contact fields.
+- **Documentation** — Help center, [TECHNICAL.md](TECHNICAL.md), [DEPLOY.md](DEPLOY.md), and [LOCAL_DEV.md](LOCAL_DEV.md) updated for reminder unsubscribe, Sender transactional vs campaign opt-out, WPForms, and simplified contact fields. *(WPForms integration doc removed in 1.6.0.)*
 
 ## [1.5.1] - 2026-07-01
 

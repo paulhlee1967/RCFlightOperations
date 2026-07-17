@@ -66,10 +66,11 @@ Use this when the app is **already live** and you are pulling a code update (e.g
 
 Upload or `git pull` the latest `main`. Do **not** overwrite your server `config.php`.
 
-If `vendor/` is not on the server:
+**Git on the server:** use [`.gitignore.production`](.gitignore.production) via `git config core.excludesfile …` so untracked live files (`config.php`, `uploads/`, `logs/`, `vendor/`) stay protected. Also run `git update-index --skip-worktree config.php` once. App code including **`docs/`** (in-app Help) updates normally on pull — that file does not exclude tracked paths.
 
 ```bash
-composer install --no-dev
+git pull origin main
+composer install --no-dev   # when composer.lock changed
 ```
 
 ### 4. Run database migrations (in order)
