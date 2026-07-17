@@ -10,6 +10,7 @@ require_once __DIR__ . '/includes/audit_log.php';
 require_once __DIR__ . '/includes/flash.php';
 require_once __DIR__ . '/includes/validation.php';
 require_once __DIR__ . '/includes/member_save.php';
+require_once __DIR__ . '/includes/member_portal.php';
 
 requireLogin();
 if (!canEditMembers()) {
@@ -44,6 +45,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
     $memberId = (int) $result['member_id'];
 
     header('Location: member_edit.php?id=' . $memberId);
+    exit;
+}
+
+// ---------------------------------------------------------------------------
+// POST: Email member a magic-link profile access
+// ---------------------------------------------------------------------------
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'send_portal_link' && $memberId) {
+    global $config;
+    $clientIp = rate_limit_get_client_ip(is_array($config ?? null) ? $config : null);
+    $email = normalize_email((string) ($_POST['portal_email'] ?? ''));
+    if ($email === '') {
+        $lookup = $pdo->prepare('SELECT email FROM members WHERE id = ? LIMIT 1');
+        $lookup->execute([$memberId]);
+        $email = normalize_email((string) ($lookup->fetchColumn() ?: ''));
+    }
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        flash('Member needs a valid email before you can send a profile link.', 'warning');
+    } else {
+        $created = member_portal_create_magic_link($pdo, $memberId, $clientIp);
+        if (!$created['ok'] || $created['token'] === null) {
+            flash($created['error'] ?? 'Could not create profile link.', 'warning');
+        } else {
+            $link = member_portal_link_url($created['token'], is_array($config ?? null) ? $config : null);
+            if ($link === null) {
+                flash('Public site URL is not configured; cannot email the link.', 'warning');
+            } else {
+                $memberRow = $created['member'];
+                $clubName = member_portal_club_name($pdo);
+                $rendered = render_email_template('member_portal_link', [
+                    'first_name' => trim((string) ($memberRow['first_name'] ?? '')),
+                    'club_name'  => $clubName,
+                    'link_url'   => $link,
+                    'expires_minutes' => MEMBER_PORTAL_LINK_TTL_MINUTES,
+                    'eyebrow'    => 'My Membership',
+                ], $pdo);
+                $mailCfg = installation_mail_config($pdo);
+                $ok = send_mail(
+                    $email,
+                    $rendered['subject'],
+                    $rendered['html'],
+                    $rendered['text'] ?? strip_tags($rendered['html']),
+                    $mailCfg
+                );
+                if ($ok) {
+                    audit_log($pdo, (int) currentUserId(), 'member_portal_link_sent', 'member', $memberId, $email);
+                    flash('Profile access link emailed to ' . $email . '.', 'success');
+                } else {
+                    flash('Could not send the profile link email. Check SMTP settings.', 'warning');
+                }
+            }
+        }
+    }
+    header('Location: member_edit.php?id=' . (int) $memberId);
     exit;
 }
 
@@ -142,6 +196,16 @@ require_once __DIR__ . '/includes/header.php';
         </svg>
         Print Envelope
     </a>
+    <?php if (trim((string) ($member['email'] ?? '')) !== ''): ?>
+    <form method="post" action="member_edit.php?id=<?= (int) $memberId ?>" class="d-inline">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="send_portal_link">
+        <button type="submit" class="btn btn-outline-secondary btn-sm"
+                title="Email a one-time link so this member can update their own profile">
+            Send profile link
+        </button>
+    </form>
+    <?php endif; ?>
 
     <?php /* Show fulfillment status for the current/next renewal year as a lightweight hint */ ?>
     <?php

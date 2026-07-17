@@ -18,6 +18,11 @@
     # Public membership application (rcflightops.pvmac.com/apply)
     RewriteRule ^apply/?$ apply.php [L,QSA]
     RewriteRule ^apply/confirm/?$ apply_confirm.php [L,QSA]
+
+    # Member self-service profile (magic link)
+    RewriteRule ^my/?$ my.php [L,QSA]
+    RewriteRule ^my/profile/?$ my_profile.php [L,QSA]
+    RewriteRule ^my/link/?$ my_link.php [L,QSA]
 </IfModule>
 
 # Disable directory listing.

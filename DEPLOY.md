@@ -89,6 +89,7 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_email_opt_in.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_application_emails.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_board_packet.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_incident_photos.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_portal.sql
 ```
 
 | Script | What it does |
@@ -104,6 +105,7 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_incident_photos.sql
 | `migrate_application_emails.sql` | Adds applicant email delivery tracking and staff information-request history |
 | `migrate_board_packet.sql` | Creates `board_packet_deliveries` log table and board packet `system_config` keys |
 | `migrate_incident_photos.sql` | Creates `incident_photos` table for incident photo attachments |
+| `migrate_member_portal.sql` | Creates `member_magic_links` for passwordless member self-service profile links |
 
 **Note:** If a member had multiple phones or addresses, only the preferred one is kept (same rules as local dev). Extra rows in the old tables are discarded when those tables are dropped — back up before migrating if you need to audit them.
 
@@ -193,16 +195,20 @@ After uploading files and importing the database:
    **Sender.net (recommended):** In **Administration → Installation**, set the Sender API token and **members group ID**. Set `canonical_host` (or `public_base_url`) in `config.php` so reminder emails include working logo and unsubscribe links. Reminders check **transactional** opt-out only — newsletter unsubscribes in Sender do not block reminders. Each reminder includes a signed link to `unsubscribe.php` for reminder-only opt-out.
 
 14. **Monthly board packet (cron, optional)**
-   After running `scripts/migrate_board_packet.sql`, enable automatic delivery in **Administration → Installation → Monthly board packet** (recipients, send day 1–28). Configure a **daily** cron job:
+   After running `scripts/migrate_board_packet.sql`, enable automatic delivery in **Administration → Installation → Board packet** (recipients, send day 1–28). Configure a **daily** cron job:
    ```bash
    php /path/to/RCFlightOperations/scripts/send_board_packet.php
    ```
    The script sends once per calendar month on the configured day. Use `--dry-run` to preview. Use `--test-email=you@example.com` to verify content without consuming the month's send slot. Use `--force` to bypass send-day and idempotency checks (still requires enabled + recipients unless testing).
+
+15. **Member self-service portal (optional)**
+   After running `scripts/migrate_member_portal.sql`, members can request a magic link at `/my.php` (or `/my`). SMTP must work, and email links should resolve via the current host or `public_base_url` / `canonical_host` in `config.php`. Officers can also **Send profile link** from a member’s edit page.
 
 ---
 
 ## Quick reference
 
 - **Login URL:** `https://yourdomain.com/yourfolder/login.php` (or document root).
+- **Member profile:** `https://yourdomain.com/yourfolder/my.php`.
 - **Installation (admin):** after logging in as admin, **Administration → Installation** — SMTP, Sender.net reminder opt-out, maintenance mode, health, etc.
 - **Do not commit:** `config.php`, `export_for_cpanel.sql`, `.env`, or uploaded files under `uploads/` (see [.gitignore](.gitignore)). Note: `uploads/.htaccess` is included for hardening.

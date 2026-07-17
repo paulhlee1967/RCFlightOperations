@@ -1,7 +1,7 @@
 # Denial of Service (DoS) Security Review
 
-**Review Date:** 2026-07-13  
-**Application:** RC Flight Operations v1.6.0  
+**Review Date:** 2026-07-13
+**Application:** RC Flight Operations v2.0.0
 **Reviewer:** Cloud Agent Security Analysis
 
 ---
@@ -133,7 +133,7 @@ $payload = file_get_contents('php://input');
 
 ### 3. **HIGH: File Upload Endpoints - No Rate Limiting** 🟠
 
-**Files:** 
+**Files:**
 - Member photo uploads (via `member_edit.php`, `member_wizard.php`)
 - FAA card uploads
 - Badge photo uploads
@@ -194,7 +194,7 @@ $payload = file_get_contents('php://input');
 
 ### 6. **MEDIUM: External HTTP Requests - No Timeout Protection** 🟡
 
-**Files:** 
+**Files:**
 - `includes/ama_verify.php` (AMA website scraping)
 - `includes/sender_net.php` (Sender.net API)
 - `includes/member_save.php` (photo downloads)
@@ -342,7 +342,7 @@ function rate_limit_check(
     if ($clientIp === '') {
         return true;
     }
-    
+
     try {
         $pdo->exec("CREATE TABLE IF NOT EXISTS rate_limit_events (
             id int unsigned NOT NULL AUTO_INCREMENT,
@@ -352,24 +352,24 @@ function rate_limit_check(
             PRIMARY KEY (id),
             KEY endpoint_ip_created (endpoint, ip, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-        
-        $pdo->exec("DELETE FROM rate_limit_events 
+
+        $pdo->exec("DELETE FROM rate_limit_events
                     WHERE created_at < DATE_SUB(NOW(), INTERVAL 25 HOUR)");
-        
+
         $stmt = $pdo->prepare(
             "SELECT COUNT(*) FROM rate_limit_events
-             WHERE endpoint = ? AND ip = ? 
+             WHERE endpoint = ? AND ip = ?
              AND created_at > DATE_SUB(NOW(), INTERVAL ? MINUTE)"
         );
         $stmt->execute([$endpoint, $clientIp, $windowMinutes]);
-        
+
         if ((int) $stmt->fetchColumn() >= $maxAttempts) {
             return false;
         }
-        
+
         $pdo->prepare("INSERT INTO rate_limit_events (endpoint, ip) VALUES (?, ?)")
             ->execute([$endpoint, $clientIp]);
-        
+
         return true;
     } catch (Throwable $e) {
         error_log("Rate limit check failed: " . $e->getMessage());
@@ -444,18 +444,18 @@ http {
     limit_req_zone $binary_remote_addr zone=api:10m rate=30r/m;
     limit_req_zone $binary_remote_addr zone=login:10m rate=5r/m;
     limit_req_zone $binary_remote_addr zone=webhook:10m rate=100r/m;
-    
+
     server {
         # API endpoints
         location ~ ^/api_ {
             limit_req zone=api burst=5 nodelay;
         }
-        
+
         # Login
         location /login.php {
             limit_req zone=login burst=3 nodelay;
         }
-        
+
         # Stripe webhook
         location /api_stripe_webhook.php {
             limit_req zone=webhook burst=10 nodelay;

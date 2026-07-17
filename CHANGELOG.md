@@ -4,18 +4,25 @@ All notable changes to **RC Flight Operations** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.0.0] - 2026-07-17
 
 ### Added
 
+- **Member self-service portal** — Passwordless **My Membership** at [`my.php`](my.php): email a one-time magic link, open a short member session, and immediately update phone/address, emergency contact, AMA/FAA (with Verify AMA), badge photo, FAA card, and email preferences. Primary email and membership status stay read-only. Saves write `audit_log` (`member_self_update`). Staff can **Send profile link** from member edit. Migration: [`scripts/migrate_member_portal.sql`](scripts/migrate_member_portal.sql). Docs: [docs/members.html#self-service](docs/members.html#self-service).
+- **Application status emails** — Branded received / approved / request-information emails with atomic dedup and retry. Staff can request more info while keeping the application pending. Migration: [`scripts/migrate_application_emails.sql`](scripts/migrate_application_emails.sql).
+- **Monthly board packet** — One-click and cron-ready board packet (roster snapshot, compact renewal metrics with link to Not yet renewed, revenue, open incidents) as HTML email and PDF. Installation settings for enable/send day/recipients. Migration: [`scripts/migrate_board_packet.sql`](scripts/migrate_board_packet.sql).
+- **Incident photos** — Multi-photo attachments on incidents (secure serve, cleanup on delete). Migration: [`scripts/migrate_incident_photos.sql`](scripts/migrate_incident_photos.sql).
 - **Members list Inactive filter** — Membership chips are **All / Active / Inactive**, partitioning on the `inactive` flag so counts add up (`Active + Inactive = All`).
 - **Filter-aware CSV export** — The Members **Export CSV** menu exports the currently filtered list (Full / Short / Email), with matching row counts. Special one-off filters remain under **More export options**.
 
 ### Changed
 
+- **Installation settings** — Tabbed layout (General, Applications, Email, Board packet, Tools & status) with per-tab saves so hidden fields cannot clear unrelated `system_config` keys.
+- **Board packet renewal section** — Compact metrics plus link to the full Not yet renewed report (no long member name list in the packet).
 - **“Current member” definition** — A member is current for year Y when `membership_renewal_year = Y` and they are not Inactive or Suspended. Payment, fulfillment, life, and complementary flags no longer override Inactive — life members can be inactive like anyone else.
 - **Removed Archived flag chip** — Duplicate of Inactive (`inactive = 1`); use the Inactive membership chip instead.
 - **FAA card / badge photo uploads** — Saving a new file deletes sibling `{memberId}.*` files with other extensions. Member delete removes all photo and FAA card files for that id (including orphans).
+- **Documentation / deploy** — [DEPLOY.md](DEPLOY.md), [README.md](README.md), help docs, and `scripts/verify_db.php` updated for the new migrations and self-service portal.
 
 ## [1.6.0] - 2026-07-11
 

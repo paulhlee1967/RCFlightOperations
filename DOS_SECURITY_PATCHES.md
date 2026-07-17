@@ -1,7 +1,7 @@
 # DoS Security Patches - Implementation Guide
 
-**Date:** 2026-07-13  
-**Version:** 1.6.0+security  
+**Date:** 2026-07-13
+**Version:** 2.0.0+security
 **Related:** See `SECURITY_DOS_REVIEW.md` for full security analysis
 
 ---
@@ -137,11 +137,11 @@ If the application runs behind a reverse proxy (Nginx, CloudFlare, etc.), config
 return [
     // Trust X-Forwarded-For header from reverse proxy
     'trust_forwarded_ip' => true,
-    
+
     // Optional: List of trusted proxy IPs (defense in depth)
     // If omitted or empty, all proxies are trusted (typical single-proxy setup)
     'trusted_proxies' => ['127.0.0.1', '10.0.0.0/8'],
-    
+
     // ... other config ...
 ];
 ```
@@ -226,7 +226,7 @@ Query the rate limit events table to monitor usage:
 
 ```sql
 -- Check current rate limit status
-SELECT 
+SELECT
     endpoint,
     ip,
     COUNT(*) as attempts,
@@ -333,9 +333,9 @@ Set up alerts for excessive rate limiting (may indicate attack or misconfigurati
 
 ```bash
 # Example: Alert if more than 100 rate limit events in 5 minutes
-grep "Rate limit exceeded" /var/log/php-fpm/error.log | 
-  tail -1000 | 
-  grep "$(date -d '5 minutes ago' '+%Y-%m-%d %H:%M')" | 
+grep "Rate limit exceeded" /var/log/php-fpm/error.log |
+  tail -1000 |
+  grep "$(date -d '5 minutes ago' '+%Y-%m-%d %H:%M')" |
   wc -l
 ```
 
@@ -345,11 +345,11 @@ The rate limit table self-cleans records older than 25 hours on each request. Fo
 
 ```sql
 -- Manual cleanup (optional, runs automatically)
-DELETE FROM rate_limit_events 
+DELETE FROM rate_limit_events
 WHERE created_at < DATE_SUB(NOW(), INTERVAL 25 HOUR);
 
 -- Check table size
-SELECT 
+SELECT
     COUNT(*) as total_records,
     COUNT(DISTINCT endpoint) as unique_endpoints,
     COUNT(DISTINCT ip) as unique_ips

@@ -44,6 +44,7 @@
     <a href="#payments">Payment History Tab</a>
     <a href="#status">Status Flags</a>
     <a href="#photo">Member Photo</a>
+    <a href="#self-service">Member Self-Service</a>
     <a href="#delete">Deleting a Member</a>
     <hr class="sidebar-divider">
     <div class="sidebar-title">Other Docs</div>
@@ -274,6 +275,38 @@
     <p>
       The photo appears on the badge front when your club's badge template includes a photo
       element. It does not appear anywhere else in the app.
+    </p>
+
+    <!-- ── Self-service ── -->
+    <h2 id="self-service">Member Self-Service</h2>
+    <p>
+      Members do not get staff logins. Instead they use a passwordless
+      <strong>My Membership</strong> page at <code>/my.php</code> (also rewritten as <code>/my</code>).
+    </p>
+    <ol>
+      <li>The member enters the email address on their roster record.</li>
+      <li>If exactly one non-suspended member matches, the club emails a one-time magic link (expires in about one hour).</li>
+      <li>Opening the link starts a short member session and shows their profile.</li>
+    </ol>
+    <p>Members can immediately update:</p>
+    <ul>
+      <li>Phone, mailing address, and emergency contact</li>
+      <li>AMA / FAA numbers and expiration dates (with live <strong>Verify AMA</strong>)</li>
+      <li>Badge photo and FAA registration card</li>
+      <li>Club-event and expiry-reminder email preferences</li>
+    </ul>
+    <p>
+      Name, primary email, birthday, membership type/year, status flags, gate key, notes,
+      and payment recording stay staff-only. Successful self-service saves write an
+      <code>audit_log</code> entry (<code>member_self_update</code>, <code>user_id = 0</code>)
+      with a JSON summary of changed fields.
+    </p>
+    <p>
+      Officers can also click <strong>Send profile link</strong> on a member’s edit page
+      to email a fresh link. SMTP must be configured under
+      <strong>Administration → Installation → Email</strong>, and
+      <code>public_base_url</code> (or a correct request host) should be set so links in email resolve correctly.
+      Run <code>scripts/migrate_member_portal.sql</code> on existing installs.
     </p>
 
     <!-- ── Delete ── -->

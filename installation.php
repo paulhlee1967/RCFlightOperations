@@ -187,7 +187,7 @@ $expectedTables = [
     'password_reset_tokens', 'password_reset_ip_events', 'member_fulfillments',
     'member_membership_years', 'member_applications', 'membership_comp_invites',
     'member_application_emails', 'member_application_info_requests',
-    'board_packet_deliveries', 'system_config', 'operator_messages',
+    'board_packet_deliveries', 'member_magic_links', 'system_config', 'operator_messages',
 ];
 foreach ($expectedTables as $tbl) {
     try {
