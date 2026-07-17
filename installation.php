@@ -181,7 +181,14 @@ try {
 }
 
 $tableMissing = [];
-$expectedTables = ['club','users','members','payments','dues_rules','badge_templates','incidents','incident_photos','audit_log','login_attempts','password_reset_tokens','password_reset_ip_events','member_fulfillments','system_config','operator_messages'];
+$expectedTables = [
+    'club', 'users', 'members', 'payments', 'dues_rules', 'badge_templates',
+    'incidents', 'incident_photos', 'audit_log', 'login_attempts',
+    'password_reset_tokens', 'password_reset_ip_events', 'member_fulfillments',
+    'member_membership_years', 'member_applications', 'membership_comp_invites',
+    'member_application_emails', 'member_application_info_requests',
+    'board_packet_deliveries', 'system_config', 'operator_messages',
+];
 foreach ($expectedTables as $tbl) {
     try {
         $pdo->query("SELECT 1 FROM `$tbl` LIMIT 1");

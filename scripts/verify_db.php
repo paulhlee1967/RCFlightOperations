@@ -45,6 +45,9 @@ $expectedTables = [
     'payments', 'dues_rules', 'badge_templates',
     'incidents', 'incident_photos',
     'member_fulfillments', 'member_membership_years',
+    'member_applications', 'membership_comp_invites',
+    'member_application_emails', 'member_application_info_requests',
+    'board_packet_deliveries',
     'system_config', 'operator_messages',
     'audit_log', 'login_attempts', 'password_reset_tokens', 'password_reset_ip_events',
 ];
@@ -58,7 +61,9 @@ $expectedColumns = [
     ],
     'users' => ['id', 'email', 'password_hash', 'name', 'role', 'active', 'created_at'],
     'members' => [
-        'id', 'title', 'first_name', 'last_name', 'email', 'phone', 'birthday', 'photo_path', 'notes',
+        'id', 'title', 'first_name', 'last_name', 'email',
+        'email_opt_in_club_events', 'email_opt_in_expiry_reminders',
+        'phone', 'birthday', 'photo_path', 'notes',
         'date_joined', 'membership_type_slot', 'membership_renewal_year', 'inactive', 'suspended', 'life_member', 'free_membership',
         'gate_key_number', 'badge_printed_at', 'ama_number', 'ama_expiration', 'ama_life_member', 'faa_number', 'faa_expiration', 'faa_card_path',
         'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone',
@@ -78,6 +83,28 @@ $expectedColumns = [
     ],
     'member_fulfillments' => ['id', 'member_id', 'year', 'processed_at', 'processed_by', 'renewal_type', 'card_printed_at', 'card_printed_by', 'mailer_printed_at', 'mailer_printed_by', 'created_at', 'updated_at'],
     'member_membership_years' => ['id', 'member_id', 'year', 'recorded_at', 'source'],
+    'member_applications' => [
+        'id', 'status', 'wpforms_entry_id', 'submitted_at', 'reviewed_at', 'reviewed_by', 'approved_member_id',
+        'application_kind', 'first_name', 'last_name', 'email',
+        'email_opt_in_club_events', 'email_opt_in_expiry_reminders',
+        'phone', 'membership_type_slot', 'payment_status', 'rejection_reason',
+        'latest_info_request_message', 'latest_info_request_at',
+        'created_at', 'updated_at',
+    ],
+    'membership_comp_invites' => [
+        'id', 'email', 'ama_number', 'membership_type', 'notes', 'created_by',
+        'created_at', 'expires_at', 'redeemed_at', 'redeemed_application_id', 'cancelled_at',
+    ],
+    'member_application_emails' => [
+        'id', 'application_id', 'email_type', 'idempotency_key', 'recipient', 'subject',
+        'status', 'error_message', 'sent_at', 'created_at', 'updated_at',
+    ],
+    'member_application_info_requests' => [
+        'id', 'application_id', 'message', 'requested_by', 'dedup_key', 'requested_at',
+    ],
+    'board_packet_deliveries' => [
+        'id', 'month', 'recipients', 'status', 'error_message', 'sent_at', 'created_at', 'updated_at',
+    ],
     'system_config' => ['config_key', 'config_value', 'updated_at'],
     'operator_messages' => ['id', 'subject', 'body', 'sent_to_count', 'target', 'sent_at'],
     'audit_log'       => ['id', 'user_id', 'action', 'target_type', 'target_id', 'detail', 'created_at'],
@@ -104,7 +131,8 @@ if (count($missing) > 0) {
     foreach ($missing as $m) {
         echo "  - $m\n";
     }
-    echo "\nImport schema_full.sql into your database (see START_HERE.md).\n";
+    echo "\nFor a new install, import schema_full.sql (see START_HERE.md).\n";
+    echo "For an existing database, run the migrations in DEPLOY.md §4, then re-run this script.\n";
     exit(1);
 }
 

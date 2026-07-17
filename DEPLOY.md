@@ -81,7 +81,10 @@ cd /path/to/RCFlightOperations
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_single_phone.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_single_address.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_drop_comm_prefs.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_faa_card_path.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_badge_designs.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_applications.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_membership_comp_invites.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_email_opt_in.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_application_emails.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_board_packet.sql
@@ -93,7 +96,10 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_incident_photos.sql
 | `migrate_single_phone.sql` | Adds `members.phone`, copies one number per member from `member_phones` (Cell → Home → Work → Other), drops `member_phones` |
 | `migrate_single_address.sql` | Adds `address_*` columns on `members`, copies Home address from `member_addresses`, drops `member_addresses` |
 | `migrate_drop_comm_prefs.sql` | Drops `allow_email` and `allow_postal` (opt-out lives in Sender.net or similar) |
+| `migrate_faa_card_path.sql` | Adds `members.faa_card_path` for uploaded FAA card images |
+| `migrate_badge_designs.sql` | Adds `badge_templates.name` / `is_default` (and legacy board columns later dropped by `schema_full.sql`) |
 | `migrate_member_applications.sql` | Creates `member_applications` queue table |
+| `migrate_membership_comp_invites.sql` | Creates `membership_comp_invites` for complimentary apply invites |
 | `migrate_email_opt_in.sql` | Adds `email_opt_in_club_events` and `email_opt_in_expiry_reminders` to `member_applications` and `members` |
 | `migrate_application_emails.sql` | Adds applicant email delivery tracking and staff information-request history |
 | `migrate_board_packet.sql` | Creates `board_packet_deliveries` log table and board packet `system_config` keys |
