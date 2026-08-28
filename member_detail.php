@@ -45,7 +45,6 @@ if ($memberId <= 0) {
 $stmt = $pdo->prepare('
     SELECT id, first_name, last_name, email, phone, membership_type_slot, membership_renewal_year,
            ama_number, ama_expiration, ama_life_member,
-           faa_number, faa_expiration,
            gate_key_number, badge_printed_at, date_joined,
            inactive, suspended, life_member, free_membership, photo_path,
            emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
@@ -141,8 +140,6 @@ $response = [
     'ama_number'     => $member['ama_number'] ?? '',
     'ama_expiration' => $member['ama_expiration'] ?? '',
     'ama_status'     => $amaStatus,   // 'valid' | 'expiring' | 'expired' | 'life' | ''
-    'faa_number'     => $member['faa_number'] ?? '',
-    'faa_expiration' => $member['faa_expiration'] ?? '',
     'gate_key'       => $member['gate_key_number'] ?? '',
 
     // Flags

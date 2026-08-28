@@ -805,6 +805,6 @@ window.FLIGHTOPS_MEMBERS_LIST = <?= json_encode([
     'canProcess' => canEditMembers() || canProcessMemberships(),
 ], JSON_THROW_ON_ERROR) ?>;
 </script>
-<script src="js/members_list.js?v=<?= htmlspecialchars(FLIGHT_OPS_VERSION) ?>"<?= csp_nonce_attr() ?>></script>
+<script src="js/members_list.js?v=<?= htmlspecialchars(FLIGHT_OPS_VERSION) ?>.<?= (int) filemtime(__DIR__ . '/js/members_list.js') ?>"<?= csp_nonce_attr() ?>></script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
