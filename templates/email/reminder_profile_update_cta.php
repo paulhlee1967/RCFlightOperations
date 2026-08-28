@@ -1,6 +1,6 @@
 <?php
 /**
- * Shared “update club record” CTA for AMA/FAA expiry reminder emails.
+ * Shared “update club record” CTA for AMA expiry reminder emails.
  *
  * Expects in scope: $theme (from emailTheme), $profile_update_url (optional).
  * Sets: $profileUpdateCtaHtml, $profileUpdatePlainSuffix

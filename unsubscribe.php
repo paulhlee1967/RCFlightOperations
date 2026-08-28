@@ -2,7 +2,7 @@
 /**
  * unsubscribe.php
  *
- * Opt-out from AMA/FAA expiry reminders only. Updates transactional email status in Sender.net.
+ * Opt-out from AMA expiry reminders only. Updates transactional email status in Sender.net.
  */
 
 require_once __DIR__ . '/includes/db.php';
@@ -45,7 +45,7 @@ if (!$tokenOk || $email === '') {
         $result = sender_net_unsubscribe_subscriber($email, $senderCfg);
         if ($result['ok']) {
             $done    = true;
-            $message = 'You have been unsubscribed from AMA/FAA expiry reminders at ' . htmlspecialchars($email) . '.';
+            $message = 'You have been unsubscribed from AMA expiry reminders at ' . htmlspecialchars($email) . '.';
             flightops_log('INFO', 'unsubscribe: reminder opt-out', ['email' => $email], 'web');
         } else {
             $error = 'We could not process your request. Please try again or contact the club treasurer.';
@@ -72,13 +72,13 @@ require_once __DIR__ . '/includes/header.php';
                 <?php elseif ($done): ?>
                     <div class="alert alert-success mb-0"><?= $message ?></div>
                     <p class="text-muted small mt-3 mb-0">
-                        You will no longer receive AMA/FAA expiry reminders at this address.
+                        You will no longer receive AMA expiry reminders at this address.
                         Newsletters and general club notices are separate; use the unsubscribe link
                         in those emails if you want to stop those too. You remain a club member.
                     </p>
                 <?php else: ?>
                     <p class="mb-3">
-                        Stop receiving <strong>AMA/FAA expiry reminders</strong> at
+                        Stop receiving <strong>AMA expiry reminders</strong> at
                         <strong><?= htmlspecialchars($email) ?></strong> from <?= htmlspecialchars($clubName) ?>?
                     </p>
                     <p class="text-muted small">

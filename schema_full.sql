@@ -320,6 +320,7 @@ CREATE TABLE IF NOT EXISTS `member_applications` (
   `ama_expiration` date DEFAULT NULL,
   `faa_number` varchar(64) DEFAULT NULL,
   `faa_expiration` date DEFAULT NULL,
+  `trust_attestation` tinyint(1) NOT NULL DEFAULT 0,
   `membership_type_slot` tinyint unsigned DEFAULT NULL,
   `notes` text,
   `payment_total` decimal(10,2) DEFAULT NULL,
@@ -757,6 +758,7 @@ CREATE TABLE IF NOT EXISTS `member_applications` (
   `ama_expiration` date DEFAULT NULL,
   `faa_number` varchar(64) DEFAULT NULL,
   `faa_expiration` date DEFAULT NULL,
+  `trust_attestation` tinyint(1) NOT NULL DEFAULT 0,
   `membership_type_slot` tinyint unsigned DEFAULT NULL,
   `notes` text,
   `payment_total` decimal(10,2) DEFAULT NULL,
@@ -1009,6 +1011,23 @@ SET @sql_mem_rem = IF(
 PREPARE stmt_mem_rem FROM @sql_mem_rem;
 EXECUTE stmt_mem_rem;
 DEALLOCATE PREPARE stmt_mem_rem;
+
+-- -----------------------------------------------------------------------------
+-- Migration: TRUST attestation on membership applications
+-- FAA number/card remain on the table for historical data; apply.php no longer collects them.
+-- -----------------------------------------------------------------------------
+SET @app_trust_col = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_applications' AND COLUMN_NAME = 'trust_attestation'
+);
+SET @sql_app_trust = IF(
+  @app_trust_col = 0,
+  'ALTER TABLE `member_applications` ADD COLUMN `trust_attestation` tinyint(1) NOT NULL DEFAULT 0 COMMENT ''Applicant certified TRUST completion and will carry proof when flying'' AFTER `faa_expiration`',
+  'SELECT 1'
+);
+PREPARE stmt_app_trust FROM @sql_app_trust;
+EXECUTE stmt_app_trust;
+DEALLOCATE PREPARE stmt_app_trust;
 
 -- -----------------------------------------------------------------------------
 -- Migration: application status emails + staff information-request history

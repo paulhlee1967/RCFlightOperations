@@ -89,6 +89,7 @@ $expectedColumns = [
         'application_kind', 'first_name', 'last_name', 'email',
         'email_opt_in_club_events', 'email_opt_in_expiry_reminders',
         'phone', 'membership_type_slot', 'payment_status', 'rejection_reason',
+        'trust_attestation',
         'latest_info_request_message', 'latest_info_request_at',
         'created_at', 'updated_at',
     ],

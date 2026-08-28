@@ -158,7 +158,7 @@
         <tbody>
           <tr><td>First / Last name</td><td>Required. Used on badges and reports.</td></tr>
           <tr><td>Title</td><td>Mr., Ms., Dr., etc. — optional, shown on some reports.</td></tr>
-          <tr><td>Email</td><td>Member’s address (stored lowercase); used for in-app report emails, CSV “email only” export, and optional AMA/FAA expiry reminders when your host runs <code>scripts/send_reminders.php</code>. Reminder consent is stored in <code>email_opt_in_expiry_reminders</code> (set from <code>apply.php</code> on approve; existing members default to opted in after migration). Reminders also honor <strong>transactional</strong> opt-out in Sender.net when configured — newsletter/campaign unsubscribes are separate. Club event mail uses <code>email_opt_in_club_events</code>. See <a href="applications.html#email-preferences">Applications — Email preferences</a> and <a href="admin.html#sender-opt-out">Sender.net opt-out</a>.</td></tr>
+          <tr><td>Email</td><td>Member’s address (stored lowercase); used for in-app report emails, CSV “email only” export, and optional AMA expiry reminders when your host runs <code>scripts/send_reminders.php</code>. Reminder consent is stored in <code>email_opt_in_expiry_reminders</code> (set from <code>apply.php</code> on approve; existing members default to opted in after migration). Reminders also honor <strong>transactional</strong> opt-out in Sender.net when configured — newsletter/campaign unsubscribes are separate. Club event mail uses <code>email_opt_in_club_events</code>. See <a href="applications.html#email-preferences">Applications — Email preferences</a> and <a href="admin.html#sender-opt-out">Sender.net opt-out</a>.</td></tr>
           <tr><td>Birthday</td><td>Used by the Birthdays This Month report.</td></tr>
           <tr><td>Notes</td><td>Free-text internal notes — not shown on badges.</td></tr>
           <tr><td>Photo</td><td>Upload a headshot; appears on the badge front if your template includes it.</td></tr>
@@ -185,8 +185,8 @@
           <tr><td>AMA expiration</td><td>Required before recording a renewal — must be on or after Dec 31 of the renewal year (AMA life members exempt).</td></tr>
           <tr><td>Verify AMA membership</td><td>Button — looks up the number live on AMA's website.</td></tr>
           <tr><td>AMA life member</td><td>Checkbox — marks lifetime AMA status; no expiration needed.</td></tr>
-          <tr><td>FAA number</td><td>TRUST/Part 107 registration number.</td></tr>
-          <tr><td>FAA expiration</td><td>Part 107 licenses expire every 24 months.</td></tr>
+          <tr><td>FAA number</td><td>Optional / historical. Not collected on the public application; staff can still store it on the Compliance tab.</td></tr>
+          <tr><td>FAA expiration</td><td>Optional. Part 107 licenses expire every 24 months.</td></tr>
         </tbody>
       </table>
     </div>
@@ -311,7 +311,7 @@
       (falls back to Support email, then the first active admin user) so officers can review the change.
     </p>
     <p>
-      AMA/FAA expiry reminder emails include
+      AMA expiry reminder emails include
       <strong>Update club record after renewing</strong>, which opens the durable
       <code>/membership</code> page (email prefilled). That page does <em>not</em> expire with the
       reminder — the member requests a fresh one-hour magic link when they are ready.

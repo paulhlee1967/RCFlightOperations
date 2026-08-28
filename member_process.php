@@ -366,9 +366,6 @@ if (empty($member['ama_life_member']) && !empty($member['ama_expiration'])) {
 if (empty($member['ama_expiration']) && empty($member['ama_life_member'])) {
     $warnings[] = ['type' => 'warning', 'msg' => 'No AMA expiration date on file.', 'tab' => 'compliance', 'field' => 'ama_expiration'];
 }
-if (empty($member['faa_number'])) {
-    $warnings[] = ['type' => 'warning', 'msg' => 'No FAA registration number on file.', 'tab' => 'compliance', 'field' => 'faa_number'];
-}
 if (empty($member['addr_street']) || empty($member['addr_city'])) {
     $warnings[] = ['type' => 'warning', 'msg' => 'No mailing address on file — mailer packet will be incomplete.', 'tab' => 'contact', 'field' => 'addresses'];
 }
@@ -545,9 +542,10 @@ if ($fromWizard) {
                     <span class="text-danger">Not set</span>
                     <?php endif; ?>
                 </div>
+                <?php if (!empty($member['faa_number']) || !empty($member['faa_expiration'])): ?>
                 <div class="small mt-1">
                     <span class="text-muted">FAA #:</span>
-                    <?= $member['faa_number'] ? ('<strong>' . h($member['faa_number']) . '</strong>') : '<span class="text-warning">Not set</span>' ?>
+                    <?= $member['faa_number'] ? ('<strong>' . h($member['faa_number']) . '</strong>') : '—' ?>
                 </div>
                 <?php if ($member['faa_expiration']): ?>
                 <div class="small">
@@ -555,6 +553,7 @@ if ($fromWizard) {
                     <?php $faaOk = $member['faa_expiration'] >= date('Y-m-d'); ?>
                     <span class="<?= $faaOk ? '' : 'text-danger' ?>"><?= date('M j, Y', strtotime($member['faa_expiration'])) ?></span>
                 </div>
+                <?php endif; ?>
                 <?php endif; ?>
             </div>
 

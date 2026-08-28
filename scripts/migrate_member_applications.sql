@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS `member_applications` (
   `ama_expiration` date DEFAULT NULL,
   `faa_number` varchar(64) DEFAULT NULL,
   `faa_expiration` date DEFAULT NULL,
+  `trust_attestation` tinyint(1) NOT NULL DEFAULT 0,
   `membership_type_slot` tinyint unsigned DEFAULT NULL,
   `notes` text,
   `payment_total` decimal(10,2) DEFAULT NULL,

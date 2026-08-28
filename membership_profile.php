@@ -335,7 +335,7 @@ $flash = getFlash();
                 <input class="form-check-input" type="checkbox" name="email_opt_in_expiry_reminders" id="email_opt_in_expiry_reminders"
                        value="1"<?= checked($member['email_opt_in_expiry_reminders'] ?? 1) ?>>
                 <label class="form-check-label" for="email_opt_in_expiry_reminders">
-                    AMA / FAA expiry reminder emails
+                    AMA expiry reminder emails
                 </label>
             </div>
         </section>

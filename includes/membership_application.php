@@ -1119,21 +1119,12 @@ function membership_application_validate_input(PDO $pdo, array $post, array $fil
         $clean['ama_expiration'] = $parsedAmaExp;
     }
 
-    $clean['faa_number'] = trim((string) ($post['faa_number'] ?? ''));
-    if ($clean['faa_number'] === '') {
-        $errors['faa_number'] = 'FAA registration number is required.';
-    }
+    $clean['faa_number'] = null;
+    $clean['faa_expiration'] = null;
 
-    $rawFaaExp = trim((string) ($post['faa_expiration'] ?? ''));
-    $parsedFaaExp = parseDateForDb($rawFaaExp);
-    if ($parsedFaaExp === null) {
-        $errors['faa_expiration'] = $rawFaaExp === '' ? 'FAA registration expiration is required.' : 'Enter a valid FAA expiration (MM/DD/YYYY).';
-    } else {
-        $clean['faa_expiration'] = $parsedFaaExp;
-        if (!membership_application_faa_meets_minimum_expiry($pdo, $parsedFaaExp)) {
-            $minLabel = membership_application_ama_minimum_expiry_label($pdo);
-            $errors['faa_expiration'] = 'FAA registration must be valid through at least ' . $minLabel . '.';
-        }
+    $clean['trust_attestation'] = email_opt_in_from_post($post['trust_attestation'] ?? null);
+    if ($clean['trust_attestation'] !== 1) {
+        $errors['trust_attestation'] = 'You must certify that you have completed TRUST.';
     }
 
     $kind = strtolower(trim((string) ($post['application_kind'] ?? '')));
@@ -1175,26 +1166,6 @@ function membership_application_validate_input(PDO $pdo, array $post, array $fil
     $badgeUploaded = !empty($files['badge_photo']['tmp_name']) && is_uploaded_file((string) $files['badge_photo']['tmp_name']);
     if (($clean['application_kind'] ?? '') === 'new' && !$badgeUploaded && !$hasBadgeOnFile) {
         $errors['badge_photo'] = 'Badge photo is required for new members.';
-    }
-
-    $faaUploaded = !empty($files['faa_card']['tmp_name']) && is_uploaded_file((string) $files['faa_card']['tmp_name']);
-    $faaMayReuse = membership_application_faa_card_may_reuse(
-        $pdo,
-        $uploadMember,
-        isset($clean['faa_expiration']) ? (string) $clean['faa_expiration'] : null
-    );
-    if (!$faaUploaded && !$faaMayReuse) {
-        require_once __DIR__ . '/member_compliance_helpers.php';
-        $hasFaaOnFile = $uploadMember !== null && member_faa_card_has_file($uploadMember);
-        $expOk = isset($clean['faa_expiration'])
-            && membership_application_faa_meets_minimum_expiry($pdo, (string) $clean['faa_expiration']);
-        if ($hasFaaOnFile && !$expOk && isset($clean['faa_expiration'])) {
-            $minLabel = membership_application_ama_minimum_expiry_label($pdo);
-            $errors['faa_card'] = 'Your FAA registration expires before ' . $minLabel
-                . '. Renew with the FAA and upload your new registration.';
-        } else {
-            $errors['faa_card'] = 'FAA registration file is required.';
-        }
     }
 
     $signature = trim((string) ($post['signature_data'] ?? ''));
@@ -1411,6 +1382,7 @@ function membership_application_ensure_schema(PDO $pdo): void
     }
 
     membership_application_ensure_email_opt_in_schema($pdo);
+    membership_application_ensure_trust_attestation_schema($pdo);
 }
 
 /**
@@ -1450,6 +1422,30 @@ function membership_application_ensure_email_opt_in_schema(PDO $pdo): void
         }
         if (!isset($columns['email_opt_in_expiry_reminders'])) {
             $pdo->exec("ALTER TABLE members ADD COLUMN email_opt_in_expiry_reminders tinyint(1) NOT NULL DEFAULT 1 COMMENT 'AMA/FAA expiry reminder emails (Sender transactional channel)' AFTER email_opt_in_club_events");
+        }
+    } catch (Throwable $e) {
+    }
+}
+
+/**
+ * Idempotent TRUST attestation column on membership applications.
+ */
+function membership_application_ensure_trust_attestation_schema(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM member_applications LIKE 'trust_attestation'");
+        $col = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : false;
+        if (!$col) {
+            $pdo->exec(
+                "ALTER TABLE member_applications ADD COLUMN trust_attestation tinyint(1) NOT NULL DEFAULT 0 "
+                . "COMMENT 'Applicant certified TRUST completion and will carry proof when flying' AFTER faa_expiration"
+            );
         }
     } catch (Throwable $e) {
     }
@@ -1533,7 +1529,6 @@ function membership_application_store_files(PDO $pdo, int $applicationId, array 
     ];
     $baseDir = membership_application_uploads_dir($applicationId);
     $photoMimes = member_photo_allowed_mimes();
-    $faaMimes = member_faa_card_allowed_mimes();
 
     if (!empty($files['badge_photo']['tmp_name'])) {
         $finfo = new finfo(FILEINFO_MIME_TYPE);
@@ -1545,19 +1540,6 @@ function membership_application_store_files(PDO $pdo, int $applicationId, array 
             $errors['badge_photo'] = $saved['error'] ?? 'Could not save badge photo.';
         } else {
             $paths['file_badge_photo_url'] = membership_application_relative_upload_path($applicationId, 'badge.' . $ext);
-        }
-    }
-
-    if (!empty($files['faa_card']['tmp_name'])) {
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
-        $mime = $finfo->file((string) $files['faa_card']['tmp_name']);
-        $ext = $faaMimes[$mime] ?? 'jpg';
-        $dest = $baseDir . '/faa.' . $ext;
-        $saved = membership_application_save_uploaded_image($files['faa_card'], $dest, $faaMimes);
-        if (!$saved['ok']) {
-            $errors['faa_card'] = $saved['error'] ?? 'Could not save FAA registration.';
-        } else {
-            $paths['file_faa_registration_url'] = membership_application_relative_upload_path($applicationId, 'faa.' . $ext);
         }
     }
 
@@ -1680,6 +1662,7 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
         'ama_expiration'               => $clean['ama_expiration'],
         'faa_number'                   => $clean['faa_number'],
         'faa_expiration'               => $clean['faa_expiration'],
+        'trust_attestation'            => (int) $clean['trust_attestation'],
         'membership_type_slot'         => $slot,
         'notes'                        => $notes !== [] ? implode("\n", $notes) : null,
         'payment_total'                => $quote['total'],
@@ -1704,7 +1687,7 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
             birthday, phone,
             emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
             address_street, address_street2, address_city, address_state, address_postal_code,
-            ama_number, ama_expiration, faa_number, faa_expiration, membership_type_slot, notes,
+            ama_number, ama_expiration, faa_number, faa_expiration, trust_attestation, membership_type_slot, notes,
             payment_total, payment_initiation, payment_processing_fee,
             payment_gateway, payment_transaction_id, payment_status,
             file_ama_verification_url, file_faa_registration_url, file_badge_photo_url, file_signature_url,
@@ -1717,7 +1700,7 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
             ?, ?,
             ?, ?, ?,
             ?, ?, ?, ?, ?,
-            ?, ?, ?, ?, ?, ?,
+            ?, ?, ?, ?, ?, ?, ?,
             ?, ?, ?,
             ?, NULL, ?,
             NULL, NULL, NULL, NULL,
@@ -1756,6 +1739,7 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
         $applicationRow['ama_expiration'],
         $applicationRow['faa_number'],
         $applicationRow['faa_expiration'],
+        $applicationRow['trust_attestation'],
         $applicationRow['membership_type_slot'],
         $applicationRow['notes'],
         $applicationRow['payment_total'],

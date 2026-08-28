@@ -392,7 +392,7 @@ $bpDay = isset($configRows['board_packet_send_day'])
                 <div class="card-header fw-semibold">Sender.net (reminder opt-out)</div>
                 <div class="card-body">
                     <p class="text-muted small">
-                        AMA/FAA expiry reminders check each recipient’s <strong>transactional (reminder)</strong> status in Sender.net
+                        AMA expiry reminders check each recipient’s <strong>transactional (reminder)</strong> status in Sender.net
                         before sending. Missing subscribers are added automatically (lowercase email) so case variants like
                         <code>Email@domain.com</code> and <code>email@domain.com</code> do not create duplicates.
                         Reminders are sent through Sender’s transactional API. Each message includes a signed

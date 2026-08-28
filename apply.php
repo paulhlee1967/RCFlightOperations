@@ -35,7 +35,8 @@ $amaMinExpiryYmd = membership_application_ama_minimum_expiry_ymd($pdo);
 $amaMinExpiryLong = formatDate($amaMinExpiryYmd, 'F j, Y');
 $amaMinExpiryYear = (int) substr($amaMinExpiryYmd, 0, 4);
 $amaEnrollUrl = 'https://www.modelaircraft.org/membership/enroll';
-$faaRegisterUrl = 'https://faadronezone.faa.gov';
+$faaRegisterUrl = 'https://faadronezone.faa.gov/';
+$trustExamUrl = 'https://trust.modelaircraft.org/';
 $amaPrefill = [
     'first_name'     => $amaSession['first_name'] ?? '',
     'last_name'      => $amaSession['last_name'] ?? '',
@@ -111,7 +112,7 @@ require_once __DIR__ . '/includes/csp_nonce.php';
         <div class="text-center mb-4">
             <h1 class="h2" style="color: var(--club-primary);"><?= h($theme['name'] ?? 'PVMAC') ?></h1>
             <h2 class="h4">Membership Application</h2>
-            <p class="text-muted mb-0">One membership submission per applicant. Current AMA membership and FAA registration are required.</p>
+            <p class="text-muted mb-0">One membership submission per applicant. Current AMA membership is required. All pilots must complete TRUST and follow FAA registration rules.</p>
         </div>
 
         <?php if (!$stripeConfigured): ?>
@@ -157,13 +158,18 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                                 <div class="d-flex gap-2">
                                     <span class="apply-preflight-check" aria-hidden="true">✓</span>
                                     <div>
-                                        <div class="fw-semibold">Current FAA Recreational Registration</div>
+                                        <div class="fw-semibold">FAA TRUST &amp; recreational registration</div>
                                         <p class="small mb-0 mt-1" style="color: color-mix(in srgb, var(--club-text) 80%, var(--club-muted));">
-                                            Your FAA registration must be current before you complete the application in Step 2.
+                                            All pilots must complete TRUST. Aircraft over 250g (0.55 lbs) must be registered with the FAA and display the FAA number.
                                         </p>
                                         <p class="small mb-0 mt-2">
                                             <a href="<?= h($faaRegisterUrl) ?>" class="apply-preflight-link" target="_blank" rel="noopener noreferrer">
-                                                Get or renew FAA registration ↗
+                                                Register your aircraft with the FAA (DroneZone) ↗
+                                            </a>
+                                        </p>
+                                        <p class="small mb-0 mt-1">
+                                            <a href="<?= h($trustExamUrl) ?>" class="apply-preflight-link" target="_blank" rel="noopener noreferrer">
+                                                Take the TRUST safety test ↗
                                             </a>
                                         </p>
                                     </div>
@@ -346,30 +352,57 @@ require_once __DIR__ . '/includes/csp_nonce.php';
 
             <div class="card mb-3">
                 <div class="card-header fw-semibold">AMA &amp; FAA</div>
-                <div class="card-body row g-3">
-                    <div class="col-md-6">
-                        <label class="form-label">AMA # <span class="text-danger">*</span></label>
-                        <input type="text" name="ama_number" class="form-control bg-light" required readonly value="<?= h($amaPrefill['ama_number']) ?>">
+                <div class="card-body">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">AMA # <span class="text-danger">*</span></label>
+                            <input type="text" name="ama_number" class="form-control bg-light" required readonly value="<?= h($amaPrefill['ama_number']) ?>">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">AMA expiration <span class="text-danger">*</span></label>
+                            <input type="text" name="ama_expiration" class="form-control bg-light" required readonly value="<?= h($amaPrefill['ama_expiration']) ?>">
+                        </div>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">AMA expiration <span class="text-danger">*</span></label>
-                        <input type="text" name="ama_expiration" class="form-control bg-light" required readonly value="<?= h($amaPrefill['ama_expiration']) ?>">
+
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" name="trust_attestation" value="1" id="trust_attestation" required>
+                        <label class="form-check-label" for="trust_attestation">
+                            <strong>FAA TRUST Compliance (Required for ALL Pilots)</strong>
+                            <span class="d-block mt-1 fw-normal">
+                                I certify that I have passed The Recreational UAS Safety Test (TRUST) as mandated by the FAA,
+                                and I agree to carry proof of completion whenever operating aircraft at the airfield.
+                                (If applicant is under 18, parent/guardian must sign the membership agreement below.)
+                            </span>
+                        </label>
                     </div>
-                    <div class="col-md-6">
-                        <label class="form-label">FAA registration number <span class="text-danger">*</span></label>
-                        <input type="text" name="faa_number" class="form-control" required value="<?= h($clubPrefill['faa_number']) ?>">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">FAA registration expiration <span class="text-danger">*</span></label>
-                        <input type="text" name="faa_expiration" class="form-control js-date-us" required placeholder="MM/DD/YYYY" inputmode="numeric" maxlength="10" value="<?= h($clubPrefill['faa_expiration']) ?>">
-                    </div>
+
+                    <h3 class="h6 fw-semibold mb-1">FAA Recreational Registration</h3>
+                    <p class="small mb-2" style="color: color-mix(in srgb, var(--club-text) 82%, var(--club-muted));">
+                        Federal law requires pilots operating any aircraft weighing over 250g (0.55 lbs) to register
+                        with the FAA via DroneZone and display their FAA number on their aircraft.
+                    </p>
+                    <ul class="small mb-0 ps-3">
+                        <li class="mb-2">
+                            <a href="<?= h($faaRegisterUrl) ?>" class="apply-preflight-link" target="_blank" rel="noopener noreferrer">
+                                Register your aircraft with the FAA (DroneZone) ↗
+                            </a>
+                        </li>
+                        <li>
+                            Take the TRUST safety test — free, about 15–30 minutes. Print or save your completion
+                            certificate and keep it with you when you fly. Certificates cannot be reissued; if yours
+                            is lost, retake the test to get a new one.
+                            <a href="<?= h($trustExamUrl) ?>" class="apply-preflight-link d-inline" target="_blank" rel="noopener noreferrer">
+                                trust.modelaircraft.org ↗
+                            </a>
+                        </li>
+                    </ul>
                 </div>
             </div>
 
             <div class="card mb-3">
                 <div class="card-header fw-semibold">Uploads</div>
-                <div class="card-body row g-3">
-                    <div class="col-md-6" id="badge-photo-wrap">
+                <div class="card-body">
+                    <div id="badge-photo-wrap">
                         <label class="form-label">Badge photo (.jpg, .png) <span class="text-danger" id="badge-required-star">*</span></label>
                         <div id="badge-photo-existing" class="mb-2<?= $clubPrefill['badge_photo_url'] !== '' ? '' : ' d-none' ?>">
                             <?php if ($clubPrefill['badge_photo_url'] !== ''): ?>
@@ -381,31 +414,6 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                         </div>
                         <input type="file" name="badge_photo" id="badge_photo" class="form-control" accept=".jpg,.jpeg,.png,image/jpeg,image/png">
                         <div class="form-text" id="badge-photo-help">Full face in color — printed on your membership card. Max 5 MB.</div>
-                    </div>
-                    <div class="col-md-6" id="faa-card-wrap">
-                        <label class="form-label">FAA registration (PDF, .jpg, .png) <span class="text-danger" id="faa-required-star">*</span></label>
-                        <?php
-                        $faaExistingVisible = $clubPrefill['faa_card_on_file'] === '1';
-                        $faaPreviewUrl = $clubPrefill['faa_card_url'] ?? '';
-                        $faaPreviewIsImage = ($clubPrefill['faa_card_is_image'] ?? '') === '1';
-                        ?>
-                        <div id="faa-card-existing" class="mb-2<?= $faaExistingVisible ? '' : ' d-none' ?>">
-                            <div id="faa-card-preview-wrap" class="mb-2<?= ($faaExistingVisible && $faaPreviewUrl !== '') ? '' : ' d-none' ?>">
-                                <img id="faa-card-preview-img" src="<?= $faaPreviewIsImage ? h($faaPreviewUrl) : '' ?>" alt="Current FAA registration" class="img-thumbnail d-block<?= $faaPreviewIsImage ? '' : ' d-none' ?>" style="max-width:160px;max-height:160px;object-fit:contain;">
-                                <a id="faa-card-preview-link" href="<?= (!$faaPreviewIsImage && $faaPreviewUrl !== '') ? h($faaPreviewUrl) : '#' ?>" target="_blank" rel="noopener noreferrer" class="small<?= (!$faaPreviewIsImage && $faaPreviewUrl !== '') ? '' : ' d-none' ?>">View current FAA registration (PDF)</a>
-                            </div>
-                            <div class="form-text" id="faa-card-existing-help">
-                                Registration on file — leave blank to keep it when your FAA expiration is valid through at least <strong id="faa-reuse-min-label"><?= h($amaMinExpiryLabel) ?></strong>.
-                            </div>
-                        </div>
-                        <input type="file" name="faa_card" id="faa_card" class="form-control" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png">
-                        <div class="form-text" id="faa-card-help">
-                            <?php if ($clubPrefill['faa_card_on_file'] === '1'): ?>
-                            Registration on file may be kept when expiration is valid through at least <?= h($amaMinExpiryLabel) ?>. PDF or image. Max 5 MB.
-                            <?php else: ?>
-                            Upload required if no registration file is on file yet (even when number and expiration are current). Must be valid through at least <?= h($amaMinExpiryLabel) ?>. PDF or image. Max 5 MB.
-                            <?php endif; ?>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -432,10 +440,10 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                     <div class="form-check mb-0">
                         <input class="form-check-input" type="checkbox" name="email_opt_in_expiry_reminders" value="1" id="email_opt_in_expiry_reminders">
                         <label class="form-check-label" for="email_opt_in_expiry_reminders">
-                            <strong>AMA &amp; FAA expiration reminders</strong>
+                            <strong>AMA expiration reminders</strong>
                         </label>
                         <div class="form-text ms-4">
-                            A reminder when your AMA membership or FAA drone registration is approaching its expiration date.
+                            A reminder when your AMA membership is approaching its expiration date.
                             Each reminder includes its own opt-out link and is separate from club event emails.
                             If you leave this unchecked, we will not send you these reminders (and will opt you out if you
                             were previously receiving them).

@@ -2,6 +2,7 @@
 /**
  * templates/email/faa_expiry_60.php
  *
+ * Unused: FAA expiry reminders are no longer sent (club no longer tracks FAA on membership).
  * Reminder: FAA drone registration expires in ~60 days.
  *
  * $vars: first_name, last_name, email, faa_number, faa_expiration,

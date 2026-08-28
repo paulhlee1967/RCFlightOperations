@@ -671,7 +671,7 @@ function sender_net_subscribe_club_events(
 }
 
 /**
- * Apply AMA/FAA expiry reminder preference (Sender transactional channel + members group).
+ * Apply AMA expiry reminder preference (Sender transactional channel + members group).
  *
  * @return array{ok: bool, error: ?string, skipped: bool}
  */
@@ -736,7 +736,7 @@ function email_opt_in_from_post(mixed $value): int
 }
 
 /**
- * Whether a member row allows AMA/FAA expiry reminder emails.
+ * Whether a member row allows AMA expiry reminder emails.
  * Missing column (pre-migration SELECT) defaults to allowed.
  */
 function member_wants_expiry_reminder_emails(array $member): bool
@@ -858,7 +858,7 @@ function sender_net_member_email_status(?PDO $pdo, array $member): array
             'badge' => $campaign['badge'],
         ],
         [
-            'label' => 'AMA/FAA expiry reminders',
+            'label' => 'AMA expiry reminders',
             'text'  => $reminder['text'],
             'badge' => $reminder['badge'],
         ],
@@ -896,7 +896,7 @@ function email_opt_in_application_summary(array $application): array
         $lines[] = 'Club events & announcements';
     }
     if (!empty($application['email_opt_in_expiry_reminders'])) {
-        $lines[] = 'AMA/FAA expiration reminders';
+        $lines[] = 'AMA expiration reminders';
     }
     if ($lines === []) {
         $lines[] = 'No optional emails selected';
@@ -1063,9 +1063,9 @@ function sender_net_unsubscribe_plain_text_line(string $unsubscribeUrl = ''): st
 {
     $unsubscribeUrl = trim($unsubscribeUrl);
     if ($unsubscribeUrl !== '') {
-        return "\n\nTo unsubscribe from AMA/FAA expiry reminders only, visit:\n{$unsubscribeUrl}\n"
+        return "\n\nTo unsubscribe from AMA expiry reminders only, visit:\n{$unsubscribeUrl}\n"
             . "Newsletters and general club notices are managed separately.\n";
     }
 
-    return "\n\nTo unsubscribe from AMA/FAA expiry reminders only, use the link in the HTML version of this message.\n";
+    return "\n\nTo unsubscribe from AMA expiry reminders only, use the link in the HTML version of this message.\n";
 }

@@ -9,7 +9,7 @@
  * Missing field labels for a member row that includes joined address/phone counts.
  *
  * Expected keys on $member (from members + subqueries):
- *   email, phone, ama_number, ama_expiration, ama_life_member, faa_number,
+ *   email, phone, ama_number, ama_expiration, ama_life_member,
  *   membership_type_slot, emergency_contact_name, emergency_contact_phone,
  *   address_street, address_city
  *
@@ -43,10 +43,6 @@ function memberCompletenessMissingFields(array $member): array
     }
     if (!$amaLife && trim((string) ($member['ama_expiration'] ?? '')) === '') {
         $missing[] = 'AMA expiration';
-    }
-
-    if (trim((string) ($member['faa_number'] ?? '')) === '') {
-        $missing[] = 'FAA number';
     }
 
     if (empty($member['membership_type_slot'])) {

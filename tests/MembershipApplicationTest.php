@@ -154,18 +154,21 @@ final class MembershipApplicationTest extends TestCase
             'terms' => '1',
             'ama_number' => '123456',
             'ama_expiration' => '12/31/2026',
-            'faa_number' => 'FA123',
-            'faa_expiration' => '06/01/2027',
+            'trust_attestation' => '1',
             'signature_data' => 'data:image/png;base64,aa==',
         ];
-        $files = [
-            'faa_card' => ['tmp_name' => '', 'size' => 0],
-        ];
+        $files = [];
         $result = membership_application_validate_input($pdo, $post, $files, $context);
         $this->assertArrayNotHasKey('birthday', $result['errors']);
         $this->assertArrayNotHasKey('ama_expiration', $result['errors']);
         $this->assertArrayNotHasKey('ama_verify', $result['errors']);
+        $this->assertArrayNotHasKey('faa_number', $result['errors']);
+        $this->assertArrayNotHasKey('faa_card', $result['errors']);
+        $this->assertArrayNotHasKey('trust_attestation', $result['errors']);
         $this->assertSame('1980-03-15', $result['clean']['birthday']);
+        $this->assertSame(1, $result['clean']['trust_attestation']);
+        $this->assertNull($result['clean']['faa_number']);
+        $this->assertNull($result['clean']['faa_expiration']);
         membership_application_ama_clear_session();
     }
 
@@ -178,17 +181,17 @@ final class MembershipApplicationTest extends TestCase
         $this->assertSame('pdf', $mimes['application/pdf']);
     }
 
-    public function testValidateInputFaaCardRequiredMessage(): void
+    public function testValidateInputRequiresTrustAttestation(): void
     {
         $pdo = $this->createMock(PDO::class);
-        membership_application_ama_clear_session();
-        $_SESSION['membership_apply_ama'] = [
-            'verified' => true,
-            'ama_number' => '123456',
-            'last_name' => 'User',
-            'first_name' => 'Test',
-            'ama_expiration' => '2026-12-31',
-        ];
+        membership_application_ama_set_session([
+            'ama_number'         => '123456',
+            'last_name'          => 'User',
+            'first_name'         => 'Test',
+            'ama_expiration_ymd' => '2026-12-31',
+            'ama_expiration_mdy' => '12/31/2026',
+            'life_member'        => false,
+        ]);
         $context = membership_application_context($pdo, new DateTimeImmutable('2026-08-01'));
         $post = [
             'first_name' => 'Test',
@@ -205,15 +208,12 @@ final class MembershipApplicationTest extends TestCase
             'terms' => '1',
             'ama_number' => '123456',
             'ama_expiration' => '12/31/2026',
-            'faa_number' => 'FA123',
-            'faa_expiration' => '06/01/2027',
             'signature_data' => 'data:image/png;base64,aa==',
         ];
-        $files = [
-            'faa_card' => ['tmp_name' => '', 'size' => 0],
-        ];
-        $result = membership_application_validate_input($pdo, $post, $files, $context);
-        $this->assertSame('FAA registration file is required.', $result['errors']['faa_card'] ?? '');
+        $result = membership_application_validate_input($pdo, $post, [], $context);
+        $this->assertSame('You must certify that you have completed TRUST.', $result['errors']['trust_attestation'] ?? '');
+        $this->assertArrayNotHasKey('faa_number', $result['errors']);
+        $this->assertArrayNotHasKey('faa_card', $result['errors']);
         membership_application_ama_clear_session();
     }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env php
 <?php
 /**
- * Send scheduled reminder emails (AMA/FAA expiry). Run from cron, e.g. daily:
+ * Send scheduled reminder emails (AMA expiry). Run from cron, e.g. daily:
  *   php scripts/send_reminders.php
  *   php scripts/send_reminders.php --dry-run
  *   php scripts/send_reminders.php --test-email=you@example.com
@@ -21,11 +21,11 @@
  *                    templates without waiting for an exact trigger date.
  * --test-limit=N     With --test-email, stop after N reminder sends (default: no
  *                    limit). Counts each template attempt (sent, skipped, or
- *                    dry-run), across AMA and FAA batches.
+ *                    dry-run), across AMA batches.
  *
  * --staff-digest             Send a weekly summary email (one email per staff user)
  *                            to active users with role staff or manager, listing
- *                            current members whose AMA/FAA credentials are expired
+ *                            current members whose AMA credentials are expired
  *                            or expiring soon (default: 60 days).
  * --staff-digest-window=N    Window in days for expiring-soon (default: 60).
  * --only-staff-digest        Skip member reminders; run digest only.
@@ -427,7 +427,7 @@ function send_reminder_message(
 }
 
 /**
- * Build the staff digest list: current members with AMA/FAA expired or expiring soon.
+ * Build the staff digest list: current members with AMA expired or expiring soon.
  *
  * @return array<int, array<string, mixed>>
  */
@@ -444,28 +444,19 @@ function staff_digest_rows(PDO $pdo, int $windowDays): array
                 m.last_name,
                 m.email,
                 m.ama_number,
-                m.ama_expiration,
-                m.faa_number,
-                m.faa_expiration
+                m.ama_expiration
             FROM members m
             WHERE {$currentMemberWhere}
-              AND (
-                (m.ama_expiration IS NOT NULL AND m.ama_expiration != '' AND m.ama_expiration <= ?)
-                OR (m.faa_expiration IS NOT NULL AND m.faa_expiration != '' AND m.faa_expiration <= ?)
-              )
-            ORDER BY LEAST(
-                COALESCE(NULLIF(m.ama_expiration, ''), '9999-12-31'),
-                COALESCE(NULLIF(m.faa_expiration, ''), '9999-12-31')
-            ) ASC, m.last_name, m.first_name";
+              AND (m.ama_expiration IS NOT NULL AND m.ama_expiration != '' AND m.ama_expiration <= ?)
+            ORDER BY m.ama_expiration ASC, m.last_name, m.first_name";
 
     $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_merge($currentMemberParams, [$inN, $inN]));
+    $stmt->execute(array_merge($currentMemberParams, [$inN]));
 
     $rows = [];
     while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $amaExp = trim((string) ($r['ama_expiration'] ?? ''));
-        $faaExp = trim((string) ($r['faa_expiration'] ?? ''));
-        $expired = ($amaExp !== '' && $amaExp < $today) || ($faaExp !== '' && $faaExp < $today);
+        $expired = $amaExp !== '' && $amaExp < $today;
         $rows[] = [
             'id'         => (int) ($r['id'] ?? 0),
             'first_name' => (string) ($r['first_name'] ?? ''),
@@ -473,8 +464,6 @@ function staff_digest_rows(PDO $pdo, int $windowDays): array
             'email'      => (string) ($r['email'] ?? ''),
             'ama_number' => (string) ($r['ama_number'] ?? ''),
             'ama_exp'    => $amaExp,
-            'faa_number' => (string) ($r['faa_number'] ?? ''),
-            'faa_exp'    => $faaExp,
             'status'     => $expired ? 'Expired' : 'Expiring',
         ];
     }
@@ -519,11 +508,11 @@ function send_staff_digest(
     $rows  = staff_digest_rows($pdo, $windowDays);
     $count = count($rows);
     $todayLabel = date('M j, Y');
-    $subject = "{$clubName} — Weekly AMA/FAA expiring-soon digest ({$count})";
+    $subject = "{$clubName} — Weekly AMA expiring-soon digest ({$count})";
 
     $table = '';
     if ($count === 0) {
-        $table = '<p style="margin:0;color:#665e52;">No current members have AMA/FAA credentials expired or expiring within '
+        $table = '<p style="margin:0;color:#665e52;">No current members have AMA credentials expired or expiring within '
             . (int) $windowDays . " days.</p>";
     } else {
         $table .= '<table style="border-collapse:collapse;width:100%;margin-top:10px;">'
@@ -532,8 +521,6 @@ function send_staff_digest(
             . '<th style="text-align:left;padding:8px 10px;background:#6f7c3d;color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.03em;">Email</th>'
             . '<th style="text-align:left;padding:8px 10px;background:#6f7c3d;color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.03em;">AMA</th>'
             . '<th style="text-align:right;padding:8px 10px;background:#6f7c3d;color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.03em;">AMA exp</th>'
-            . '<th style="text-align:left;padding:8px 10px;background:#6f7c3d;color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.03em;">FAA</th>'
-            . '<th style="text-align:right;padding:8px 10px;background:#6f7c3d;color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.03em;">FAA exp</th>'
             . '<th style="text-align:right;padding:8px 10px;background:#6f7c3d;color:#fff;font-size:11px;text-transform:uppercase;letter-spacing:.03em;">Status</th>'
             . '</tr></thead><tbody>';
         $i = 0;
@@ -543,23 +530,19 @@ function send_staff_digest(
             $email  = htmlspecialchars(trim((string) $r['email']));
             $amaNum = htmlspecialchars(trim((string) $r['ama_number']));
             $amaExp = htmlspecialchars(trim((string) $r['ama_exp']));
-            $faaNum = htmlspecialchars(trim((string) $r['faa_number']));
-            $faaExp = htmlspecialchars(trim((string) $r['faa_exp']));
             $status = htmlspecialchars((string) $r['status']);
             $table .= '<tr>'
                 . '<td style="text-align:left;padding:7px 10px;border-bottom:1px solid #e3e0d7;font-size:13px;' . $bg . '">' . $member . '</td>'
                 . '<td style="text-align:left;padding:7px 10px;border-bottom:1px solid #e3e0d7;font-size:13px;' . $bg . '">' . ($email !== '' ? $email : '—') . '</td>'
                 . '<td style="text-align:left;padding:7px 10px;border-bottom:1px solid #e3e0d7;font-size:13px;' . $bg . '">' . ($amaNum !== '' ? $amaNum : '—') . '</td>'
                 . '<td style="text-align:right;padding:7px 10px;border-bottom:1px solid #e3e0d7;font-size:13px;' . $bg . '">' . ($amaExp !== '' ? $amaExp : '—') . '</td>'
-                . '<td style="text-align:left;padding:7px 10px;border-bottom:1px solid #e3e0d7;font-size:13px;' . $bg . '">' . ($faaNum !== '' ? $faaNum : '—') . '</td>'
-                . '<td style="text-align:right;padding:7px 10px;border-bottom:1px solid #e3e0d7;font-size:13px;' . $bg . '">' . ($faaExp !== '' ? $faaExp : '—') . '</td>'
                 . '<td style="text-align:right;padding:7px 10px;border-bottom:1px solid #e3e0d7;font-size:13px;' . $bg . '">' . $status . '</td>'
                 . '</tr>';
         }
         $table .= '</tbody></table>';
     }
 
-    $content = '<h1 style="margin:0 0 2px;font-size:20px;color:#252018;">AMA/FAA expiring-soon digest</h1>'
+    $content = '<h1 style="margin:0 0 2px;font-size:20px;color:#252018;">AMA expiring-soon digest</h1>'
         . '<p style="color:#665e52;font-size:12px;margin:0 0 16px;">Generated ' . htmlspecialchars($todayLabel)
         . ' · Window: ' . (int) $windowDays . ' days</p>'
         . $table;
@@ -696,100 +679,6 @@ if (!$isTest) {
                 'email'          => $m['email'],
                 'ama_number'     => $m['ama_number'],
                 'ama_expiration' => $m['ama_expiration'],
-                'days_remaining' => 30,
-                'club_name'      => $clubName,
-            ],
-            $mailCfg,
-            $senderCfg,
-            $config,
-            $dryRun,
-            $isTest,
-            $testEmail,
-            $dumpSenderPayload,
-            $senderPayloadDumped,
-            $sent,
-            $skipped,
-            $errors
-        );
-    }
-}
-
-// ── FAA expiry in 60 days ─────────────────────────────────────────────────
-if ($isTest) {
-    $faaSql = "
-        SELECT m.id, m.first_name, m.last_name, m.email, m.faa_number, m.faa_expiration
-        FROM members m
-        WHERE (m.email IS NOT NULL AND m.email != '')
-          AND m.faa_expiration BETWEEN CURDATE() AND CURDATE() + INTERVAL 90 DAY
-          AND {$currentMemberWhere}
-    ";
-} else {
-    $faaSql = "
-        SELECT m.id, m.first_name, m.last_name, m.email, m.faa_number, m.faa_expiration
-        FROM members m
-        WHERE (m.email IS NOT NULL AND m.email != '')
-          AND m.faa_expiration = CURDATE() + INTERVAL 60 DAY
-          AND {$currentMemberWhere}
-    ";
-}
-
-$stmt = $pdo->prepare($faaSql);
-$stmt->execute($currentMemberParams);
-foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
-    if ($isTest && send_reminder_test_limit_reached($testLimit, $testCount)) {
-        break;
-    }
-    send_reminder_message(
-        $pdo,
-        $m,
-        'faa_expiry_60',
-        [
-            'first_name'     => $m['first_name'],
-            'last_name'      => $m['last_name'],
-            'email'          => $m['email'],
-            'faa_number'     => $m['faa_number'],
-            'faa_expiration' => $m['faa_expiration'],
-            'days_remaining' => 60,
-            'club_name'      => $clubName,
-        ],
-        $mailCfg,
-        $senderCfg,
-        $config,
-        $dryRun,
-        $isTest,
-        $testEmail,
-        $dumpSenderPayload,
-        $senderPayloadDumped,
-        $sent,
-        $skipped,
-        $errors
-    );
-    if ($isTest) {
-        $testCount++;
-    }
-}
-
-// ── FAA expiry in 30 days ─────────────────────────────────────────────────
-if (!$isTest) {
-    $stmt = $pdo->prepare("
-        SELECT m.id, m.first_name, m.last_name, m.email, m.faa_number, m.faa_expiration
-        FROM members m
-        WHERE (m.email IS NOT NULL AND m.email != '')
-          AND m.faa_expiration = CURDATE() + INTERVAL 30 DAY
-          AND {$currentMemberWhere}
-    ");
-    $stmt->execute($currentMemberParams);
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
-        send_reminder_message(
-            $pdo,
-            $m,
-            'faa_expiry_30',
-            [
-                'first_name'     => $m['first_name'],
-                'last_name'      => $m['last_name'],
-                'email'          => $m['email'],
-                'faa_number'     => $m['faa_number'],
-                'faa_expiration' => $m['faa_expiration'],
                 'days_remaining' => 30,
                 'club_name'      => $clubName,
             ],

@@ -37,7 +37,7 @@ function reportRegistry(): array
         // ── Current roster & day-to-day operations ────────────────────────
         'current_members' => [
             'label'       => 'Current members',
-            'description' => 'All current members with renewal year, AMA/FAA credentials, and gate key — handy for field verification.',
+            'description' => 'All current members with renewal year, AMA credentials, and gate key — handy for field verification.',
             'year'        => false,
         ],
         'complimentary_members' => [
@@ -47,8 +47,8 @@ function reportRegistry(): array
             'cohort'      => true,
         ],
         'compliance' => [
-            'label'       => 'AMA/FAA compliance',
-            'description' => 'Current members with credentials expired or expiring within 60 days.',
+            'label'       => 'AMA compliance',
+            'description' => 'Current members with AMA expired or expiring within 60 days.',
             'year'        => false,
         ],
         'birthdays' => [
@@ -845,7 +845,7 @@ function reportNotYetRenewed(PDO $pdo, int $year): array
 }
 
 /**
- * All current members with renewal year, AMA/FAA credentials, and gate key for field verification.
+ * All current members with renewal year, AMA credentials, and gate key for field verification.
  *
  * @return array<string, mixed>
  */
@@ -856,7 +856,7 @@ function reportCurrentMembers(PDO $pdo): array
     $where   = currentMemberWhereSql('m', $current);
 
     $sql = "SELECT m.last_name, m.first_name, m.membership_renewal_year,
-                   m.ama_number, m.ama_expiration, m.faa_number, m.faa_expiration,
+                   m.ama_number, m.ama_expiration,
                    m.gate_key_number
             FROM members m
             WHERE {$where}
@@ -876,8 +876,6 @@ function reportCurrentMembers(PDO $pdo): array
             'expires'         => $renewalYear !== null && $renewalYear !== '' ? (int) $renewalYear : null,
             'ama_number'      => $r['ama_number'],
             'ama_expiration'  => $r['ama_expiration'] ?: null,
-            'faa_number'      => $r['faa_number'],
-            'faa_expiration'  => $r['faa_expiration'] ?: null,
             'gate_key_number' => $r['gate_key_number'],
         ];
     }
@@ -893,8 +891,6 @@ function reportCurrentMembers(PDO $pdo): array
             ['key' => 'expires',         'label' => 'Expires',        'format' => 'year', 'align' => 'end'],
             ['key' => 'ama_number',      'label' => 'AMA #',          'format' => 'text', 'align' => 'start'],
             ['key' => 'ama_expiration',  'label' => 'AMA Expiry',     'format' => 'date', 'align' => 'end'],
-            ['key' => 'faa_number',      'label' => 'FAA #',          'format' => 'text', 'align' => 'start'],
-            ['key' => 'faa_expiration',  'label' => 'FAA Expiry',     'format' => 'date', 'align' => 'end'],
             ['key' => 'gate_key_number', 'label' => 'Gate key #',     'format' => 'text', 'align' => 'start'],
         ],
         'rows'   => $rows,
@@ -1014,7 +1010,7 @@ function reportComplimentaryMembers(PDO $pdo): array
 }
 
 /**
- * Current members whose AMA or FAA credentials are expired or expiring within 60 days.
+ * Current members whose AMA credentials are expired or expiring within 60 days.
  *
  * @return array<string, mixed>
  */
@@ -1026,32 +1022,23 @@ function reportCompliance(PDO $pdo): array
     $in60    = date('Y-m-d', strtotime('+60 days'));
     $today   = date('Y-m-d');
 
-    $sql = "SELECT m.last_name, m.first_name, m.ama_number, m.ama_expiration, m.faa_number, m.faa_expiration
+    $sql = "SELECT m.last_name, m.first_name, m.ama_number, m.ama_expiration
             FROM members m
             WHERE {$where}
-              AND (
-                (m.ama_expiration IS NOT NULL AND m.ama_expiration != '' AND m.ama_expiration <= ?)
-                OR (m.faa_expiration IS NOT NULL AND m.faa_expiration != '' AND m.faa_expiration <= ?)
-              )
-            ORDER BY LEAST(
-                COALESCE(NULLIF(m.ama_expiration, ''), '9999-12-31'),
-                COALESCE(NULLIF(m.faa_expiration, ''), '9999-12-31')
-            ) ASC, m.last_name, m.first_name";
+              AND (m.ama_expiration IS NOT NULL AND m.ama_expiration != '' AND m.ama_expiration <= ?)
+            ORDER BY m.ama_expiration ASC, m.last_name, m.first_name";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute(array_merge(currentMemberWhereParams($current), [$in60, $in60]));
+    $stmt->execute(array_merge(currentMemberWhereParams($current), [$in60]));
 
     $rows = [];
     while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $amaExp = (string) ($r['ama_expiration'] ?? '');
-        $faaExp = (string) ($r['faa_expiration'] ?? '');
-        $expired = ($amaExp !== '' && $amaExp < $today) || ($faaExp !== '' && $faaExp < $today);
+        $expired = $amaExp !== '' && $amaExp < $today;
         $rows[] = [
             'last_name'  => $r['last_name'],
             'first_name' => $r['first_name'],
             'ama_number' => $r['ama_number'],
             'ama_exp'    => $amaExp,
-            'faa_number' => $r['faa_number'],
-            'faa_exp'    => $faaExp,
             'status'     => $expired ? 'Expired' : 'Expiring',
         ];
     }
@@ -1065,13 +1052,11 @@ function reportCompliance(PDO $pdo): array
             ['key' => 'first_name', 'label' => 'First name', 'format' => 'text', 'align' => 'start'],
             ['key' => 'ama_number', 'label' => 'AMA #',      'format' => 'text', 'align' => 'start'],
             ['key' => 'ama_exp',    'label' => 'AMA expires','format' => 'date', 'align' => 'end'],
-            ['key' => 'faa_number', 'label' => 'FAA #',      'format' => 'text', 'align' => 'start'],
-            ['key' => 'faa_exp',    'label' => 'FAA expires','format' => 'date', 'align' => 'end'],
             ['key' => 'status',     'label' => 'Status',     'format' => 'text', 'align' => 'end'],
         ],
         'rows'   => $rows,
         'totals' => null,
-        'note'   => 'Current members only. Includes credentials already expired or expiring on or before ' . formatDate($in60) . '.',
+        'note'   => 'Current members only. Includes AMA already expired or expiring on or before ' . formatDate($in60) . '.',
     ];
 }
 
@@ -1169,7 +1154,7 @@ function reportDataCompleteness(PDO $pdo): array
         ],
         'rows'   => $rows,
         'totals' => null,
-        'note'   => 'Current members only. Checks email, phone, mailing address, emergency contact, AMA/FAA numbers, and membership type. AMA life members are exempt from AMA number/expiration requirements.',
+        'note'   => 'Current members only. Checks email, phone, mailing address, emergency contact, AMA numbers, and membership type. AMA life members are exempt from AMA number/expiration requirements.',
     ];
 }
 

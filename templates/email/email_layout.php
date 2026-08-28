@@ -180,7 +180,7 @@ function emailWrap(string $content, array $vars, ?PDO $pdo = null): string
         $unsubscribeEsc = htmlspecialchars($unsubscribeUrl, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         $unsubscribeHtml = '<p style="margin:14px 0 0;font-size:12px;color:#7a6f62;line-height:1.6;">'
             . 'You are receiving this message because you are a club member with an email address on file.<br>'
-            . 'This link stops <strong>AMA/FAA expiry reminders only</strong>. '
+            . 'This link stops <strong>AMA expiry reminders only</strong>. '
             . 'Newsletters and general club notices use a separate list; '
             . 'use the unsubscribe link in those emails if you want to opt out of them too.<br>'
             . '<a href="' . $unsubscribeEsc . '" style="color:' . $colorPrimary . ';text-decoration:underline;font-weight:600;">Unsubscribe from reminders</a>.'
@@ -188,7 +188,7 @@ function emailWrap(string $content, array $vars, ?PDO $pdo = null): string
     } elseif (!empty($vars['show_unsubscribe_notice'])) {
         $unsubscribeHtml = '<p style="margin:14px 0 0;font-size:12px;color:#7a6f62;line-height:1.6;">'
             . 'You are receiving this message because you are a club member with an email address on file.<br>'
-            . 'To stop AMA/FAA expiry reminders, contact the club treasurer. '
+            . 'To stop AMA expiry reminders, contact the club treasurer. '
             . 'Newsletters and general notices are managed separately.</p>';
     }
 

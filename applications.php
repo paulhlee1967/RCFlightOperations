@@ -19,6 +19,8 @@ if (!canEditMembers() && !canProcessMemberships()) {
     exit;
 }
 
+membership_application_ensure_schema($pdo);
+
 $membershipTypeLabels = enabledMembershipTypeLabels($pdo);
 $userId = currentUserId();
 $viewId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
@@ -556,8 +558,12 @@ render_page_header([
                 <dl class="row small mb-3">
                     <dt class="col-sm-4">AMA</dt>
                     <dd class="col-sm-8"><?= h((string) ($application['ama_number'] ?: '—')) ?><?php if (!empty($application['ama_expiration'])): ?> (exp <?= h(formatDate($application['ama_expiration'])) ?>)<?php endif; ?></dd>
-                    <dt class="col-sm-4">FAA</dt>
+                    <dt class="col-sm-4">TRUST attestation</dt>
+                    <dd class="col-sm-8"><?= !empty($application['trust_attestation']) ? 'Certified — will carry TRUST proof when flying' : '—' ?></dd>
+                    <?php if (!empty($application['faa_number']) || !empty($application['faa_expiration'])): ?>
+                    <dt class="col-sm-4">FAA (historical)</dt>
                     <dd class="col-sm-8"><?= h((string) ($application['faa_number'] ?: '—')) ?><?php if (!empty($application['faa_expiration'])): ?> (exp <?= h(formatDate($application['faa_expiration'])) ?>)<?php endif; ?></dd>
+                    <?php endif; ?>
                     <dt class="col-sm-4">Membership type</dt>
                     <?php $resolvedSlot = application_resolve_membership_type_slot($application, $pdo); ?>
                     <dd class="col-sm-8"><?= h($membershipTypeLabels[$resolvedSlot ?? 0] ?? '—') ?></dd>

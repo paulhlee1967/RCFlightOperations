@@ -159,12 +159,13 @@
       </table>
     </div>
     <p>
-      RC Flight Operations stores one FAA number and expiration per member. If a member has both a
-      TRUST number and a Part 107 license, store whichever is more relevant for your club
-      and note the other in the member's Notes field.
+      RC Flight Operations can store one FAA number and expiration per member on the Compliance tab.
+      The public membership application no longer collects FAA numbers or registration uploads;
+      applicants certify TRUST completion instead. Keep existing FAA fields on the member record
+      if you already have them — they remain available if the club requires them again later.
     </p>
     <p>
-      You can also attach an <strong>FAA registration card</strong> (PDF, JPEG, or PNG) on the
+      You can still attach an <strong>FAA registration card</strong> (PDF, JPEG, or PNG) on the
       Compliance tab. Files are stored as <code>uploads/member_faa_cards/{memberId}.{ext}</code>.
       Uploading a new card replaces the previous file (other extensions for that member are removed).
       Deleting a member removes any attached FAA card and badge photo files.
@@ -173,10 +174,10 @@
     <!-- ── Report ── -->
     <h2 id="report">Compliance Report</h2>
     <p>
-      Go to <strong>Reports → AMA/FAA compliance</strong>. This report lists
-      <strong>current members</strong> whose AMA or FAA expiration is within the next
-      60 days or already past, sorted soonest first. Each row shows AMA and FAA numbers,
-      expiration dates, and a <strong>Status</strong> column of <em>Expired</em> or
+      Go to <strong>Reports → AMA compliance</strong>. This report lists
+      <strong>current members</strong> whose AMA expiration is within the next
+      60 days or already past, sorted soonest first. Each row shows AMA number,
+      expiration date, and a <strong>Status</strong> column of <em>Expired</em> or
       <em>Expiring</em>.
     </p>
     <p>

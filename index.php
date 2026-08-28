@@ -55,7 +55,7 @@ $stmt = $pdo->prepare("
 $stmt->execute(array_merge(currentMemberWhereParams($currentYear), badgeUnprintedWhereParams($currentYear)));
 $unprintedBadges = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
-// ── Stat: AMA/FAA compliance alerts ─────────────────────────────────────────
+// ── Stat: AMA compliance alerts ─────────────────────────────────────────────
 $in60  = date('Y-m-d', strtotime('+60 days'));
 $today = date('Y-m-d');
 
@@ -63,24 +63,18 @@ $stmt = $pdo->prepare("
     SELECT COUNT(DISTINCT m.id) AS cnt
     FROM members m
     WHERE {$currentWhere}
-      AND (
-        (m.ama_expiration IS NOT NULL AND m.ama_expiration != '' AND m.ama_expiration <= ?)
-        OR (m.faa_expiration IS NOT NULL AND m.faa_expiration != '' AND m.faa_expiration <= ?)
-      )
+      AND (m.ama_expiration IS NOT NULL AND m.ama_expiration != '' AND m.ama_expiration <= ?)
 ");
-$stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$in60, $in60]));
+$stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$in60]));
 $complianceAlerts = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
 $stmt = $pdo->prepare("
     SELECT COUNT(DISTINCT m.id) AS cnt
     FROM members m
     WHERE {$currentWhere}
-      AND (
-        (m.ama_expiration IS NOT NULL AND m.ama_expiration != '' AND m.ama_expiration < ?)
-        OR (m.faa_expiration IS NOT NULL AND m.faa_expiration != '' AND m.faa_expiration < ?)
-      )
+      AND (m.ama_expiration IS NOT NULL AND m.ama_expiration != '' AND m.ama_expiration < ?)
 ");
-$stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$today, $today]));
+$stmt->execute(array_merge(currentMemberWhereParams($currentYear), [$today]));
 $expiredCount = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
 
 // ── Stat: birthdays this week ────────────────────────────────────────────────
@@ -205,7 +199,7 @@ require_once __DIR__ . '/includes/header.php';
     </div>
     <?php endif; ?>
 
-    <!-- AMA/FAA compliance -->
+    <!-- AMA compliance -->
     <div class="col-6 col-sm-4 col-xl">
         <?php if (canViewReports()): ?>
         <a href="reports.php?report=compliance" class="card stat-card text-decoration-none h-100">
@@ -217,7 +211,7 @@ require_once __DIR__ . '/includes/header.php';
                     </svg>
                 </div>
                 <div class="stat-value <?= $complianceAlerts > 0 ? ($expiredCount > 0 ? 'text-danger' : 'text-warning') : 'text-success' ?>"><?= $complianceAlerts ?></div>
-                <div class="stat-label">AMA/FAA alerts</div>
+                <div class="stat-label">AMA alerts</div>
                 <div class="stat-sub text-muted"><?= $expiredCount > 0 ? $expiredCount . ' already expired' : 'within 60 days' ?></div>
             </div>
         <?php if (canViewReports()): ?></a><?php else: ?></div><?php endif; ?>
@@ -282,7 +276,7 @@ if ((canEditMembers() || canProcessMemberships()) && $fulfillmentPending > 0) {
 if ($complianceAlerts > 0) {
     $pipelineItems[] = [
         'count' => $complianceAlerts,
-        'label' => 'member' . ($complianceAlerts !== 1 ? 's' : '') . ' with AMA/FAA expiring or expired',
+        'label' => 'member' . ($complianceAlerts !== 1 ? 's' : '') . ' with AMA expiring or expired',
         'link'  => canViewReports() ? 'reports.php?report=compliance' : null,
         'cta'   => 'View report →',
     ];
