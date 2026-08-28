@@ -517,7 +517,7 @@ if ($fromWizard) {
             </div>
 
             <div class="col-sm-6 col-md-4">
-                <div class="text-muted small text-uppercase fw-semibold mb-1" style="letter-spacing:.05em;">AMA / FAA</div>
+                <div class="text-muted small text-uppercase fw-semibold mb-1" style="letter-spacing:.05em;">AMA</div>
                 <div class="small">
                     <span class="text-muted">AMA #:</span>
                     <?php if ($member['ama_number']): ?>
@@ -542,19 +542,6 @@ if ($fromWizard) {
                     <span class="text-danger">Not set</span>
                     <?php endif; ?>
                 </div>
-                <?php if (!empty($member['faa_number']) || !empty($member['faa_expiration'])): ?>
-                <div class="small mt-1">
-                    <span class="text-muted">FAA #:</span>
-                    <?= $member['faa_number'] ? ('<strong>' . h($member['faa_number']) . '</strong>') : '—' ?>
-                </div>
-                <?php if ($member['faa_expiration']): ?>
-                <div class="small">
-                    <span class="text-muted">FAA Exp:</span>
-                    <?php $faaOk = $member['faa_expiration'] >= date('Y-m-d'); ?>
-                    <span class="<?= $faaOk ? '' : 'text-danger' ?>"><?= date('M j, Y', strtotime($member['faa_expiration'])) ?></span>
-                </div>
-                <?php endif; ?>
-                <?php endif; ?>
             </div>
 
             <div class="col-sm-6 col-md-4">

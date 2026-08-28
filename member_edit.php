@@ -1,6 +1,6 @@
 <?php
 /**
- * Member add/edit. Contact (phones, addresses), Membership, AMA/FAA, Payment history.
+ * Member add/edit. Contact (phones, addresses), Membership, AMA, Payment history.
  */
 
 require_once __DIR__ . '/includes/db.php';
@@ -322,7 +322,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
             </div>
 
-            <!-- Compliance tab (AMA/FAA) -->
+            <!-- Compliance tab (AMA) -->
             <div class="tab-pane fade" id="pane-compliance" role="tabpanel">
                     <?php require __DIR__ . '/includes/member_compliance_fields.php'; ?>
             </div>

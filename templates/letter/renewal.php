@@ -17,9 +17,7 @@
 $firstName  = $member['first_name'] ?? 'Member';
 $memType    = $member['membership_type'] ?? 'Adult';
 $amaNum     = $member['ama_number'] ?? null;
-$faaNum     = $member['faa_number'] ?? null;
 $amaExp     = $member['ama_expiration'] ?? null;
-$faaExp     = $member['faa_expiration'] ?? null;
 $isLifeMem  = !empty($member['life_member']);
 $isFreeMem  = !empty($member['free_membership']);
 $amaLifeMem = !empty($member['ama_life_member']);
@@ -43,14 +41,12 @@ $amaLifeMem = !empty($member['ama_life_member']);
     <?php if ($amaNum): ?><li><strong>AMA #:</strong> <?= h($amaNum) ?>
         <?php if ($amaLifeMem): ?><em>(Life Member — no expiry)</em>
         <?php elseif ($amaExp): ?> — expires <?= date('M j, Y', strtotime($amaExp)) ?><?php endif; ?></li><?php endif; ?>
-    <?php if ($faaNum): ?><li><strong>FAA Registration #:</strong> <?= h($faaNum) ?>
-        <?php if ($faaExp): ?> — expires <?= date('M j, Y', strtotime($faaExp)) ?><?php endif; ?></li><?php endif; ?>
 </ul>
 
 <p>
-    <strong>Reminder:</strong> Please keep your AMA and FAA registrations current.
-    Both must be valid to fly at the field. Reach out if you have any questions about
-    your registration status — we're happy to help.
+    <strong>Reminder:</strong> Please keep your AMA membership current. Current AMA
+    membership and TRUST completion are required to fly at the field. Reach out if you
+    have any questions — we're happy to help.
 </p>
 
 <p>

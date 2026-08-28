@@ -17,7 +17,6 @@
 $firstName = $member['first_name'] ?? 'Member';
 $memType   = $member['membership_type'] ?? 'Adult';
 $amaNum    = $member['ama_number'] ?? null;
-$faaNum    = $member['faa_number'] ?? null;
 ?>
 
 <p>Dear <?= h($firstName) ?>,</p>
@@ -33,20 +32,19 @@ $faaNum    = $member['faa_number'] ?? null;
     you're flying — it may be requested at the field.
 </p>
 
-<?php if ($amaNum || $faaNum): ?>
+<?php if ($amaNum): ?>
 <p>Your membership details are on file as follows:</p>
 <ul>
     <li><strong>Membership type:</strong> <?= h($memType) ?></li>
     <li><strong>Membership year:</strong> <?= h($year) ?></li>
-    <?php if ($amaNum): ?><li><strong>AMA #:</strong> <?= h($amaNum) ?></li><?php endif; ?>
-    <?php if ($faaNum): ?><li><strong>FAA Registration #:</strong> <?= h($faaNum) ?></li><?php endif; ?>
+    <li><strong>AMA #:</strong> <?= h($amaNum) ?></li>
 </ul>
 <?php endif; ?>
 
 <p>
-    <strong>Important:</strong> Please make sure your AMA and FAA registrations remain
-    current. Per AMA rules and FAA regulations, both must be valid before operating your
-    aircraft. Renewal reminders will be sent as your expirations approach.
+    <strong>Important:</strong> Please keep your AMA membership current. Current AMA
+    membership and TRUST completion are required before operating your aircraft.
+    Renewal reminders will be sent as your AMA expiration approaches.
 </p>
 
 <p>

@@ -13,6 +13,8 @@ final class MemberPortalTest extends TestCase
         $fields = member_portal_editable_fields();
         $this->assertContains('phone', $fields);
         $this->assertContains('ama_number', $fields);
+        $this->assertNotContains('faa_number', $fields);
+        $this->assertNotContains('faa_expiration', $fields);
         $this->assertContains('email_opt_in_expiry_reminders', $fields);
         $this->assertNotContains('email', $fields);
         $this->assertNotContains('first_name', $fields);
@@ -49,10 +51,8 @@ final class MemberPortalTest extends TestCase
     {
         [$errors] = member_portal_validate_input([
             'ama_expiration' => 'not-a-date',
-            'faa_expiration' => '2026-13-40',
         ]);
         $this->assertArrayHasKey('ama_expiration', $errors);
-        $this->assertArrayHasKey('faa_expiration', $errors);
     }
 
     public function test_field_diff_reports_changed_allowlisted_fields_only(): void
@@ -80,8 +80,6 @@ final class MemberPortalTest extends TestCase
             'emergency_contact_relationship' => null,
             'emergency_contact_phone' => null,
             'ama_expiration' => null,
-            'faa_number' => null,
-            'faa_expiration' => null,
         ];
         $diff = member_portal_field_diff($before, $after);
         $this->assertArrayHasKey('phone', $diff);

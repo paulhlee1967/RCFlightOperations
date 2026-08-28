@@ -51,7 +51,7 @@
   <main class="docs-content">
 
     <h1>AMA &amp; FAA Compliance</h1>
-    <p class="page-lead">Track AMA membership and FAA registration for every member — with live lookup to verify AMA numbers without leaving the app.</p>
+    <p class="page-lead">Track AMA membership for every member — with live lookup to verify AMA numbers without leaving the app.</p>
 
     <!-- ── Overview ── -->
     <h2 id="overview">Overview</h2>
@@ -64,7 +64,6 @@
       <li>Verify AMA membership live without leaving the app</li>
       <li>Block renewals for members whose AMA has expired</li>
       <li>Run a compliance report to see who's expiring soon or already expired</li>
-      <li>Optionally track FAA TRUST/Part 107 registration numbers and expiry</li>
     </ul>
     <p>
       Compliance fields live on the <strong>Compliance tab</strong> of each member's
@@ -153,22 +152,24 @@
           <tr>
             <td><strong>Part 107 Remote Pilot Certificate</strong></td>
             <td>Members flying commercially or outside recreational rules</td>
-            <td>Expires every 24 months — track this in the FAA expiration field</td>
+            <td>Expires every 24 months (not tracked in Flight Ops)</td>
           </tr>
         </tbody>
       </table>
     </div>
     <p>
-      RC Flight Operations can store one FAA number and expiration per member on the Compliance tab.
-      The public membership application no longer collects FAA numbers or registration uploads;
-      applicants certify TRUST completion instead. Keep existing FAA fields on the member record
-      if you already have them — they remain available if the club requires them again later.
+      RC Flight Operations does not collect or display FAA registration numbers on member
+      records. The public membership application collects a TRUST attestation instead
+      (with links to <a href="https://trust.modelaircraft.org/" target="_blank" rel="noopener noreferrer">TRUST</a>
+      and <a href="https://faadronezone.faa.gov/" target="_blank" rel="noopener noreferrer">FAA DroneZone</a>).
+      Database columns for FAA number, expiration, and card path remain in place so historical
+      data is kept if the club needs to track FAA again later. Import/export CSVs can still
+      include those columns.
     </p>
     <p>
-      You can still attach an <strong>FAA registration card</strong> (PDF, JPEG, or PNG) on the
-      Compliance tab. Files are stored as <code>uploads/member_faa_cards/{memberId}.{ext}</code>.
-      Uploading a new card replaces the previous file (other extensions for that member are removed).
-      Deleting a member removes any attached FAA card and badge photo files.
+      Historical FAA card files (if any) remain on disk as
+      <code>uploads/member_faa_cards/{memberId}.{ext}</code>.
+      Deleting a member still removes any attached FAA card and badge photo files.
     </p>
 
     <!-- ── Report ── -->

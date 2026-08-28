@@ -389,8 +389,19 @@ function save_member_from_post(PDO $pdo, ?int $memberId, array $post, array $fil
     $amaNumber      = $c['ama_number'];
     $amaExp         = $c['ama_expiration'];
     $amaLife        = $c['ama_life_member'];
-    $faaNumber      = $c['faa_number'];
-    $faaExp         = $c['faa_expiration'];
+    $faaNumber      = $c['faa_number'] ?? null;
+    $faaExp         = $c['faa_expiration'] ?? null;
+    if ($memberId && (!array_key_exists('faa_number', $c) || !array_key_exists('faa_expiration', $c))) {
+        $existStmt = $pdo->prepare('SELECT faa_number, faa_expiration FROM members WHERE id = ? LIMIT 1');
+        $existStmt->execute([$memberId]);
+        $exist = $existStmt->fetch(PDO::FETCH_ASSOC) ?: [];
+        if (!array_key_exists('faa_number', $c)) {
+            $faaNumber = $exist['faa_number'] ?? null;
+        }
+        if (!array_key_exists('faa_expiration', $c)) {
+            $faaExp = $exist['faa_expiration'] ?? null;
+        }
+    }
     $emergencyName  = $c['emergency_contact_name'];
     $emergencyRel   = $c['emergency_contact_relationship'];
     $emergencyPhone = $c['emergency_contact_phone'];

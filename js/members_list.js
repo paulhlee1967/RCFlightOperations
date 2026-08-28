@@ -122,7 +122,6 @@
             ['Email',      d.email],
             ['Phone',      d.phone],
             ['AMA #',      d.ama_number],
-            ['FAA #',      d.faa_number],
             ['Gate key',   d.gate_key],
         ];
         html += '<dl class="row g-1 small mb-3">';

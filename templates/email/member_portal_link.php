@@ -32,7 +32,7 @@ $content = <<<HTML
 
 <p style="margin:0 0 16px;line-height:1.7;">
   Use the button below to open your membership profile. You can update contact details,
-  AMA/FAA information, badge photo, FAA card, and email preferences.
+  AMA information, badge photo, and email preferences.
 </p>
 
 <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;">

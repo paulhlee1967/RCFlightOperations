@@ -206,8 +206,8 @@ require_once __DIR__ . '/includes/member_wizard_styles.php';
 
             <!-- Step 2: Compliance -->
             <div class="wizard-step-panel<?= $initialStep === 'compliance' ? ' is-active' : '' ?>" data-wizard-step="2" id="wizard-step-compliance">
-                <h2 class="h5 mb-2">AMA &amp; FAA compliance</h2>
-                <p class="text-muted small mb-3">Verify AMA membership before recording signup. FAA registration is recommended for mailer packets.</p>
+                <h2 class="h5 mb-2">AMA compliance</h2>
+                <p class="text-muted small mb-3">Verify AMA membership before recording signup.</p>
                 <?php require __DIR__ . '/includes/member_compliance_fields.php'; ?>
             </div>
 

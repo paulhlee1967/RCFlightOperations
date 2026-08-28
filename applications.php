@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Badge photo could not be copied from the website — upload it on the member record before printing.', 'warning');
         }
         if (array_key_exists('faa_card_imported', $result) && $result['faa_card_imported'] === false) {
-            flash('FAA registration card could not be copied from the website — upload it on the member Compliance tab.', 'warning');
+            flash('A historical FAA registration card could not be copied from the website. It was not stored on the member record.', 'warning');
         }
         header('Location: member_process.php?id=' . $memberId . '&year=' . $ryear . '&renewal_type=' . $rtype . '&application_id=' . $appId . '#record');
         exit;

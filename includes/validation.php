@@ -139,21 +139,23 @@ function validate_member_input(array $post): array {
         $clean['ama_expiration'] = null;
     }
 
-    // ── Optional: FAA number ──────────────────────────────────────────────
-    $clean['faa_number'] = trim($post['faa_number'] ?? '') ?: null;
-
-    // ── Optional: FAA expiration ──────────────────────────────────────────
-    $rawFaaExp = trim($post['faa_expiration'] ?? '');
-    if ($rawFaaExp !== '') {
-        [$dateOk, $dateErr] = validate_date($rawFaaExp);
-        if (!$dateOk) {
-            $errors['faa_expiration'] = 'FAA expiration: ' . $dateErr;
-            $clean['faa_expiration']  = null;
+    // ── Optional: FAA (historical columns; omitted from member forms) ─────
+    if (array_key_exists('faa_number', $post)) {
+        $clean['faa_number'] = trim((string) $post['faa_number']) ?: null;
+    }
+    if (array_key_exists('faa_expiration', $post)) {
+        $rawFaaExp = trim((string) $post['faa_expiration']);
+        if ($rawFaaExp !== '') {
+            [$dateOk, $dateErr] = validate_date($rawFaaExp);
+            if (!$dateOk) {
+                $errors['faa_expiration'] = 'FAA expiration: ' . $dateErr;
+                $clean['faa_expiration']  = null;
+            } else {
+                $clean['faa_expiration'] = $rawFaaExp;
+            }
         } else {
-            $clean['faa_expiration'] = $rawFaaExp;
+            $clean['faa_expiration'] = null;
         }
-    } else {
-        $clean['faa_expiration'] = null;
     }
 
     // ── Boolean flags ─────────────────────────────────────────────────────

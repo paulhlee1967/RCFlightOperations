@@ -46,12 +46,12 @@ require_once __DIR__ . '/includes/header.php';
                 <h2 class="h5 card-title">What this app does</h2>
                 <p class="mb-2">
                     Open-source membership management for AMA-affiliated RC flying clubs — members,
-                    renewals, AMA/FAA compliance, badge printing, reports, and more.
+                    renewals, AMA compliance, badge printing, reports, and more.
                 </p>
                 <ul class="mb-0 small text-muted">
                     <li>Member roster with contact info, photos, and addresses</li>
                     <li>Renewal and payment recording (dues collected outside the app)</li>
-                    <li>AMA/FAA compliance tracking and verification</li>
+                    <li>AMA compliance tracking and verification</li>
                     <li>CR80 badge design and printing</li>
                     <li>Seven built-in reports with CSV and PDF export</li>
                     <li>CSV import/export and optional incident log</li>

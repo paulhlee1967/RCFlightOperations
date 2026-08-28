@@ -70,8 +70,6 @@ function member_portal_editable_fields(): array
         'ama_number',
         'ama_expiration',
         'ama_life_member',
-        'faa_number',
-        'faa_expiration',
         'email_opt_in_club_events',
         'email_opt_in_expiry_reminders',
     ];
@@ -497,20 +495,6 @@ function member_portal_validate_input(array $post): array
     }
 
     $clean['ama_life_member'] = !empty($post['ama_life_member']) ? 1 : 0;
-    $clean['faa_number'] = trim((string) ($post['faa_number'] ?? '')) ?: null;
-
-    $rawFaaExp = trim((string) ($post['faa_expiration'] ?? ''));
-    if ($rawFaaExp !== '') {
-        [$dateOk, $dateErr] = validate_date($rawFaaExp);
-        if (!$dateOk) {
-            $errors['faa_expiration'] = 'FAA expiration: ' . $dateErr;
-            $clean['faa_expiration'] = null;
-        } else {
-            $clean['faa_expiration'] = $rawFaaExp;
-        }
-    } else {
-        $clean['faa_expiration'] = null;
-    }
 
     $clean['email_opt_in_club_events'] = email_opt_in_from_post($post['email_opt_in_club_events'] ?? null);
     $clean['email_opt_in_expiry_reminders'] = email_opt_in_from_post($post['email_opt_in_expiry_reminders'] ?? null);
@@ -603,8 +587,6 @@ function member_portal_save(PDO $pdo, int $memberId, array $post, array $files =
             ama_number = ?,
             ama_expiration = ?,
             ama_life_member = ?,
-            faa_number = ?,
-            faa_expiration = ?,
             email_opt_in_club_events = ?,
             email_opt_in_expiry_reminders = ?
          WHERE id = ?'
@@ -621,8 +603,6 @@ function member_portal_save(PDO $pdo, int $memberId, array $post, array $files =
         $clean['ama_number'],
         $clean['ama_expiration'],
         $clean['ama_life_member'],
-        $clean['faa_number'],
-        $clean['faa_expiration'],
         $clean['email_opt_in_club_events'],
         $clean['email_opt_in_expiry_reminders'],
         $memberId,
@@ -640,19 +620,6 @@ function member_portal_save(PDO $pdo, int $memberId, array $post, array $files =
         }
         $uploadNotes['photo'] = $photoResult['photo_path'];
         $diff['photo_path'] = ['from' => $before['photo_path'] ?? null, 'to' => $photoResult['photo_path']];
-    }
-
-    if (!empty($files['faa_card']['tmp_name']) && is_uploaded_file($files['faa_card']['tmp_name'])) {
-        $faaResult = member_save_faa_card_from_local_file($pdo, $memberId, (string) $files['faa_card']['tmp_name']);
-        if (!$faaResult['ok']) {
-            return [
-                'ok' => false,
-                'errors' => ['faa_card' => $faaResult['error'] ?? 'Could not save FAA card.'],
-                'changed' => $diff,
-            ];
-        }
-        $uploadNotes['faa_card'] = $faaResult['faa_card_path'];
-        $diff['faa_card_path'] = ['from' => $before['faa_card_path'] ?? null, 'to' => $faaResult['faa_card_path']];
     }
 
     if ($diff !== []) {
@@ -786,12 +753,9 @@ function member_portal_field_labels(): array
         'ama_number' => 'AMA number',
         'ama_expiration' => 'AMA expiration',
         'ama_life_member' => 'AMA life member',
-        'faa_number' => 'FAA number',
-        'faa_expiration' => 'FAA expiration',
         'email_opt_in_club_events' => 'Club event emails',
         'email_opt_in_expiry_reminders' => 'Expiry reminder emails',
         'photo_path' => 'Badge photo',
-        'faa_card_path' => 'FAA card',
     ];
 }
 
@@ -809,7 +773,7 @@ function member_portal_format_change_lines(array $diff): array
         $label = $labels[$field] ?? $field;
         $from = $change['from'] ?? null;
         $to = $change['to'] ?? null;
-        if (in_array($field, ['photo_path', 'faa_card_path'], true)) {
+        if ($field === 'photo_path') {
             $lines[] = $label . ': updated';
             continue;
         }

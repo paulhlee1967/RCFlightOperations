@@ -7,7 +7,6 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/flash.php';
 require_once __DIR__ . '/includes/member_portal.php';
-require_once __DIR__ . '/includes/member_compliance_helpers.php';
 require_once __DIR__ . '/includes/dues_helpers.php';
 
 $memberId = member_portal_require_member();
@@ -73,9 +72,6 @@ try {
 
 $renewalOpen = membership_application_renewal_open(new DateTimeImmutable('now'), $pdo);
 $hasPhoto = !empty($member['photo_path']) && is_readable(__DIR__ . '/' . ltrim((string) $member['photo_path'], '/'));
-$hasFaaCard = member_faa_card_has_file($member);
-$faaIsImage = $hasFaaCard && member_faa_card_is_image($member);
-$faaIsPdf = $hasFaaCard && member_faa_card_is_pdf($member);
 $clubName = member_portal_club_name($pdo);
 
 $statusParts = [];
@@ -241,83 +237,32 @@ $flash = getFlash();
         </section>
 
         <section class="border rounded-3 p-3 p-md-4 mb-4">
-            <h2 class="h6 text-uppercase text-muted fw-semibold mb-3">Compliance</h2>
-            <div class="row g-4">
-                <div class="col-12 col-lg-6">
-                    <div class="border rounded p-3 h-100 bg-light bg-opacity-50">
-                        <h3 class="h6 mb-3">AMA membership</h3>
-                        <div class="row g-3">
-                            <div class="col-sm-6">
-                                <label class="form-label" for="ama_number">AMA number</label>
-                                <input type="text" class="form-control" name="ama_number" id="ama_number"
-                                       value="<?= h($member['ama_number'] ?? '') ?>">
-                            </div>
-                            <div class="col-sm-6" id="ama-expiration-wrap">
-                                <label class="form-label" for="ama_expiration">AMA expiration</label>
-                                <input type="date" class="form-control" name="ama_expiration" id="ama_expiration"
-                                       value="<?= h($member['ama_expiration'] ?? '') ?>">
-                                <span id="ama-status-badge" class="ama-status-badge" aria-live="polite"></span>
-                            </div>
-                            <div class="col-12">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="ama_life_member" id="ama_life_member"
-                                           value="1"<?= checked($member['ama_life_member'] ?? 0) ?>>
-                                    <label class="form-check-label" for="ama_life_member">AMA life member</label>
-                                </div>
-                            </div>
-                            <div class="col-12 d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 pt-1 border-top">
-                                <button type="button" class="btn btn-primary btn-sm flex-shrink-0" id="verify-ama-btn">
-                                    Verify AMA membership
-                                </button>
-                                <span id="verify-ama-status" class="small flex-grow-1 border rounded px-2 py-2 bg-white"
-                                      role="status" aria-live="polite"></span>
-                            </div>
-                        </div>
+            <h2 class="h6 text-uppercase text-muted fw-semibold mb-3">AMA membership</h2>
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <label class="form-label" for="ama_number">AMA number</label>
+                    <input type="text" class="form-control" name="ama_number" id="ama_number"
+                           value="<?= h($member['ama_number'] ?? '') ?>">
+                </div>
+                <div class="col-sm-6" id="ama-expiration-wrap">
+                    <label class="form-label" for="ama_expiration">AMA expiration</label>
+                    <input type="date" class="form-control" name="ama_expiration" id="ama_expiration"
+                           value="<?= h($member['ama_expiration'] ?? '') ?>">
+                    <span id="ama-status-badge" class="ama-status-badge" aria-live="polite"></span>
+                </div>
+                <div class="col-12">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="ama_life_member" id="ama_life_member"
+                               value="1"<?= checked($member['ama_life_member'] ?? 0) ?>>
+                        <label class="form-check-label" for="ama_life_member">AMA life member</label>
                     </div>
                 </div>
-                <div class="col-12 col-lg-6">
-                    <div class="border rounded p-3 h-100 bg-light bg-opacity-50">
-                        <h3 class="h6 mb-3">FAA registration</h3>
-                        <div class="row g-3">
-                            <div class="col-sm-6">
-                                <label class="form-label" for="faa_number">FAA number</label>
-                                <input type="text" class="form-control" name="faa_number" id="faa_number"
-                                       value="<?= h($member['faa_number'] ?? '') ?>">
-                            </div>
-                            <div class="col-sm-6">
-                                <label class="form-label" for="faa_expiration">FAA expiration</label>
-                                <input type="date" class="form-control" name="faa_expiration" id="faa_expiration"
-                                       value="<?= h($member['faa_expiration'] ?? '') ?>">
-                            </div>
-                            <div class="col-12 pt-1 border-top">
-                                <label class="form-label mb-2">FAA registration card</label>
-                                <div class="row g-3">
-                                    <div class="col-md-7">
-                                        <?php if ($hasFaaCard): ?>
-                                            <div class="bg-white border rounded p-2">
-                                                <?php if ($faaIsImage): ?>
-                                                    <img src="membership_media.php?type=faa&amp;t=<?= time() ?>" alt="FAA card"
-                                                         class="img-fluid rounded d-block mx-auto" style="max-height:220px;object-fit:contain;">
-                                                <?php elseif ($faaIsPdf): ?>
-                                                    <iframe src="membership_media.php?type=faa#toolbar=0" title="FAA card"
-                                                            class="w-100 rounded border-0" style="height:220px;"></iframe>
-                                                <?php else: ?>
-                                                    <p class="text-muted small mb-0 py-3 text-center">Card on file</p>
-                                                <?php endif; ?>
-                                            </div>
-                                        <?php else: ?>
-                                            <div class="bg-white border rounded text-center text-muted small py-4">No FAA card on file</div>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="col-md-5">
-                                        <input type="file" class="form-control form-control-sm" name="faa_card"
-                                               accept="application/pdf,image/jpeg,image/png">
-                                        <small class="text-muted d-block mt-1">PDF, JPG, or PNG · max 5 MB</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="col-12 d-flex flex-column flex-sm-row align-items-stretch align-items-sm-center gap-2 pt-1 border-top">
+                    <button type="button" class="btn btn-primary btn-sm flex-shrink-0" id="verify-ama-btn">
+                        Verify AMA membership
+                    </button>
+                    <span id="verify-ama-status" class="small flex-grow-1 border rounded px-2 py-2 bg-white"
+                          role="status" aria-live="polite"></span>
                 </div>
             </div>
         </section>
