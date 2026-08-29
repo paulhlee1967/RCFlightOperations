@@ -144,6 +144,19 @@ $_headerBaseHref = $baseHref ?? '';
             --club-accent-mid: rgba(var(--club-primary-rgb), 0.14);
             --club-focus-ring: rgba(var(--club-primary-rgb), 0.25);
         }
+        /* If assets/css/app.css is missing on the host, Reports still must not
+           look like default blue underlined links (Bootstrap 5.3). */
+        a.sidebar-nav-link,
+        a.sidebar-nav-link:hover,
+        a.sidebar-nav-link:focus,
+        a.sidebar-nav-link:visited {
+            text-decoration: none;
+            color: var(--club-text);
+        }
+        a.sidebar-nav-link:hover,
+        a.sidebar-nav-link.active {
+            color: var(--club-primary);
+        }
     </style>
 </head>
 <body>

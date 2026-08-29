@@ -349,20 +349,34 @@ body { background-color: var(--club-bg); color: var(--club-text); font-family: v
 
 /* ── Shared sidebar nav component ────────────────────────────────
    Used by reports.php, badge_design.php, and any page with a
-   left-rail navigation panel.                              */
-.sidebar-nav-link {
-    display: block; padding: 0.5rem 1rem;
-    font-size: 0.875rem; text-decoration: none;
+   left-rail navigation panel.
+   Bootstrap 5.3 underlines `a` / `a:hover` — beat that on every state. */
+a.sidebar-nav-link,
+a.sidebar-nav-link:link,
+a.sidebar-nav-link:visited {
+    display: block;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    text-decoration: none;
     color: var(--club-text);
     border-left: 3px solid transparent;
     transition: background 0.1s, color 0.1s;
 }
-.sidebar-nav-link:hover { background: var(--club-accent); color: var(--club-primary); }
-.sidebar-nav-link.active {
+a.sidebar-nav-link:hover,
+a.sidebar-nav-link:focus,
+a.sidebar-nav-link:active {
+    background: var(--club-accent);
+    color: var(--club-primary);
+    text-decoration: none;
+}
+a.sidebar-nav-link.active,
+a.sidebar-nav-link.active:hover,
+a.sidebar-nav-link.active:focus {
     background: var(--club-accent);
     color: var(--club-primary);
     border-left-color: var(--club-primary);
     font-weight: 600;
+    text-decoration: none;
 }
 .sidebar-panel { overflow: hidden; }
 .sidebar-panel-nav { border-bottom: 1px solid var(--club-border); }
@@ -412,8 +426,13 @@ body { background-color: var(--club-bg); color: var(--club-text); font-family: v
     transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
     color: inherit;
 }
-a.stat-card { cursor: pointer; }
-a.stat-card:hover {
+a.stat-card {
+    cursor: pointer;
+    text-decoration: none;
+    color: inherit;
+}
+a.stat-card:hover,
+a.stat-card:focus {
     border-color: var(--club-primary);
     box-shadow: 0 4px 12px rgba(0,0,0,.08);
     transform: translateY(-1px);
@@ -431,7 +450,13 @@ a.stat-card:hover {
     border-radius: 8px;
     transition: box-shadow 0.15s, border-color 0.15s;
 }
-.nav-card:hover {
+a.nav-card {
+    text-decoration: none;
+    color: inherit;
+}
+.nav-card:hover,
+a.nav-card:hover,
+a.nav-card:focus {
     box-shadow: 0 4px 12px rgba(0,0,0,.07);
     border-color: var(--club-primary);
     text-decoration: none;

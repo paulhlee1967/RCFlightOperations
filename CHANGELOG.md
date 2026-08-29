@@ -18,7 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- **Shared app CSS** — Theme tokens stay in `includes/header.php`; the rest lives in cacheable [`assets/css/app.css`](assets/css/app.css) (simpler CSP `style-src-elem 'self'`).
+- **Shared app CSS** — Theme tokens stay in `includes/header.php`; the rest lives in cacheable [`assets/css/app.css`](assets/css/app.css) (simpler CSP `style-src-elem 'self'`). Report sidebar / dashboard cards explicitly cancel Bootstrap 5.3’s default link underline.
 - **Application season labels** — Follow the configurable pre-book month/day and dues prorate window instead of hardcoded Oct–Dec.
 - **Revenue by year** — Columns are Dues / Initiation / Late fees / **Club net** / **Stripe processing** / **Charged to members** / Refunds. Club net excludes the Stripe pass-through fee.
 - **schema_full.sql** — Clean 2.x snapshot (no duplicate `CREATE TABLE` / WPForms migration pile). Existing clubs keep using `scripts/migrate_*.sql` + `scripts/verify_db.php`.
