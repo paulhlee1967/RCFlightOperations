@@ -10,21 +10,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/member_applications.php';
 require_once __DIR__ . '/includes/member_completeness.php';
 
-if (empty($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit;
-}
-
-if (empty($_SESSION['user_role']) && isset($pdo)) {
-    $stmt = $pdo->prepare('SELECT role FROM users WHERE id = ?');
-    $stmt->execute([$_SESSION['user_id']]);
-    $row = $stmt->fetch();
-    if ($row) {
-        $_SESSION['user_role'] = normalizeUserRole((string) ($row['role'] ?? ''));
-    }
-} elseif (!empty($_SESSION['user_role'])) {
-    $_SESSION['user_role'] = normalizeUserRole((string) $_SESSION['user_role']);
-}
+requireLogin();
 
 $currentYear = membershipStatusYear();
 
@@ -112,9 +98,9 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 <p class="text-muted small mb-4">Welcome back. Here's what's happening with the club.</p>
 
-<?php if ((int) date('n') >= 10): ?>
+<?php if ($renewalYear > (int) date('Y')): ?>
 <div class="alert alert-info alert-dismissible fade show small mb-4" role="alert">
-    <strong>Renewal season:</strong> Members who have already paid for next year may show <?= (int) date('Y') + 1 ?> as their renewal year.
+    <strong>Renewal season:</strong> Members who have already paid for <?= (int) $renewalYear ?> may show that year as their renewal year.
     The <strong>Current members</strong> count above is for the <strong>calendar year <?= (int) date('Y') ?></strong> &mdash; that is expected and does not mean their payment was lost.
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>

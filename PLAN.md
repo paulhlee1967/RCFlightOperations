@@ -1,6 +1,6 @@
 # RC Flight Operations – Plan & architecture
 
-LAMP app for club membership. **Source of truth:** `schema_full.sql` and the codebase. For file-level detail see [TECHNICAL.md](TECHNICAL.md); for release history see [CHANGELOG.md](CHANGELOG.md).
+LAMP app for club membership. **Source of truth:** `schema_full.sql` (fresh-install snapshot) plus `scripts/migrate_*.sql` for existing databases. Confirm with `scripts/verify_db.php`. For file-level detail see [TECHNICAL.md](TECHNICAL.md); for release history see [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -9,7 +9,7 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` and the cod
 - **Single-club deployment:** One database per installation; branding and settings live in the **`club`** table (one row, typically `id = 1`).
 - **Members:** CRUD with Contact (phone, mailing address, photo, emergency contact), Compliance (AMA/FAA, verify AMA), Membership (type slot, renewal year, gate key, life/free/inactive/suspended), Payment history, Sender.net email preference status when configured.
 - **New member wizard:** Guided signup (contact → compliance → membership → first payment → print & mail).
-- **Record signup/renewal:** On-time, late, or new prorated; configurable dues; complimentary option; optional free membership / life member flag. Staff ledger is for cash/check; online applicants pay via Stripe on `/apply.php`.
+- **Record signup/renewal:** On-time, late, or new prorated; configurable dues; complimentary option; optional free membership / life member flag. Staff ledger is for cash/check; Stripe (or waived) online applications post to the ledger on approve.
 - **Online applications:** Public form at `/apply.php` (AMA gate, club-record prefill, Stripe, email opt-in, complimentary invites); staff review in **Applications** with status emails.
 - **Member self-service:** Passwordless `/membership` magic-link profile for contact, AMA/FAA, uploads, and email prefs.
 - **Badge design & print:** CR80 card designer (Fabric.js): front (background, text fields, photo) and back (HTML). Multiple named designs; print front and/or back as separate jobs.

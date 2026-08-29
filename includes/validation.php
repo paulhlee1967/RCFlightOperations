@@ -164,6 +164,9 @@ function validate_member_input(array $post): array {
     $clean['life_member']    = !empty($post['life_member'])    ? 1 : 0;
     $clean['free_membership']= !empty($post['free_membership'])? 1 : 0;
     $clean['ama_life_member']= !empty($post['ama_life_member'])? 1 : 0;
+    if (array_key_exists('trust_attestation', $post)) {
+        $clean['trust_attestation'] = !empty($post['trust_attestation']) ? 1 : 0;
+    }
 
     // ── Optional free-text fields ─────────────────────────────────────────
     $clean['notes']                      = trim($post['notes'] ?? '') ?: null;

@@ -64,7 +64,7 @@ function reportRegistry(): array
         ],
         'data_completeness' => [
             'label'       => 'Missing member data',
-            'description' => 'Current members with incomplete contact, emergency, compliance, or membership fields.',
+            'description' => 'Current members with incomplete contact, emergency, AMA, TRUST, or membership fields.',
             'year'        => false,
             'cohort'      => true,
         ],
@@ -95,7 +95,7 @@ function reportRegistry(): array
         // ── Revenue ─────────────────────────────────────────────────────
         'revenue_by_year' => [
             'label'       => 'Revenue by year',
-            'description' => 'Dues, initiation, and late fees collected per membership year.',
+            'description' => 'Club dues vs Stripe processing fees vs net, per membership year. Refunded Stripe payments are excluded.',
             'year'        => false,
         ],
 
@@ -284,8 +284,8 @@ function reportMaxSelectableYear(PDO $pdo): int
 /**
  * Default target year for a year-based report.
  *
- * - not_yet_renewed: the working renewal year (rolls to next year in Oct–Dec by
- *   default), so the report tracks the renewals staff are actually collecting.
+ * - not_yet_renewed: the working renewal year (rolls to next year on the
+ *   configured pre-book date), so the report tracks the renewals staff are actually collecting.
  * - everything else: the current calendar year.
  */
 function reportDefaultYear(PDO $pdo, string $slug): int
@@ -561,36 +561,85 @@ function reportRevenueByYear(PDO $pdo): array
 {
     $meta = reportRegistry()['revenue_by_year'];
 
-    $stmt = $pdo->query('
+    $sqlWithFee = '
+        SELECT
+            year,
+            SUM(CASE WHEN COALESCE(ledger_status, \'recorded\') <> \'refunded\' THEN 1 ELSE 0 END) AS payments,
+            SUM(CASE WHEN COALESCE(ledger_status, \'recorded\') <> \'refunded\' THEN amount_dues ELSE 0 END) AS dues,
+            SUM(CASE WHEN COALESCE(ledger_status, \'recorded\') <> \'refunded\' THEN amount_initiation ELSE 0 END) AS initiation,
+            SUM(CASE WHEN COALESCE(ledger_status, \'recorded\') <> \'refunded\' THEN amount_late_fee ELSE 0 END) AS late_fee,
+            SUM(CASE WHEN COALESCE(ledger_status, \'recorded\') <> \'refunded\' THEN COALESCE(amount_processing_fee, 0) ELSE 0 END) AS processing,
+            SUM(CASE WHEN COALESCE(ledger_status, \'recorded\') = \'refunded\' THEN COALESCE(amount_refunded, 0) ELSE 0 END) AS refunds
+        FROM payments
+        GROUP BY year
+        ORDER BY year DESC
+    ';
+    $sqlWithFeeNoRefund = '
         SELECT
             year,
             COUNT(*)                  AS payments,
             SUM(amount_dues)          AS dues,
             SUM(amount_initiation)    AS initiation,
             SUM(amount_late_fee)      AS late_fee,
-            SUM(amount_dues + amount_initiation + amount_late_fee) AS total
+            SUM(COALESCE(amount_processing_fee, 0)) AS processing,
+            0 AS refunds
         FROM payments
         GROUP BY year
         ORDER BY year DESC
-    ');
+    ';
+    $sqlLegacy = '
+        SELECT
+            year,
+            COUNT(*)                  AS payments,
+            SUM(amount_dues)          AS dues,
+            SUM(amount_initiation)    AS initiation,
+            SUM(amount_late_fee)      AS late_fee,
+            0 AS processing,
+            0 AS refunds
+        FROM payments
+        GROUP BY year
+        ORDER BY year DESC
+    ';
+    try {
+        $stmt = $pdo->query($sqlWithFee);
+    } catch (Throwable $e) {
+        try {
+            $stmt = $pdo->query($sqlWithFeeNoRefund);
+        } catch (Throwable $e2) {
+            $stmt = $pdo->query($sqlLegacy);
+        }
+    }
 
     $rows = [];
     $tPayments = 0;
-    $tDues = $tInit = $tLate = $tTotal = 0.0;
+    $tDues = $tInit = $tLate = $tProc = $tRefunds = $tClubNet = $tGross = 0.0;
     while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $dues = (float) $r['dues'];
+        $init = (float) $r['initiation'];
+        $late = (float) $r['late_fee'];
+        $proc = (float) ($r['processing'] ?? 0);
+        $refunds = (float) ($r['refunds'] ?? 0);
+        $clubNet = $dues + $init + $late;
+        $gross = $clubNet + $proc;
         $rows[] = [
             'year'       => (int) $r['year'],
             'payments'   => (int) $r['payments'],
-            'dues'       => (float) $r['dues'],
-            'initiation' => (float) $r['initiation'],
-            'late_fee'   => (float) $r['late_fee'],
-            'total'      => (float) $r['total'],
+            'dues'       => $dues,
+            'initiation' => $init,
+            'late_fee'   => $late,
+            'club_net'   => $clubNet,
+            'processing' => $proc,
+            'gross'      => $gross,
+            'refunds'    => $refunds,
         ];
         $tPayments += (int) $r['payments'];
-        $tDues     += (float) $r['dues'];
-        $tInit     += (float) $r['initiation'];
-        $tLate     += (float) $r['late_fee'];
-        $tTotal    += (float) $r['total'];
+        $tDues     += $dues;
+        $tInit     += $init;
+        $tLate     += $late;
+        $tProc     += $proc;
+        $tRefunds  += $refunds;
+        $tClubNet  += $clubNet;
+        $tGross    += $gross;
     }
 
     return [
@@ -598,12 +647,15 @@ function reportRevenueByYear(PDO $pdo): array
         'title'       => $meta['label'],
         'description' => $meta['description'],
         'columns'     => [
-            ['key' => 'year',       'label' => 'Year',       'format' => 'year',  'align' => 'start'],
-            ['key' => 'payments',   'label' => 'Payments',   'format' => 'int',   'align' => 'end'],
-            ['key' => 'dues',       'label' => 'Dues',       'format' => 'money', 'align' => 'end'],
-            ['key' => 'initiation', 'label' => 'Initiation', 'format' => 'money', 'align' => 'end'],
-            ['key' => 'late_fee',   'label' => 'Late fees',  'format' => 'money', 'align' => 'end'],
-            ['key' => 'total',      'label' => 'Total',      'format' => 'money', 'align' => 'end'],
+            ['key' => 'year',       'label' => 'Year',              'format' => 'year',  'align' => 'start'],
+            ['key' => 'payments',   'label' => 'Payments',          'format' => 'int',   'align' => 'end'],
+            ['key' => 'dues',       'label' => 'Dues',              'format' => 'money', 'align' => 'end'],
+            ['key' => 'initiation', 'label' => 'Initiation',        'format' => 'money', 'align' => 'end'],
+            ['key' => 'late_fee',   'label' => 'Late fees',         'format' => 'money', 'align' => 'end'],
+            ['key' => 'club_net',   'label' => 'Club net',          'format' => 'money', 'align' => 'end'],
+            ['key' => 'processing', 'label' => 'Stripe processing', 'format' => 'money', 'align' => 'end'],
+            ['key' => 'gross',      'label' => 'Charged to members','format' => 'money', 'align' => 'end'],
+            ['key' => 'refunds',    'label' => 'Refunds',           'format' => 'money', 'align' => 'end'],
         ],
         'rows'   => $rows,
         'totals' => [
@@ -612,9 +664,12 @@ function reportRevenueByYear(PDO $pdo): array
             'dues'       => $tDues,
             'initiation' => $tInit,
             'late_fee'   => $tLate,
-            'total'      => $tTotal,
+            'club_net'   => $tClubNet,
+            'processing' => $tProc,
+            'gross'      => $tGross,
+            'refunds'    => $tRefunds,
         ],
-        'note'   => 'Revenue is attributed to the membership year recorded on each payment.',
+        'note'   => 'Club net is dues + initiation + late fees (what the club keeps). Stripe processing is the card fee collected from the applicant and passed through to Stripe — it is not club income. Charged to members is club net + processing. Refunded Stripe payments are omitted from collected columns.',
     ];
 }
 
@@ -1118,6 +1173,8 @@ function reportDataCompleteness(PDO $pdo): array
     $meta    = reportRegistry()['data_completeness'];
     $current = membershipStatusYear();
     $where   = currentMemberWhereSql('m', $current);
+    require_once __DIR__ . '/member_save.php';
+    member_ensure_trust_schema($pdo);
 
     $sql = 'SELECT ' . memberCompletenessSelectSql('m') . "
             FROM members m
@@ -1154,7 +1211,7 @@ function reportDataCompleteness(PDO $pdo): array
         ],
         'rows'   => $rows,
         'totals' => null,
-        'note'   => 'Current members only. Checks email, phone, mailing address, emergency contact, AMA numbers, and membership type. AMA life members are exempt from AMA number/expiration requirements.',
+        'note'   => 'Current members only. Checks email, phone, mailing address, emergency contact, AMA numbers, TRUST attestation, and membership type. AMA life members are exempt from AMA number/expiration requirements.',
     ];
 }
 

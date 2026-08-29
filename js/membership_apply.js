@@ -366,6 +366,11 @@
                 const json = await res.json();
                 if (!json.ok) {
                     showAmaVerifyError(json.error || 'AMA membership could not be verified.');
+                    const lookupDown = !!(json.data && json.data.lookup_down);
+                    const manualPanel = document.getElementById('ama-manual-panel');
+                    if (manualPanel) {
+                        manualPanel.classList.toggle('d-none', !lookupDown);
+                    }
                     amaVerifyBtn.disabled = false;
                     amaVerifyBtn.textContent = 'Verify & continue to Step 2';
                     return;
@@ -375,6 +380,46 @@
                 showAmaVerifyError('Network error. Try again.');
                 amaVerifyBtn.disabled = false;
                 amaVerifyBtn.textContent = 'Verify & continue to Step 2';
+            }
+        });
+    }
+
+    const amaManualBtn = document.getElementById('ama-manual-btn');
+    if (amaManualBtn) {
+        amaManualBtn.addEventListener('click', async () => {
+            showAmaVerifyError('');
+            const amaNumber = document.getElementById('ama_verify_number')?.value?.trim() || '';
+            const lastName = document.getElementById('ama_verify_last_name')?.value?.trim() || '';
+            const firstName = document.getElementById('ama_manual_first_name')?.value?.trim() || '';
+            const expiration = document.getElementById('ama_manual_expiration')?.value?.trim() || '';
+            if (!amaNumber || !lastName) {
+                showAmaVerifyError('AMA number and last name are required.');
+                return;
+            }
+            if (!firstName || !expiration) {
+                showAmaVerifyError('First name and AMA expiration are required when lookup is down.');
+                return;
+            }
+            amaManualBtn.disabled = true;
+            const body = new FormData();
+            body.append('csrf_token', form.querySelector('[name="csrf_token"]').value);
+            body.append('ama_number', amaNumber);
+            body.append('last_name', lastName);
+            body.append('first_name', firstName);
+            body.append('ama_expiration', expiration);
+            body.append('manual_continue', '1');
+            try {
+                const res = await fetch(cfg.amaVerifyUrl, { method: 'POST', body });
+                const json = await res.json();
+                if (!json.ok) {
+                    showAmaVerifyError(json.error || 'Could not continue with that expiration.');
+                    amaManualBtn.disabled = false;
+                    return;
+                }
+                revealApplicationStep(json.data || {});
+            } catch (err) {
+                showAmaVerifyError('Network error. Try again.');
+                amaManualBtn.disabled = false;
             }
         });
     }

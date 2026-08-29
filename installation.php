@@ -80,6 +80,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         installation_redirect('email');
     }
 
+    if ($action === 'probe_ama') {
+        require_once __DIR__ . '/includes/ama_verify.php';
+        $health = ama_verify_health_status(true);
+        flash($health['ok'] ? $health['message'] : ('AMA lookup down: ' . $health['message']), $health['ok'] ? 'success' : 'warning');
+        installation_redirect('tools');
+    }
+
     if ($action === 'broadcast_admins') {
         $subject = trim((string) ($_POST['broadcast_subject'] ?? ''));
         $body    = trim((string) ($_POST['broadcast_body'] ?? ''));
@@ -188,6 +195,7 @@ $expectedTables = [
     'member_membership_years', 'member_applications', 'membership_comp_invites',
     'member_application_emails', 'member_application_info_requests',
     'board_packet_deliveries', 'member_magic_links', 'system_config', 'operator_messages',
+    'rate_limit_events',
 ];
 foreach ($expectedTables as $tbl) {
     try {
@@ -199,6 +207,9 @@ foreach ($expectedTables as $tbl) {
 
 $uploadsDir = __DIR__ . '/uploads';
 $uploadsOk  = is_dir($uploadsDir) && is_writable($uploadsDir);
+
+require_once __DIR__ . '/includes/ama_verify.php';
+$amaHealth = ama_verify_health_cache_get();
 
 $sentLog = [];
 try {
@@ -580,6 +591,28 @@ $bpDay = isset($configRows['board_packet_send_day'])
                     </dd>
                     <dt class="col-sm-3">PHP</dt>
                     <dd class="col-sm-9"><code><?= h(PHP_VERSION) ?></code></dd>
+                    <dt class="col-sm-3">AMA lookup</dt>
+                    <dd class="col-sm-9">
+                        <?php if ($amaHealth === null): ?>
+                        <span class="text-muted">Not checked yet</span>
+                        <?php elseif (!empty($amaHealth['ok'])): ?>
+                        <span class="text-success">Responding</span>
+                        <?php else: ?>
+                        <span class="text-warning">Down</span> — <?= h(AMA_VERIFY_DOWN_MESSAGE) ?>
+                        <?php endif; ?>
+                        <?php if ($amaHealth !== null && !empty($amaHealth['checked_at'])): ?>
+                        <span class="text-muted">· last check <?= h(date('M j, g:ia', (int) $amaHealth['checked_at'])) ?></span>
+                        <?php endif; ?>
+                        <?php if (!empty($amaHealth['stale'])): ?>
+                        <span class="text-muted">(stale)</span>
+                        <?php endif; ?>
+                        <form method="post" action="installation.php?tab=tools" class="d-inline ms-2">
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="action" value="probe_ama">
+                            <input type="hidden" name="tab" value="tools">
+                            <button type="submit" class="btn btn-outline-secondary btn-sm">Check now</button>
+                        </form>
+                    </dd>
                 </dl>
             </div>
         </div>

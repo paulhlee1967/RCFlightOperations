@@ -11,6 +11,7 @@ require_once __DIR__ . '/includes/flash.php';
 require_once __DIR__ . '/includes/validation.php';
 require_once __DIR__ . '/includes/member_save.php';
 require_once __DIR__ . '/includes/member_portal.php';
+require_once __DIR__ . '/includes/payments_ledger.php';
 
 requireLogin();
 if (!canEditMembers()) {
@@ -377,27 +378,23 @@ require_once __DIR__ . '/includes/header.php';
                 <?php if (count($payments) > 0): ?>
                 <div class="table-responsive">
                     <table class="table table-sm table-hover">
-                        <thead><tr><th>Date</th><th>Year</th><th>Dues</th><th>Initiation</th><th>Late fee</th><th>Comp</th><th></th></tr></thead>
+                        <thead><tr><th>Date</th><th>Year</th><th>Dues</th><th>Initiation</th><th>Late fee</th><th>Processing</th><th>Comp</th><th></th></tr></thead>
                         <tbody>
                             <?php foreach ($payments as $p): ?>
-                            <tr>
+                            <tr<?= payment_is_refunded($p) ? ' class="text-muted"' : '' ?>>
                                 <td><?= h($p['paid_at']) ?></td>
                                 <td><?= h($p['year']) ?></td>
                                 <td><?= h($p['amount_dues']) ?></td>
                                 <td><?= h($p['amount_initiation']) ?></td>
                                 <td><?= h($p['amount_late_fee']) ?></td>
+                                <td><?= h($p['amount_processing_fee'] ?? '0.00') ?></td>
                                 <td><?= $p['comp'] ? 'Yes' : '' ?></td>
                                 <td class="text-nowrap">
-                                    <?php if (canManagePayments()): ?>
-                                    <form method="post" action="payment_delete.php" class="d-inline"
-                                          data-confirm-submit="Delete this payment? This permanently removes it from the record.">
-                                        <?= csrf_field() ?>
-                                        <input type="hidden" name="payment_id" value="<?= (int) $p['id'] ?>">
-                                        <input type="hidden" name="member_id" value="<?= (int) $memberId ?>">
-                                        <input type="hidden" name="return" value="edit">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1">Delete</button>
-                                    </form>
-                                    <?php endif; ?>
+                                    <?php
+                                    $payment = $p;
+                                    $paymentReturn = 'edit';
+                                    require __DIR__ . '/includes/payment_row_actions.php';
+                                    ?>
                                 </td>
                             </tr>
                             <?php endforeach; ?>
@@ -410,7 +407,7 @@ require_once __DIR__ . '/includes/header.php';
 
                 <div class="border rounded p-3 mt-3 bg-light border-primary border-opacity-25">
                     <strong>Add payment</strong>
-                    <p class="small text-muted mb-2 mb-sm-3">This form posts separately from <strong>Save member</strong> below. After entering a payment, click <strong>Add payment</strong> here (not Save member).</p>
+                    <p class="small text-muted mb-2 mb-sm-3">This form posts separately from <strong>Save member</strong> below. After entering a payment, click <strong>Add payment</strong> here (not Save member). One payment per membership year — to correct cash/check, delete the old row first.</p>
                     <form method="post" action="payment_add.php?id=<?= $memberId ?>" class="mt-0">
                         <?= csrf_field() ?>
                         <input type="hidden" name="member_id" value="<?= $memberId ?>">

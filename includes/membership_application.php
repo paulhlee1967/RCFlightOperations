@@ -533,10 +533,16 @@ function membership_application_ama_verify_for_apply(PDO $pdo, string $amaNumber
 
     $result = ama_verify_membership($amaNumber, $lastName);
     if (!($result['ok'] ?? false)) {
+        $status = (string) ($result['status'] ?? 'unknown');
+        $down = ama_verify_is_lookup_down($status);
+
         return [
             'ok'    => false,
-            'error' => (string) ($result['message'] ?? 'AMA membership could not be verified.'),
-            'data'  => ['status' => $result['status'] ?? 'unknown'],
+            'error' => $down ? AMA_VERIFY_DOWN_MESSAGE : (string) ($result['message'] ?? 'AMA membership could not be verified.'),
+            'data'  => [
+                'status'      => $down ? 'unreachable' : $status,
+                'lookup_down' => $down,
+            ],
         ];
     }
 
@@ -574,6 +580,94 @@ function membership_application_ama_verify_for_apply(PDO $pdo, string $amaNumber
         'ama_expiration_mdy' => $result['expiration_mdy'] ?? membership_application_ymd_to_mdy($expYmd),
         'life_member'        => $lifeMember,
     ];
+
+    return membership_application_ama_open_gate($pdo, $sessionData, (string) ($result['message'] ?? 'AMA membership verified.'));
+}
+
+/**
+ * Manual AMA gate when the AMA.org scraper is down. Does not treat the lookup as valid.
+ *
+ * @return array{ok:bool, error:?string, data:array<string,mixed>}
+ */
+function membership_application_ama_manual_for_apply(
+    PDO $pdo,
+    string $amaNumber,
+    string $lastName,
+    string $firstName,
+    string $expirationRaw
+): array {
+    $health = ama_verify_health_cache_get();
+    if ($health === null || !empty($health['ok'])) {
+        return [
+            'ok'    => false,
+            'error' => 'AMA lookup is available. Use Verify instead of entering expiration manually.',
+            'data'  => ['lookup_down' => false],
+        ];
+    }
+
+    $amaNumber = ama_verify_normalize_number($amaNumber);
+    $lastName  = ama_verify_normalize_last_name($lastName);
+    $firstName = trim($firstName);
+    $inputErr  = ama_verify_validate_inputs($amaNumber, $lastName);
+    if ($inputErr !== null) {
+        return ['ok' => false, 'error' => $inputErr, 'data' => ['lookup_down' => true]];
+    }
+    if ($firstName === '' || strlen($firstName) > 80) {
+        return ['ok' => false, 'error' => 'First name is required when AMA lookup is down.', 'data' => ['lookup_down' => true]];
+    }
+    $expYmd = membership_application_parse_expiration_ymd($expirationRaw);
+    if ($expYmd === null) {
+        return ['ok' => false, 'error' => 'Enter AMA expiration as MM/DD/YYYY.', 'data' => ['lookup_down' => true]];
+    }
+    if (!membership_application_ama_meets_minimum_expiry($pdo, $expYmd, false)) {
+        $minLabel = membership_application_ama_minimum_expiry_label($pdo);
+
+        return [
+            'ok'    => false,
+            'error' => 'AMA membership must be valid through at least ' . $minLabel . '.',
+            'data'  => ['lookup_down' => true, 'minimum_expiration' => membership_application_ama_minimum_expiry_ymd($pdo)],
+        ];
+    }
+
+    return membership_application_ama_open_gate($pdo, [
+        'ama_number'         => $amaNumber,
+        'last_name'          => $lastName,
+        'first_name'         => $firstName,
+        'ama_expiration_ymd' => $expYmd,
+        'ama_expiration_mdy' => membership_application_ymd_to_mdy($expYmd),
+        'life_member'        => false,
+        'manual_entry'       => true,
+    ], AMA_VERIFY_DOWN_MESSAGE . ' Using the expiration you entered.');
+}
+
+function membership_application_parse_expiration_ymd(string $raw): ?string
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return null;
+    }
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) === 1) {
+        return $raw;
+    }
+    $dt = DateTime::createFromFormat('m/d/Y', $raw);
+    if ($dt instanceof DateTime) {
+        return $dt->format('Y-m-d');
+    }
+
+    return null;
+}
+
+/**
+ * @param array<string, mixed> $sessionData
+ * @return array{ok:bool, error:?string, data:array<string,mixed>}
+ */
+function membership_application_ama_open_gate(PDO $pdo, array $sessionData, string $message): array
+{
+    $amaNumber = (string) $sessionData['ama_number'];
+    $firstName = (string) $sessionData['first_name'];
+    $verifiedLast = (string) $sessionData['last_name'];
+    $lifeMember = !empty($sessionData['life_member']);
+    $expYmd = $sessionData['ama_expiration_ymd'] ?? null;
     $renewalEligibility = membership_application_renewal_eligibility($pdo, $amaNumber, $firstName, $verifiedLast);
     $sessionData['renewal_eligible'] = $renewalEligibility['eligible'];
     $sessionData['renewal_eligible_message'] = $renewalEligibility['message'];
@@ -619,7 +713,7 @@ function membership_application_ama_verify_for_apply(PDO $pdo, string $amaNumber
             'renewal_message'  => $renewalEligibility['message'],
             'complimentary_member' => $sessionData['complimentary_member'],
             'club_prefill'     => $clubPrefill,
-            'message'          => (string) ($result['message'] ?? 'AMA membership verified.'),
+            'message'          => $message,
         ],
     ];
 }

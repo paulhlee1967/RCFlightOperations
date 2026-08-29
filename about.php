@@ -50,7 +50,7 @@ require_once __DIR__ . '/includes/header.php';
                 </p>
                 <ul class="mb-0 small text-muted">
                     <li>Member roster with contact info, photos, and addresses</li>
-                    <li>Renewal and payment recording (dues collected outside the app)</li>
+                    <li>Renewal recording: walk-in cash/check, or Stripe posted on approve</li>
                     <li>AMA compliance tracking and verification</li>
                     <li>CR80 badge design and printing</li>
                     <li>Seven built-in reports with CSV and PDF export</li>
@@ -75,8 +75,9 @@ require_once __DIR__ . '/includes/header.php';
             <div class="card-body">
                 <h2 class="h5 card-title">About payments</h2>
                 <p class="mb-0 small">
-                    RC Flight Operations <strong>does not process payments</strong>. It records dues
-                    you have already collected through your club's normal channels (cash, check, etc.).
+                    Walk-in cash and check are recorded here after you collect them.
+                    Online applications paid with Stripe (or waived) are written to Payment history
+                    when you approve — you do not re-enter the amount.
                 </p>
             </div>
         </div>

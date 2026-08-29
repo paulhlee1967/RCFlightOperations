@@ -25,7 +25,7 @@ This document describes how the application is built and how its parts work toge
 | **templates/** | Email and letter templates (PHP/HTML) |
 | **uploads/** | Member photos (`member_photos/`), FAA cards (`member_faa_cards/`), and club branding (written by the app; photos served via `badge_photo.php` / `faa_card.php`, not direct URLs) |
 | **vendor/** | Composer dependencies (Dompdf, PHPMailer, Stripe PHP, etc.) |
-| `schema_full.sql` | Full, ready-to-import schema (initial + embedded upgrades) |
+| `schema_full.sql` | Clean snapshot of the current schema for a blank database. Existing installs use `scripts/migrate_*.sql` + `scripts/verify_db.php`. |
 
 ---
 
@@ -63,7 +63,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **csp_nonce.php** | `flightops_csp_nonce()`, `csp_nonce_attr()` — one nonce per response for inline script/style. |
 | **rate_limit.php** | IP rate limiting (`rate_limit_check`, presets, trusted-proxy client IP) for public/API endpoints. See [SECURITY.md](SECURITY.md). |
 | **cli_only_script.php** | `flightops_require_cli()` — exit if not PHP CLI (used by every file in `scripts/`). |
-| **header.php** | Shared layout: HTML head, navbar (with club theme, active nav, user menu), breadcrumbs, flash toasts. Set `$pageTitle`, optional `$noNav`, optional `$breadcrumbs` before including. Loads theme from `club` (`id = 1`) via `club_theme.php` and defines `navActive()`. Nav items use `function_exists('canEditMembers')` (etc.) so including `header.php` without `auth.php` fails quietly — always include `auth.php` on app pages. |
+| **header.php** | Shared layout: HTML head, navbar (with club theme, active nav, user menu), breadcrumbs, flash toasts. Set `$pageTitle`, optional `$noNav`, optional `$breadcrumbs` before including. Emits club `:root` color tokens and links cacheable [`assets/css/app.css`](assets/css/app.css). Loads theme from `club` (`id = 1`) via `club_theme.php` and defines `navActive()`. Nav items use `function_exists('canEditMembers')` (etc.) so including `header.php` without `auth.php` fails quietly — always include `auth.php` on app pages. |
 | **club_theme.php** | Shared club color defaults (`flightops_club_theme_defaults()`), hex→RGB, on-primary contrast (`flightops_on_primary_for()`), and harmonized status tokens. Used by `header.php`, `docs-theme.php`, and email/PDF layouts. |
 | **footer.php** | Closes container, RC Flight Operations attribution bar (uses theme CSS variables), Bootstrap JS, `flightops_ui.js`. |
 | **validation.php** | Server-side validation: `validate_member_input()`, `validate_payment_input()`, `validate_email()`, `validate_date()`, `validate_positive_number()`. Return structured errors for forms and APIs. |
@@ -95,7 +95,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **member_import_helpers.php** | Shared `parseDateForDb()`, `normalizeMembershipTypeSlot()`, `normalizeBool()` for import and applications. |
 | **member_portal.php** | Passwordless member self-service: magic-link create/redeem, member session, allowlisted profile save + audit log + membership-email staff notify. Used by `membership.php`, `membership_link.php`, `membership_profile.php`. |
 | **membership_application.php** | Public `apply.php` flow: AMA gate, club-record prefill, renewal eligibility, dues quote, Stripe payment, file uploads, optional email opt-in checkboxes, complimentary invite redemption, confirmation tokens, Sender preference sync on submit. |
-| **member_applications.php** | Staff review queue: list filters, payment breakdown, approve/reject into member records, email opt-in copy to `members`, Sender sync on approve, notifications. |
+| **member_applications.php** | Staff review queue: list filters, payment breakdown, approve/reject into member records, copy TRUST attestation, post Stripe/waived payments to the ledger, email opt-in copy to `members`, Sender sync on approve, notifications. |
 | **membership_comp_invites.php** | Complimentary invite CRUD, matching (email/AMA), redeem on apply submit, apply flags to member on approve. |
 | **member_sender_status.php** | Read-only Sender.net campaign/transactional status panel for the member contact tab. |
 | **app_signing_secret.php** | Loads `app_secret` from `system_config` or `config.php` for signed URLs. |
@@ -129,9 +129,9 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **badge_print.php** | Print view for one member’s badge (front/back). Marks badge as printed. |
 | **badge_photo.php** | Securely serves member photo from `uploads/` (no direct URL to uploads). |
 | **import.php** | CSV import: upload, column mapping, preview, insert/update members (and optional payment rows). |
-| **applications.php** | Online membership application review queue: status tabs, renewal-year filter, search, pagination, detail/diff, payment breakdown, email preferences, approve (upsert member, copy uploads, → `member_process.php`), reject. |
+| **applications.php** | Online membership application review queue: status tabs, renewal-year filter, search, pagination, detail/diff, payment breakdown, email preferences, approve (upsert member, copy uploads and TRUST, post Stripe/waived payment, → `member_process.php` fulfillment), reject. |
 | **apply.php** / **apply_confirm.php** | Public membership application: AMA gate, club-record prefill, Stripe quote/pay, email opt-in, uploads, confirmation. |
-| **membership.php** / **membership_link.php** / **membership_profile.php** | Member self-service: request magic link, redeem token, edit allowlisted profile fields (AMA verify, uploads, email prefs). |
+| **membership.php** / **membership_link.php** / **membership_profile.php** | Member self-service: request magic link, redeem token, edit allowlisted profile fields (AMA verify, TRUST attestation, uploads, email prefs). |
 | **comp_invites.php** | Staff complimentary membership invites (create, cancel, filter open/redeemed). |
 | **api_stripe_webhook.php** | Stripe `payment_intent.succeeded` webhook; finalizes paid applications. |
 | **export.php** / **export_options.php** | CSV export (full, short, email-only); filters by year/renewal status. **`export.php` is POST + CSRF only** (forms in the UI and `export_options.php`). |
@@ -174,11 +174,11 @@ Run from project root: `php scripts/script_name.php`.
 
 ## Database (high level)
 
-- **schema_full.sql** — Full, ready-to-import schema. Main tables: `club`, `users`, `members`, `payments`, `dues_rules`, `member_membership_years`, `member_applications`, `badge_templates`, `incidents`, `member_fulfillments`, `login_attempts`, `audit_log`, `password_reset_tokens`, `password_reset_ip_events`, `system_config`, `operator_messages`, etc.
+- **schema_full.sql** — Clean snapshot for a blank database. Main tables: `club`, `users`, `members`, `payments`, `dues_rules`, `member_membership_years`, `member_applications`, `badge_templates`, `incidents`, `member_fulfillments`, `login_attempts`, `audit_log`, `password_reset_tokens`, `password_reset_ip_events`, `system_config`, `operator_messages`, etc. Existing databases are upgraded only via `scripts/migrate_*.sql`; confirm with `php scripts/verify_db.php`.
 
 - **`dues_rules`:** One row per membership type slot (1–4). Each enabled type (Adult, Youth, Spouse, etc.) has its own annual, prorated, and initiation amounts — slots are independent even when rates match.
 
-- **`members` contact fields:** Single `phone`, single mailing address (`address_street`, `address_street2`, `address_city`, `address_state`, `address_postal_code`), and emergency contact columns on the member row. Legacy `member_phones` / `member_addresses` tables are migrated away by idempotent blocks in `schema_full.sql`.
+- **`members` contact fields:** Single `phone`, single mailing address (`address_street`, `address_street2`, `address_city`, `address_state`, `address_postal_code`), and emergency contact columns on the member row. Legacy `member_phones` / `member_addresses` tables were removed by `scripts/migrate_single_*.sql`.
 
 There is a single logical club: queries use `club.id = 1` where a club row is needed.
 

@@ -70,6 +70,7 @@ function member_portal_editable_fields(): array
         'ama_number',
         'ama_expiration',
         'ama_life_member',
+        'trust_attestation',
         'email_opt_in_club_events',
         'email_opt_in_expiry_reminders',
     ];
@@ -495,6 +496,7 @@ function member_portal_validate_input(array $post): array
     }
 
     $clean['ama_life_member'] = !empty($post['ama_life_member']) ? 1 : 0;
+    $clean['trust_attestation'] = !empty($post['trust_attestation']) ? 1 : 0;
 
     $clean['email_opt_in_club_events'] = email_opt_in_from_post($post['email_opt_in_club_events'] ?? null);
     $clean['email_opt_in_expiry_reminders'] = email_opt_in_from_post($post['email_opt_in_expiry_reminders'] ?? null);
@@ -573,6 +575,9 @@ function member_portal_save(PDO $pdo, int $memberId, array $post, array $files =
 
     $diff = member_portal_field_diff($before, $clean);
 
+    member_ensure_trust_schema($pdo);
+    [$trustAttestation, $trustAttestedAt] = member_trust_values_for_save($clean, $before);
+
     $pdo->prepare(
         'UPDATE members SET
             phone = ?,
@@ -587,6 +592,8 @@ function member_portal_save(PDO $pdo, int $memberId, array $post, array $files =
             ama_number = ?,
             ama_expiration = ?,
             ama_life_member = ?,
+            trust_attestation = ?,
+            trust_attested_at = ?,
             email_opt_in_club_events = ?,
             email_opt_in_expiry_reminders = ?
          WHERE id = ?'
@@ -603,6 +610,8 @@ function member_portal_save(PDO $pdo, int $memberId, array $post, array $files =
         $clean['ama_number'],
         $clean['ama_expiration'],
         $clean['ama_life_member'],
+        $trustAttestation,
+        $trustAttestedAt,
         $clean['email_opt_in_club_events'],
         $clean['email_opt_in_expiry_reminders'],
         $memberId,
@@ -753,6 +762,7 @@ function member_portal_field_labels(): array
         'ama_number' => 'AMA number',
         'ama_expiration' => 'AMA expiration',
         'ama_life_member' => 'AMA life member',
+        'trust_attestation' => 'TRUST attestation',
         'email_opt_in_club_events' => 'Club event emails',
         'email_opt_in_expiry_reminders' => 'Expiry reminder emails',
         'photo_path' => 'Badge photo',
@@ -777,7 +787,7 @@ function member_portal_format_change_lines(array $diff): array
             $lines[] = $label . ': updated';
             continue;
         }
-        if (in_array($field, ['ama_life_member', 'email_opt_in_club_events', 'email_opt_in_expiry_reminders'], true)) {
+        if (in_array($field, ['ama_life_member', 'trust_attestation', 'email_opt_in_club_events', 'email_opt_in_expiry_reminders'], true)) {
             $fromLabel = ((string) $from === '1' || $from === 1) ? 'yes' : 'no';
             $toLabel = ((string) $to === '1' || $to === 1) ? 'yes' : 'no';
             $lines[] = $label . ': ' . $fromLabel . ' → ' . $toLabel;

@@ -70,4 +70,20 @@ final class InstallationConfigTest extends TestCase
 
         $this->assertSame([], installation_tab_config_keys('tools'));
     }
+
+    public function test_on_time_window_label_uses_prebook_month_and_day(): void
+    {
+        $this->assertSame('Oct 15–Dec 31', renewal_on_time_window_label(null, [
+            'prebook_month' => 10,
+            'prebook_day'   => 15,
+            'prorate_start' => 7,
+            'prorate_end'   => 10,
+        ]));
+        $this->assertSame('Nov 1–Dec 31', renewal_on_time_window_label(null, [
+            'prebook_month' => 11,
+            'prebook_day'   => 1,
+            'prorate_start' => 7,
+            'prorate_end'   => 10,
+        ]));
+    }
 }

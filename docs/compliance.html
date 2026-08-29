@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <!--
-  RC Flight Operations Documentation — AMA & FAA Compliance
+  RC Flight Operations Documentation — AMA & TRUST Compliance
   docs/compliance.html
 -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>AMA &amp; FAA Compliance — RC Flight Operations Docs</title>
+  <title>AMA &amp; TRUST Compliance — RC Flight Operations Docs</title>
 <link rel="stylesheet" href="../assets/vendor/bootstrap/css/bootstrap.min.css">
   <link rel="stylesheet" href="../assets/vendor/bootstrap-icons/bootstrap-icons.min.css">
   <link rel="stylesheet" href="docs.css">
@@ -27,7 +27,7 @@
 </nav>
 
 <div class="docs-breadcrumb">
-  <a href="index.html">Docs</a><span class="sep">›</span>AMA &amp; FAA Compliance
+  <a href="index.html">Docs</a><span class="sep">›</span>AMA &amp; TRUST Compliance
 </div>
 
 <div class="docs-layout">
@@ -38,7 +38,7 @@
     <a href="#ama">AMA Numbers</a>
     <a href="#ama-lookup">AMA Live Lookup</a>
     <a href="#ama-status">AMA Status Colors</a>
-    <a href="#faa">FAA Numbers</a>
+    <a href="#faa">TRUST attestation</a>
     <a href="#report">Compliance Report</a>
     <a href="#renewal-block">Renewal Blocking</a>
     <hr class="sidebar-divider">
@@ -50,8 +50,8 @@
 
   <main class="docs-content">
 
-    <h1>AMA &amp; FAA Compliance</h1>
-    <p class="page-lead">Track AMA membership for every member — with live lookup to verify AMA numbers without leaving the app.</p>
+    <h1>AMA &amp; TRUST Compliance</h1>
+    <p class="page-lead">Track AMA membership and TRUST attestation for every member — with live AMA lookup to verify numbers without leaving the app.</p>
 
     <!-- ── Overview ── -->
     <h2 id="overview">Overview</h2>
@@ -62,6 +62,7 @@
     <ul>
       <li>Store each member's AMA number and expiration date</li>
       <li>Verify AMA membership live without leaving the app</li>
+      <li>Record that the member has completed TRUST (the FAA safety test)</li>
       <li>Block renewals for members whose AMA has expired</li>
       <li>Run a compliance report to see who's expiring soon or already expired</li>
     </ul>
@@ -137,37 +138,35 @@
       </table>
     </div>
 
-    <!-- ── FAA ── -->
-    <h2 id="faa">FAA Registration Numbers</h2>
-    <p>Two types of FAA registrations your members may have:</p>
-    <div class="docs-table-wrap">
-      <table class="docs-table">
-        <thead><tr><th>Type</th><th>Who needs it</th><th>Expiry</th></tr></thead>
-        <tbody>
-          <tr>
-            <td><strong>TRUST certificate</strong></td>
-            <td>Recreational flyers flying under 49 CFR Part 44809 (community-based)</td>
-            <td>Does not expire</td>
-          </tr>
-          <tr>
-            <td><strong>Part 107 Remote Pilot Certificate</strong></td>
-            <td>Members flying commercially or outside recreational rules</td>
-            <td>Expires every 24 months (not tracked in Flight Ops)</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <!-- ── TRUST ── -->
+    <h2 id="faa">TRUST attestation</h2>
     <p>
-      RC Flight Operations does not collect or display FAA registration numbers on member
-      records. The public membership application collects a TRUST attestation instead
-      (with links to <a href="https://trust.modelaircraft.org/" target="_blank" rel="noopener noreferrer">TRUST</a>
-      and <a href="https://faadronezone.faa.gov/" target="_blank" rel="noopener noreferrer">FAA DroneZone</a>).
-      Database columns for FAA number, expiration, and card path remain in place so historical
-      data is kept if the club needs to track FAA again later. Import/export CSVs can still
-      include those columns.
+      This club tracks <strong>TRUST</strong> (The Recreational UAS Safety Test), not FAA
+      registration numbers. TRUST does not expire. Members certify they have passed it and
+      will carry proof when flying.
     </p>
     <p>
-      Historical FAA card files (if any) remain on disk as
+      On the <strong>Compliance</strong> tab, check <strong>Member has completed TRUST</strong>.
+      Online applicants check the same box on <code>/apply.php</code>; approve copies it onto
+      the member. Members can also certify it themselves on the
+      <a href="members.html#self-service">membership profile</a>.
+    </p>
+    <p>
+      Missing TRUST shows as a warning when you process a renewal and on the
+      <strong>Missing member data</strong> report. It does not block recording a cash/check
+      payment — you can still take dues at a meeting and follow up on TRUST.
+    </p>
+    <p>
+      Links for members:
+      <a href="https://trust.modelaircraft.org/" target="_blank" rel="noopener noreferrer">Take TRUST</a>
+      (free) and
+      <a href="https://faadronezone.faa.gov/" target="_blank" rel="noopener noreferrer">FAA DroneZone</a>
+      for aircraft registration (over 250g), which the club does not store.
+    </p>
+    <p>
+      Database columns for FAA number, expiration, and card path remain so historical
+      data is kept if the club needs them later. Import/export CSVs can still include
+      those columns. Historical FAA card files (if any) remain on disk as
       <code>uploads/member_faa_cards/{memberId}.{ext}</code>.
       Deleting a member still removes any attached FAA card and badge photo files.
     </p>

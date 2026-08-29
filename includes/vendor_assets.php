@@ -27,6 +27,21 @@ function flightops_bootstrap_css_url(string $base = ''): string
     return flightops_asset_url('vendor/bootstrap/css/bootstrap.min.css', $base);
 }
 
+/**
+ * Cache-busted URL for the shared app stylesheet (club tokens stay in header.php).
+ */
+function flightops_app_css_url(string $base = ''): string
+{
+    $relative = 'css/app.css';
+    $fs = dirname(__DIR__) . '/assets/' . $relative;
+    $url = flightops_asset_url($relative, $base);
+    if (is_readable($fs)) {
+        $url .= '?v=' . filemtime($fs);
+    }
+
+    return $url;
+}
+
 function flightops_bootstrap_js_url(string $base = ''): string
 {
     return flightops_asset_url('vendor/bootstrap/js/bootstrap.bundle.min.js', $base);

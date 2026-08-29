@@ -13,8 +13,11 @@ const AMA_VERIFY_AJAX_URL     = 'https://www.modelaircraft.org/membership/verify
 const AMA_VERIFY_FORM_ID      = 'membership_verify_form';
 const AMA_VERIFY_USER_AGENT   = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 RCFlightOperations/1.5';
 const AMA_VERIFY_CACHE_TTL    = 600;
+const AMA_VERIFY_SUCCESS_TTL  = 3600;
+const AMA_VERIFY_HEALTH_TTL   = 900;
 const AMA_VERIFY_CONNECT_SEC  = 8;
 const AMA_VERIFY_TIMEOUT_SEC  = 25;
+const AMA_VERIFY_DOWN_MESSAGE = 'AMA lookup down; enter expiration manually.';
 
 const AMA_VALID_PATTERNS = [
     'is valid until',
@@ -111,6 +114,13 @@ function ama_verify_membership(string $amaNumber, string $lastName, array $optio
     $allowRetry = !array_key_exists('retry', $options) || $options['retry'] !== false;
     $attempts   = $allowRetry ? 2 : 1;
 
+    if (empty($options['skip_result_cache'])) {
+        $cached = ama_verify_result_cache_get($amaNumber, $lastName);
+        if ($cached !== null) {
+            return $cached;
+        }
+    }
+
     for ($attempt = 1; $attempt <= $attempts; $attempt++) {
         $response = ama_verify_http_lookup($amaNumber, $lastName, $attempt > 1);
         if ($response === false) {
@@ -119,7 +129,9 @@ function ama_verify_membership(string $amaNumber, string $lastName, array $optio
                 continue;
             }
 
-            return ama_verify_result(false, 'unreachable', 'AMA site unreachable — try again or enter expiry manually.');
+            ama_verify_health_mark(false);
+
+            return ama_verify_result(false, 'unreachable', AMA_VERIFY_DOWN_MESSAGE);
         }
 
         $html   = ama_verify_response_to_html($response);
@@ -131,10 +143,24 @@ function ama_verify_membership(string $amaNumber, string $lastName, array $optio
             continue;
         }
 
+        if (($parsed['status'] ?? '') === 'service_error' || ($parsed['status'] ?? '') === 'unreachable') {
+            ama_verify_health_mark(false);
+            $parsed['message'] = AMA_VERIFY_DOWN_MESSAGE;
+            $parsed['status'] = 'unreachable';
+            return $parsed;
+        }
+
+        ama_verify_health_mark(true);
+        if (!empty($parsed['ok'])) {
+            ama_verify_result_cache_set($amaNumber, $lastName, $parsed);
+        }
+
         return $parsed;
     }
 
-    return ama_verify_result(false, 'unreachable', 'AMA site unreachable — try again or enter expiry manually.');
+    ama_verify_health_mark(false);
+
+    return ama_verify_result(false, 'unreachable', AMA_VERIFY_DOWN_MESSAGE);
 }
 
 /**
@@ -206,8 +232,156 @@ function ama_verify_probe_form_build_id(): ?string
     }
     ama_verify_cache_set($session['form_build_id'], $session['cookie_jar']);
     @unlink($session['cookie_jar']);
+    ama_verify_health_mark(true);
 
     return $session['form_build_id'];
+}
+
+function ama_verify_is_lookup_down(?string $status): bool
+{
+    return in_array((string) $status, ['unreachable', 'service_error'], true);
+}
+
+/**
+ * Cached AMA site health (form_build_id probe). Does not look up a member.
+ *
+ * @return array{ok:bool, checked_at:int, message:string, stale:bool}
+ */
+function ama_verify_health_status(bool $forceProbe = false): array
+{
+    $cached = ama_verify_health_cache_get();
+    if (!$forceProbe && $cached !== null && empty($cached['stale'])) {
+        return $cached;
+    }
+
+    $id = ama_verify_probe_form_build_id();
+    $ok = $id !== null && $id !== '';
+    ama_verify_health_mark($ok);
+
+    return [
+        'ok'         => $ok,
+        'checked_at' => time(),
+        'message'    => $ok ? 'AMA lookup page responded.' : AMA_VERIFY_DOWN_MESSAGE,
+        'stale'      => false,
+    ];
+}
+
+function ama_verify_health_mark(bool $ok): void
+{
+    $payload = [
+        'ok'         => $ok,
+        'checked_at' => time(),
+        'message'    => $ok ? 'AMA lookup page responded.' : AMA_VERIFY_DOWN_MESSAGE,
+        'stale'      => false,
+    ];
+    $file = ama_verify_health_file_path();
+    $dir  = dirname($file);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    @file_put_contents($file, json_encode($payload));
+    if (session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION['ama_verify_health'] = $payload;
+    }
+}
+
+/** @return ?array{ok:bool, checked_at:int, message:string, stale:bool} */
+function ama_verify_health_cache_get(): ?array
+{
+    $cache = null;
+    if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['ama_verify_health'])) {
+        $cache = $_SESSION['ama_verify_health'];
+    }
+    if (!is_array($cache)) {
+        $file = ama_verify_health_file_path();
+        if (is_readable($file)) {
+            $raw = json_decode((string) file_get_contents($file), true);
+            if (is_array($raw)) {
+                $cache = $raw;
+            }
+        }
+    }
+    if (!is_array($cache) || !isset($cache['checked_at'])) {
+        return null;
+    }
+    $checked = (int) $cache['checked_at'];
+    if ($checked < 1) {
+        return null;
+    }
+    $stale = (time() - $checked) > AMA_VERIFY_HEALTH_TTL;
+
+    return [
+        'ok'         => !empty($cache['ok']),
+        'checked_at' => $checked,
+        'message'    => (string) ($cache['message'] ?? ''),
+        'stale'      => $stale,
+    ];
+}
+
+function ama_verify_health_file_path(): string
+{
+    return dirname(__DIR__) . '/uploads/.ama_verify_health.json';
+}
+
+function ama_verify_result_cache_key(string $amaNumber, string $lastName): string
+{
+    return strtolower($amaNumber) . '|' . strtolower($lastName);
+}
+
+/** @return ?array<string, mixed> */
+function ama_verify_result_cache_get(string $amaNumber, string $lastName): ?array
+{
+    $file = ama_verify_result_cache_file_path();
+    if (!is_readable($file)) {
+        return null;
+    }
+    $raw = json_decode((string) file_get_contents($file), true);
+    if (!is_array($raw)) {
+        return null;
+    }
+    $key = ama_verify_result_cache_key($amaNumber, $lastName);
+    $row = $raw[$key] ?? null;
+    if (!is_array($row) || (int) ($row['expires_at'] ?? 0) < time()) {
+        return null;
+    }
+    $result = $row['result'] ?? null;
+
+    return is_array($result) ? $result : null;
+}
+
+function ama_verify_result_cache_set(string $amaNumber, string $lastName, array $result): void
+{
+    if (empty($result['ok'])) {
+        return;
+    }
+    $file = ama_verify_result_cache_file_path();
+    $dir  = dirname($file);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0755, true);
+    }
+    $raw = [];
+    if (is_readable($file)) {
+        $decoded = json_decode((string) file_get_contents($file), true);
+        if (is_array($decoded)) {
+            $raw = $decoded;
+        }
+    }
+    $now = time();
+    foreach ($raw as $k => $row) {
+        if (!is_array($row) || (int) ($row['expires_at'] ?? 0) < $now) {
+            unset($raw[$k]);
+        }
+    }
+    $raw[ama_verify_result_cache_key($amaNumber, $lastName)] = [
+        'expires_at' => $now + AMA_VERIFY_SUCCESS_TTL,
+        'result'     => $result,
+    ];
+    @file_put_contents($file, json_encode($raw));
+}
+
+function ama_verify_result_cache_file_path(): string
+{
+    return dirname(__DIR__) . '/uploads/.ama_verify_results.json';
 }
 
 /**

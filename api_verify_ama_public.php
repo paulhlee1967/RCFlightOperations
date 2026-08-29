@@ -43,7 +43,17 @@ if ($clientIp !== '' && !membership_application_ama_rate_limit_check($pdo, $clie
 $amaNumber = (string) ($_POST['ama_number'] ?? '');
 $lastName  = (string) ($_POST['last_name'] ?? '');
 
-$result = membership_application_ama_verify_for_apply($pdo, $amaNumber, $lastName);
+if (!empty($_POST['manual_continue'])) {
+    $result = membership_application_ama_manual_for_apply(
+        $pdo,
+        $amaNumber,
+        $lastName,
+        (string) ($_POST['first_name'] ?? ''),
+        (string) ($_POST['ama_expiration'] ?? '')
+    );
+} else {
+    $result = membership_application_ama_verify_for_apply($pdo, $amaNumber, $lastName);
+}
 if (!$result['ok']) {
     membership_ama_public_json([
         'ok'    => false,

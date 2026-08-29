@@ -11,6 +11,7 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/flightops_logo.php';
+require_once __DIR__ . '/includes/installation_config.php';
 
 requireAdmin();
 $clubId = 1;
@@ -385,7 +386,7 @@ render_page_header([
             <div class="small">
                 <strong>How rates are used when recording a renewal:</strong>
                 <ul class="mb-0 mt-1 ps-3">
-                    <li><strong>Annual dues</strong> — charged for on-time renewals (Oct 1 – Dec 31 of prior year)</li>
+                    <li><strong>Annual dues</strong> — charged for on-time renewals (<?= h(renewal_on_time_window_label($pdo)) ?> of prior year)</li>
                     <li><strong>Prorated dues</strong> — charged for new members joining mid-year (during the prorate window)</li>
                     <li><strong>Initiation fee</strong> — one-time fee added to new member or late renewal payments (set to $0 if your club doesn't charge one)</li>
                     <li>You can always override any amount at the time of recording</li>

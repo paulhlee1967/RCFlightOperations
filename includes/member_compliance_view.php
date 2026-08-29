@@ -22,3 +22,16 @@
         </div>
     </div>
 </section>
+
+<section class="border rounded p-3 p-md-4 bg-light bg-opacity-50 mt-3">
+    <h2 class="h6 text-uppercase text-muted fw-semibold mb-3">TRUST attestation</h2>
+    <?php if (!empty($member['trust_attestation'])): ?>
+        <div class="fw-semibold">Certified — will carry TRUST proof when flying</div>
+        <?php if (!empty($member['trust_attested_at'])): ?>
+            <div class="small text-muted mt-1">First recorded <?= h(formatDate(substr((string) $member['trust_attested_at'], 0, 10))) ?></div>
+        <?php endif; ?>
+    <?php else: ?>
+        <div class="text-warning">Not on file</div>
+        <p class="small text-muted mb-0 mt-1">Ask the member to certify TRUST on their membership profile, or check the box on Edit.</p>
+    <?php endif; ?>
+</section>

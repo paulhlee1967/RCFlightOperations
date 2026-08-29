@@ -50,7 +50,7 @@
     <div class="sidebar-title">Other Docs</div>
     <a href="index.html">← Docs home</a>
     <a href="members.html">Members</a>
-    <a href="compliance.html">AMA &amp; FAA</a>
+    <a href="compliance.html">AMA &amp; TRUST</a>
     <a href="reports.html">Reports</a>
     <a href="badges.html">Badge Designer</a>    <a href="admin.html">Administration</a>
   </nav>
@@ -66,21 +66,18 @@
   Before anything else, it's worth being clear about what this section of the app does
   and doesn't do.
 </p>
-<div class="callout callout-warning">
-  <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+<div class="callout callout-info">
+  <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
   <div class="callout-body">
-    <strong>RC Flight Operations does not process payments.</strong>
-    There is no connection to credit cards, PayPal, Venmo, bank accounts, or any
-    payment service — no money moves through this app, and members cannot pay dues
-    through it. What you are doing here is <strong>recording dues payments your club
-    has already collected</strong> through your normal channels (cash at a meeting,
-    a check in the mail, a bank transfer, etc.). Once the money is in hand, you log
-    it here so your member records stay current.
+    <strong>Two ways money gets into the ledger</strong>
+    <ul class="mb-0 mt-2">
+      <li><strong>Cash or check at a meeting</strong> — you record it here with <strong>Process Signup / Renewal</strong>. The app does not take that money; it writes down that the club already collected it.</li>
+      <li><strong>Online application (Stripe)</strong> — the applicant pays on <code>/apply.php</code>. When you click <strong>Approve</strong>, the Stripe (or waived/complimentary) amount is written into Payment history automatically. You skip recording and go straight to printing the badge and mailer.</li>
+    </ul>
   </div>
 </div>
 <p>
-  Your club decides how to collect dues — that's entirely up to you. RC Flight Operations
-  just keeps track of the fact that you did.
+  For walk-in renewals, your club still decides how to collect dues. This screen just keeps the roster and reports in sync.
 </p>
 
 <!-- ── How it works ── -->
@@ -129,6 +126,12 @@
     prepare a mailing packet, and mark each task as done.
   </li>
 </ol>
+<p>
+  Each member may have <strong>one payment per membership year</strong>. After Stripe
+  approve (or a cash/check record), the Record step shows the existing row instead of a
+  second form. To fix a cash/check mistake, delete that payment and record once. Stripe
+  rows use <strong>Record refund</strong> rather than delete.
+</p>
 
 <div class="callout callout-warning">
   <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
@@ -164,10 +167,10 @@
 </p>
 <p>
   If applicants submit through <code>apply.php</code> on your club site, they appear in
-  <a href="applications.html">Applications</a> first. After you approve an application,
-  the badge photo (when provided) is copied to the member record and you land on
-  <strong>Process Signup / Renewal</strong> to record payment — the website
-  charge is not posted automatically.
+  <a href="applications.html">Applications</a> first. After you approve, the badge photo
+  (when provided) and TRUST attestation are copied to the member record. Stripe or waived
+  payments are posted to Payment history automatically; you land on print &amp; mail.
+  Walk-in cash/check still uses <strong>Process Signup / Renewal</strong> to record payment.
 </p>
 
 <!-- ── Late renewals ── -->
@@ -175,8 +178,9 @@
 <p>
   Use <strong>New / Late Renewal</strong> when a member renews after your club's
   normal renewal window. This type includes both the annual dues and the initiation
-  fee as a late charge. You can adjust the displayed amount before confirming if
-  your club handles late fees differently.
+  fee as a late charge. The amount comes from your dues rules — there is no amount
+  override on the Process form. If a cash/check amount was recorded wrong, delete
+  that payment and record it once.
 </p>
 
 <!-- ── Prorated ── -->
@@ -295,7 +299,7 @@
     &nbsp;·&nbsp;
     <a href="members.html">← Members</a>
     &nbsp;·&nbsp;
-    <a href="compliance.html">Next: AMA &amp; FAA →</a>
+    <a href="compliance.html">Next: AMA &amp; TRUST →</a>
   </span>
 </footer>
 

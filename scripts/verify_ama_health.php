@@ -15,9 +15,11 @@ require_once dirname(__DIR__) . '/includes/ama_verify.php';
 
 $id = ama_verify_probe_form_build_id();
 if ($id === null || $id === '') {
+    ama_verify_health_mark(false);
     fwrite(STDERR, "AMA verify health check FAILED: could not obtain form_build_id\n");
     exit(1);
 }
 
+ama_verify_health_mark(true);
 fwrite(STDOUT, "AMA verify health check OK (form_build_id present)\n");
 exit(0);

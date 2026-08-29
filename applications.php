@@ -29,6 +29,7 @@ $statusFilter = $listFilters['status'];
 $yearFilter   = $listFilters['year'];
 $searchQ      = $listFilters['search'];
 $defaultRenewalYear = defaultRenewalYear($pdo);
+$seasonWindows = renewal_season_windows($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate();
@@ -36,9 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $appId  = (int) ($_POST['application_id'] ?? 0);
 
     if ($action === 'approve' && $appId > 0) {
-        $overrideMemberId = isset($_POST['matched_member_id']) && $_POST['matched_member_id'] !== ''
-            ? (int) $_POST['matched_member_id']
-            : null;
+        $matchOverride = application_parse_match_override($_POST['matched_member_id'] ?? '');
+        $overrideMemberId = $matchOverride['member_id'];
+        $explicitCreateNew = $matchOverride['create_new'];
         $renewalType = trim((string) ($_POST['renewal_type'] ?? ''));
         $renewalYear = isset($_POST['renewal_year']) && $_POST['renewal_year'] !== ''
             ? (int) $_POST['renewal_year']
@@ -54,7 +55,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $overrideMemberId,
             $renewalType,
             $renewalYear,
-            is_array($_POST['field_choice'] ?? null) ? $_POST['field_choice'] : []
+            is_array($_POST['field_choice'] ?? null) ? $_POST['field_choice'] : [],
+            $explicitCreateNew
         );
         if (!$result['ok']) {
             flash($result['error'] ?? 'Could not approve application.', 'warning');
@@ -65,14 +67,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $memberId = (int) $result['member_id'];
         $rtype    = urlencode((string) ($result['renewal_type'] ?? 'new'));
         $ryear    = (int) ($result['renewal_year'] ?? defaultRenewalYear($pdo));
-        flash('Application approved. Continue with signup/renewal recording.', 'success');
+        $ledgerRecorded = !empty($result['ledger_recorded']);
+        if ($ledgerRecorded) {
+            flash('Application approved. Online payment is already in the ledger — print the badge and mailer next.', 'success');
+        } else {
+            flash('Application approved. Continue with signup/renewal recording.', 'success');
+        }
         if (array_key_exists('photo_imported', $result) && $result['photo_imported'] === false) {
             flash('Badge photo could not be copied from the website — upload it on the member record before printing.', 'warning');
         }
         if (array_key_exists('faa_card_imported', $result) && $result['faa_card_imported'] === false) {
             flash('A historical FAA registration card could not be copied from the website. It was not stored on the member record.', 'warning');
         }
-        header('Location: member_process.php?id=' . $memberId . '&year=' . $ryear . '&renewal_type=' . $rtype . '&application_id=' . $appId . '#record');
+        $hash = $ledgerRecorded ? '#fulfill' : '#record';
+        header('Location: member_process.php?id=' . $memberId . '&year=' . $ryear . '&renewal_type=' . $rtype . '&application_id=' . $appId . $hash);
         exit;
     }
 
@@ -335,7 +343,7 @@ render_page_header([
                             <strong><?= h(trim($row['first_name'] . ' ' . $row['last_name'])) ?></strong>
                             <div class="small opacity-75">
                                 <?= h(application_kind_label($row['application_kind'])) ?>
-                                · <?= h(application_season_label($row['form_season'])) ?>
+                                · <?= h(application_season_label($row['form_season'], $seasonWindows)) ?>
                                 <?php if ($rowRenewalWarning): ?>
                                 · <span class="text-warning" title="<?= h(implode(' ', $rowVerification['warnings'])) ?>">⚠ Verify renewal</span>
                                 <?php endif; ?>
@@ -408,6 +416,29 @@ render_page_header([
                     <strong>Awaiting payment.</strong> The applicant has not finished Stripe checkout.
                     Approve is unavailable until payment is confirmed. You can reject this submission to clear the queue.
                 </div>
+                <?php endif; ?>
+                <?php if (application_is_reviewable_status($application['status'] ?? null)): ?>
+                <?php $approveChecklist = application_approve_checklist($application, $pdo); ?>
+                <h2 class="h6">Ready to approve?</h2>
+                <ul class="approve-checklist mb-3">
+                    <?php foreach ($approveChecklist as $item): ?>
+                    <li>
+                        <span class="mark <?= $item['ok'] ? 'ok' : ($item['blocks'] ? 'block' : 'warn') ?>">
+                            <?= $item['ok'] ? '✓' : ($item['blocks'] ? '✕' : '!') ?>
+                        </span>
+                        <span>
+                            <strong><?= h($item['label']) ?></strong>
+                            — <?= h($item['detail']) ?>
+                        </span>
+                    </li>
+                    <?php endforeach; ?>
+                </ul>
+                <?php
+                $softGaps = array_values(array_filter($approveChecklist, static fn (array $i): bool => !$i['ok'] && !$i['blocks']));
+                if ($softGaps !== [] && ($application['status'] ?? '') === 'pending'):
+                ?>
+                <p class="small text-muted mb-3">Missing items do not lock Approve. Use <strong>Request information</strong> if you need the applicant to send something.</p>
+                <?php endif; ?>
                 <?php endif; ?>
                 <?php if ($application['status'] === 'rejected'): ?>
                 <div class="alert alert-danger mb-4">
@@ -523,7 +554,7 @@ render_page_header([
                     <div class="col-sm-6">
                         <div class="text-muted small">Type / season</div>
                         <div><?= h(application_kind_label($application['application_kind'])) ?></div>
-                        <div class="small"><?= h(application_season_label($application['form_season'])) ?></div>
+                        <div class="small"><?= h(application_season_label($application['form_season'], $seasonWindows)) ?></div>
                     </div>
                     <div class="col-sm-6">
                         <div class="text-muted small">Contact</div>
@@ -663,9 +694,11 @@ render_page_header([
                 $uploadKinds = [
                     'Badge photo'      => 'badge',
                     'AMA verification' => 'ama',
-                    'FAA registration' => 'faa',
                     'Signature'        => 'signature',
                 ];
+                if (trim((string) ($application['file_faa_registration_url'] ?? '')) !== '') {
+                    $uploadKinds['FAA registration (historical)'] = 'faa';
+                }
                 $uploadedFiles = [];
                 foreach ($uploadKinds as $label => $kind) {
                     $href = application_file_href($application, $kind);
@@ -698,7 +731,7 @@ render_page_header([
                     (<?= h((string) $application['match_confidence']) ?> via <?= h((string) ($application['match_method'] ?: 'unknown')) ?>)
                 </div>
                 <?php elseif ($application['match_confidence'] === 'ambiguous'): ?>
-                <div class="alert alert-warning small">Multiple members match this name. Choose the correct member below before approving.</div>
+                <div class="alert alert-warning small">Multiple members match this name. You must choose the correct member before approving — do not create a duplicate by accident.</div>
                 <?php endif; ?>
 
                 <?php if ($diff !== [] && !application_is_reviewable_status($application['status'] ?? null)): ?>
@@ -720,7 +753,7 @@ render_page_header([
                 <?php endif; ?>
 
                 <?php if (application_is_reviewable_status($application['status'] ?? null) && (canEditMembers() || canProcessMemberships())): ?>
-                <form method="post" class="border-top pt-3">
+                <form method="post" class="border-top pt-3" id="application-review-form">
                     <?= csrf_field() ?>
                     <input type="hidden" name="application_id" value="<?= (int) $application['id'] ?>">
 
@@ -761,18 +794,24 @@ render_page_header([
                     </div>
                     <?php endif; ?>
 
-                    <?php if ($candidates !== []): ?>
+                    <?php if ($application['match_confidence'] === 'ambiguous'): ?>
                     <div class="mb-3">
                         <label class="form-label" for="matched_member_id">Match to member</label>
+                        <?php if ($candidates !== []): ?>
                         <select class="form-select" id="matched_member_id" name="matched_member_id">
-                            <option value="">— Create as new member —</option>
+                            <option value="" selected>— Choose which member this is —</option>
                             <?php foreach ($candidates as $c): ?>
                             <option value="<?= (int) $c['id'] ?>">
                                 #<?= (int) $c['id'] ?> — <?= h($c['last_name'] . ', ' . $c['first_name']) ?>
                                 <?php if (!empty($c['email'])): ?>(<?= h($c['email']) ?>)<?php endif; ?>
                             </option>
                             <?php endforeach; ?>
+                            <option value="new">This is a new member — create a new record</option>
                         </select>
+                        <div class="form-text">Approve is blocked until you pick a person. Use “create a new record” only if none of these people is the applicant.</div>
+                        <?php else: ?>
+                        <p class="small text-danger mb-0">Matching members could not be loaded. Request information or reject until an administrator can sort this out.</p>
+                        <?php endif; ?>
                     </div>
                     <?php elseif ($application['matched_member_id']): ?>
                     <input type="hidden" name="matched_member_id" value="<?= (int) $application['matched_member_id'] ?>">
@@ -795,8 +834,19 @@ render_page_header([
                     </div>
 
                     <div class="d-flex flex-wrap gap-2">
-                        <?php if (application_can_approve($application['status'] ?? null)): ?>
-                        <button type="submit" name="action" value="approve" class="btn btn-primary">Approve &amp; process</button>
+                        <?php
+                        $gapConfirm = null;
+                        if (isset($approveChecklist) && is_array($approveChecklist)) {
+                            $gapConfirm = application_approve_gap_confirm_message(
+                                $approveChecklist,
+                                !empty($paymentUnderpaid['underpaid'])
+                            );
+                        }
+                        ?>
+                        <?php if (application_can_approve($application['status'] ?? null)
+                            && !(($application['match_confidence'] ?? '') === 'ambiguous' && $candidates === [])): ?>
+                        <button type="submit" name="action" value="approve" class="btn btn-primary"
+                            <?php if ($gapConfirm !== null): ?>data-approve-confirm="<?= h($gapConfirm) ?>"<?php endif; ?>>Approve &amp; process</button>
                         <?php endif; ?>
                         <button type="button" class="btn btn-outline-warning" data-bs-toggle="collapse" data-bs-target="#requestInfoPanel">Request information</button>
                         <button type="button" class="btn btn-outline-danger" data-bs-toggle="collapse" data-bs-target="#rejectPanel">Reject</button>
@@ -825,4 +875,27 @@ render_page_header([
     <?php endif; ?>
 </div>
 
+<script<?= csp_nonce_attr() ?>>
+(function () {
+    var form = document.getElementById('application-review-form');
+    if (!form) return;
+    form.addEventListener('submit', function (ev) {
+        var submitter = ev.submitter;
+        if (!submitter || submitter.getAttribute('name') !== 'action' || submitter.value !== 'approve') {
+            return;
+        }
+        var matchSel = document.getElementById('matched_member_id');
+        if (matchSel && matchSel.value === '') {
+            ev.preventDefault();
+            window.alert('Choose which member this is before approving.');
+            matchSel.focus();
+            return;
+        }
+        var msg = submitter.getAttribute('data-approve-confirm');
+        if (msg && !window.confirm(msg)) {
+            ev.preventDefault();
+        }
+    });
+})();
+</script>
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

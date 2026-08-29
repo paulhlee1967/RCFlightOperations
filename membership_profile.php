@@ -268,6 +268,25 @@ $flash = getFlash();
         </section>
 
         <section class="border rounded-3 p-3 p-md-4 mb-4">
+            <h2 class="h6 text-uppercase text-muted fw-semibold mb-3">TRUST attestation</h2>
+            <p class="small text-muted mb-3">
+                All pilots must complete The Recreational UAS Safety Test (TRUST) and carry proof when flying.
+                <a href="https://trust.modelaircraft.org/" target="_blank" rel="noopener noreferrer">Take TRUST (free)</a>
+            </p>
+            <div class="form-check">
+                <input type="hidden" name="trust_attestation" value="0">
+                <input class="form-check-input" type="checkbox" name="trust_attestation" id="trust_attestation"
+                       value="1"<?= checked($member['trust_attestation'] ?? 0) ?>>
+                <label class="form-check-label" for="trust_attestation">
+                    I certify that I have passed TRUST and will carry proof of completion at the airfield
+                </label>
+            </div>
+            <?php if (!empty($member['trust_attested_at'])): ?>
+                <p class="small text-muted mb-0 mt-2">First recorded <?= h(formatDate(substr((string) $member['trust_attested_at'], 0, 10))) ?>.</p>
+            <?php endif; ?>
+        </section>
+
+        <section class="border rounded-3 p-3 p-md-4 mb-4">
             <h2 class="h6 text-uppercase text-muted fw-semibold mb-3">Email preferences</h2>
             <div class="form-check mb-2">
                 <input class="form-check-input" type="checkbox" name="email_opt_in_club_events" id="email_opt_in_club_events"

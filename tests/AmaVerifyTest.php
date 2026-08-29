@@ -122,4 +122,12 @@ final class AmaVerifyTest extends TestCase
         $this->assertArrayHasKey('life_member', $api);
         $this->assertArrayHasKey('status', $api);
     }
+
+    public function testLookupDownStatuses(): void
+    {
+        $this->assertTrue(ama_verify_is_lookup_down('unreachable'));
+        $this->assertTrue(ama_verify_is_lookup_down('service_error'));
+        $this->assertFalse(ama_verify_is_lookup_down('no_match'));
+        $this->assertFalse(ama_verify_is_lookup_down('valid'));
+    }
 }

@@ -42,12 +42,49 @@ function normalizeUserRole(string $role): string
     return legacyUserRoleMap()[$role] ?? $role;
 }
 
+/** Staff idle timeout (seconds). Member portal uses its own TTL. */
+const STAFF_SESSION_TTL = 1800;
+
+function staff_session_touch(): void
+{
+    $_SESSION['user_active_at'] = time();
+}
+
+function staff_session_idle_expired(?int $now = null, ?int $lastActive = null, int $ttl = STAFF_SESSION_TTL): bool
+{
+    $now = $now ?? time();
+    if ($lastActive === null || $lastActive <= 0) {
+        return false;
+    }
+
+    return ($now - $lastActive) > $ttl;
+}
+
+function staff_session_clear(): void
+{
+    unset(
+        $_SESSION['user_id'],
+        $_SESSION['user_email'],
+        $_SESSION['user_name'],
+        $_SESSION['user_role'],
+        $_SESSION['user_active_at']
+    );
+}
+
 function requireLogin(): void {
     if (empty($_SESSION['user_id'])) {
         $redirect = safe_redirect_url($_SERVER['REQUEST_URI'] ?? '', 'index.php');
         header('Location: login.php?redirect=' . urlencode($redirect));
         exit;
     }
+    $lastActive = isset($_SESSION['user_active_at']) ? (int) $_SESSION['user_active_at'] : 0;
+    if ($lastActive > 0 && staff_session_idle_expired(null, $lastActive)) {
+        staff_session_clear();
+        $redirect = safe_redirect_url($_SERVER['REQUEST_URI'] ?? '', 'index.php');
+        header('Location: login.php?reason=idle&redirect=' . urlencode($redirect));
+        exit;
+    }
+    staff_session_touch();
     if (empty($_SESSION['user_role']) && isset($pdo)) {
         $stmt = $pdo->prepare('SELECT role FROM users WHERE id = ?');
         $stmt->execute([$_SESSION['user_id']]);

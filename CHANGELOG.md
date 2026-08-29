@@ -4,6 +4,34 @@ All notable changes to **RC Flight Operations** are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Stripe (and waived) payments post to the ledger on approve** — Approving a paid online application writes dues, initiation or late fee, and Stripe processing fee into `payments`, sets the renewal year, and marks fulfillment processed. Staff go to print badge / mailer instead of re-entering the amount. Complimentary/coupon waivers write a $0 complementary row. Cash/check walk-ins are unchanged. Migration: [`scripts/migrate_member_trust_ledger.sql`](scripts/migrate_member_trust_ledger.sql).
+- **TRUST attestation on member records** — Compliance tab, member view, new-member wizard, membership portal, process-renewal warnings, missing-data report, and members quick-view. Copied from the application on approve. Existing approved applications are backfilled by the same migration. FAA number/expiration/card stay in the database only.
+- **Approve-queue checklist** — Application review shows Payment, TRUST, badge photo, and AMA expiration at a glance. Only unfinished Stripe checkout blocks Approve; the rest are reminders plus Request information. Approve asks for confirmation when those reminders (or a payment shortfall) are still off.
+- **Staff idle timeout** — Club-user sessions expire after 30 minutes of inactivity.
+- **Stripe refunds on the ledger** — Cash/check mistakes can still be deleted. Stripe rows use **Record refund** (status, amount, optional Stripe refund id) so revenue reports stay honest. Migration: [`scripts/migrate_payment_refunds.sql`](scripts/migrate_payment_refunds.sql).
+- **AMA lookup health** — Installation → Tools & status can probe AMA.org. Successful lookups are cached; when the scraper is down, staff and applicants get “AMA lookup down; enter expiration manually.”
+- **MySQL integration tests** — CI imports `schema_full.sql` and runs approve/ledger and current-member SQL tests (`composer test:integration`). Optional [`docker-compose.test.yml`](docker-compose.test.yml).
+
+### Changed
+
+- **Shared app CSS** — Theme tokens stay in `includes/header.php`; the rest lives in cacheable [`assets/css/app.css`](assets/css/app.css) (simpler CSP `style-src-elem 'self'`).
+- **Application season labels** — Follow the configurable pre-book month/day and dues prorate window instead of hardcoded Oct–Dec.
+- **Revenue by year** — Columns are Dues / Initiation / Late fees / **Club net** / **Stripe processing** / **Charged to members** / Refunds. Club net excludes the Stripe pass-through fee.
+- **schema_full.sql** — Clean 2.x snapshot (no duplicate `CREATE TABLE` / WPForms migration pile). Existing clubs keep using `scripts/migrate_*.sql` + `scripts/verify_db.php`.
+- **Renewals / applications help** — Docs no longer say the app does not process payments. They describe cash/check recording vs Stripe auto-post on approve, and TRUST instead of FAA tracking in the UI.
+- **Ambiguous application match** — Approve no longer defaults to “create as new member.” Officers must pick the correct roster record (or explicitly create new).
+- **One payment per membership year** — Process Signup / Renewal and Add payment refuse a second row while a non-refunded payment exists. Cash/check corrections still delete then re-record; Stripe uses Record refund.
+- **Dashboard renewal-season banner** — Uses the configurable pre-book start (not hardcoded October).
+- **About / reports copy** — Matches Stripe-on-approve vs cash/check recording. Late-renewal help no longer claims an amount override on the Process form. Help-center and About list items no longer say dues are collected only outside the app. Docs callouts no longer force every bold phrase onto its own line.
+- **Home uses staff idle timeout** — The dashboard now goes through `requireLogin()`, so sitting on Home signs you out after 30 minutes like every other staff page.
+- **Help / apply labels** — Docs and the public apply form say **AMA & TRUST** (FAA registration is not tracked in the UI). Deploy smoke test expects badge photo and TRUST on approve, not an FAA card.
+- **CSV import** — “Update existing members” is off by default so a careless import adds new rows instead of overwriting the roster.
+- **Badge designer** — FAA number is no longer offered as a merge field (legacy saved designs that already have it still print).
+
 ## [2.0.0] - 2026-07-17
 
 ### Added

@@ -78,7 +78,6 @@ $dataFields = [
     'membership_type' => ['label' => 'Membership type',  'placeholder' => '<TYPE>',           'icon' => '🏷'],
     'renewal_year'    => ['label' => 'Renewal year',     'placeholder' => '<YEAR>',           'icon' => '🗓'],
     'ama_number'      => ['label' => 'AMA number',       'placeholder' => '<AMA #>',          'icon' => '✈'],
-    'faa_number'      => ['label' => 'FAA number',       'placeholder' => '<FAA #>',          'icon' => '✈'],
     'gate_key_number' => ['label' => 'Gate key #',       'placeholder' => '<GATE KEY>',       'icon' => '🔑'],
     'street'          => ['label' => 'Address (street)', 'placeholder' => '<STREET>',         'icon' => '📍'],
     'street2'         => ['label' => 'Address (suite/apt)', 'placeholder' => '<SUITE/APT>', 'icon' => '📍'],

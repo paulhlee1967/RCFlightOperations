@@ -23,6 +23,9 @@ flightops_send_security_headers();
 
 requireLogin();
 
+require_once __DIR__ . '/includes/member_save.php';
+member_ensure_trust_schema($pdo);
+
 // Read-only member detail for staff roles (Membership Manager uses member_edit.php).
 if (!canViewMembers()) {
     http_response_code(403);
@@ -44,7 +47,7 @@ if ($memberId <= 0) {
 // ── Fetch member core row ─────────────────────────────────────────────────────
 $stmt = $pdo->prepare('
     SELECT id, first_name, last_name, email, phone, membership_type_slot, membership_renewal_year,
-           ama_number, ama_expiration, ama_life_member,
+           ama_number, ama_expiration, ama_life_member, trust_attestation, trust_attested_at,
            gate_key_number, badge_printed_at, date_joined,
            inactive, suspended, life_member, free_membership, photo_path,
            emergency_contact_name, emergency_contact_relationship, emergency_contact_phone,
@@ -63,17 +66,38 @@ if (!$member) {
 }
 
 // ── Payment summary ───────────────────────────────────────────────────────────
-$stmt = $pdo->prepare('
-    SELECT
-        COUNT(*)                             AS payment_count,
-        MAX(year)                            AS last_year,
-        SUM(amount_dues + amount_initiation + amount_late_fee) AS total_paid,
-        MAX(paid_at)                         AS last_paid_at
-    FROM payments
-    WHERE member_id = ?
-');
-$stmt->execute([$memberId]);
-$paymentSummary = $stmt->fetch(PDO::FETCH_ASSOC);
+$paymentSummary = [
+    'payment_count' => 0,
+    'last_year' => null,
+    'total_paid' => 0,
+    'last_paid_at' => null,
+];
+try {
+    $stmt = $pdo->prepare('
+        SELECT
+            COUNT(*)                             AS payment_count,
+            MAX(year)                            AS last_year,
+            SUM(amount_dues + amount_initiation + amount_late_fee
+                + COALESCE(amount_processing_fee, 0)) AS total_paid,
+            MAX(paid_at)                         AS last_paid_at
+        FROM payments
+        WHERE member_id = ?
+    ');
+    $stmt->execute([$memberId]);
+    $paymentSummary = $stmt->fetch(PDO::FETCH_ASSOC) ?: $paymentSummary;
+} catch (Throwable $e) {
+    $stmt = $pdo->prepare('
+        SELECT
+            COUNT(*) AS payment_count,
+            MAX(year) AS last_year,
+            SUM(amount_dues + amount_initiation + amount_late_fee) AS total_paid,
+            MAX(paid_at) AS last_paid_at
+        FROM payments
+        WHERE member_id = ?
+    ');
+    $stmt->execute([$memberId]);
+    $paymentSummary = $stmt->fetch(PDO::FETCH_ASSOC) ?: $paymentSummary;
+}
 
 // ── Derive AMA status label ───────────────────────────────────────────────────
 $today = date('Y-m-d');
@@ -140,6 +164,7 @@ $response = [
     'ama_number'     => $member['ama_number'] ?? '',
     'ama_expiration' => $member['ama_expiration'] ?? '',
     'ama_status'     => $amaStatus,   // 'valid' | 'expiring' | 'expired' | 'life' | ''
+    'trust_attestation' => !empty($member['trust_attestation']),
     'gate_key'       => $member['gate_key_number'] ?? '',
 
     // Flags

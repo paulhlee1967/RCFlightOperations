@@ -49,6 +49,10 @@ function memberCompletenessMissingFields(array $member): array
         $missing[] = 'Membership type';
     }
 
+    if (empty($member['trust_attestation']) && array_key_exists('trust_attestation', $member)) {
+        $missing[] = 'TRUST attestation';
+    }
+
     return $missing;
 }
 
@@ -59,7 +63,7 @@ function memberCompletenessSelectSql(string $alias = 'm'): string
 {
     return "{$alias}.id, {$alias}.last_name, {$alias}.first_name, {$alias}.email, {$alias}.phone,
             {$alias}.ama_number, {$alias}.ama_expiration, {$alias}.ama_life_member,
-            {$alias}.faa_number, {$alias}.membership_type_slot,
+            {$alias}.trust_attestation, {$alias}.faa_number, {$alias}.membership_type_slot,
             {$alias}.emergency_contact_name, {$alias}.emergency_contact_phone,
             {$alias}.address_street, {$alias}.address_city";
 }
@@ -70,6 +74,8 @@ function memberCompletenessSelectSql(string $alias = 'm'): string
 function countIncompleteCurrentMembers(PDO $pdo, ?int $year = null): int
 {
     require_once __DIR__ . '/membership_status.php';
+    require_once __DIR__ . '/member_save.php';
+    member_ensure_trust_schema($pdo);
 
     $year  = $year ?? membershipStatusYear();
     $where = currentMemberWhereSql('m', $year);

@@ -1,16 +1,10 @@
 -- =============================================================================
--- RC Flight Operations — FULL schema (fresh install, single club)
+-- RC Flight Operations — current schema (fresh install, single club)
 --
--- This file contains the full, ready-to-import schema (initial schema + embedded upgrades).
---
--- Use it on a blank MySQL/MariaDB database so the app is ready in one import.
+-- Import this file on a blank MySQL/MariaDB database.
+-- Existing installs: do not re-import. Run scripts/migrate_*.sql in DEPLOY.md
+-- order, then php scripts/verify_db.php.
 -- =============================================================================
-
--- -----------------------------------------------------------------------------
--- Begin: embedded base schema
--- -----------------------------------------------------------------------------
--- RC Flight Operations – single-club deployment
--- Run this on a blank MySQL database after creating DB + user in cPanel.
 
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
@@ -40,9 +34,6 @@ CREATE TABLE `club` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- App users (volunteers/admins who log in)
--- ---------------------------------------------------------------------------
 CREATE TABLE `users` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `email` varchar(255) NOT NULL,
@@ -55,15 +46,14 @@ CREATE TABLE `users` (
   UNIQUE KEY `email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- Members (one row per person; single-valued fields only)
--- ---------------------------------------------------------------------------
 CREATE TABLE `members` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `title` varchar(32) DEFAULT NULL,
   `first_name` varchar(255) NOT NULL DEFAULT '',
   `last_name` varchar(255) NOT NULL DEFAULT '',
   `email` varchar(255) DEFAULT NULL,
+  `email_opt_in_club_events` tinyint(1) NOT NULL DEFAULT 1,
+  `email_opt_in_expiry_reminders` tinyint(1) NOT NULL DEFAULT 1,
   `phone` varchar(64) DEFAULT NULL,
   `birthday` date DEFAULT NULL,
   `photo_path` varchar(512) DEFAULT NULL,
@@ -80,9 +70,11 @@ CREATE TABLE `members` (
   `ama_number` varchar(64) DEFAULT NULL,
   `ama_expiration` date DEFAULT NULL,
   `ama_life_member` tinyint(1) NOT NULL DEFAULT 0,
-  `faa_number` varchar(64) DEFAULT NULL,
+  `faa_number` varchar(64) DEFAULT NULL COMMENT 'Historical; UI no longer collects FAA registration',
   `faa_expiration` date DEFAULT NULL,
   `faa_card_path` varchar(512) DEFAULT NULL,
+  `trust_attestation` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Member certified TRUST completion',
+  `trust_attested_at` datetime DEFAULT NULL,
   `emergency_contact_name` varchar(255) DEFAULT NULL,
   `emergency_contact_relationship` varchar(64) DEFAULT NULL,
   `emergency_contact_phone` varchar(64) DEFAULT NULL,
@@ -98,9 +90,6 @@ CREATE TABLE `members` (
   KEY `name_sort` (`last_name`,`first_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- Payments (one row per payment event)
--- ---------------------------------------------------------------------------
 CREATE TABLE `payments` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `member_id` int unsigned NOT NULL,
@@ -109,17 +98,22 @@ CREATE TABLE `payments` (
   `amount_dues` decimal(10,2) NOT NULL DEFAULT 0.00,
   `amount_initiation` decimal(10,2) NOT NULL DEFAULT 0.00,
   `amount_late_fee` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `amount_processing_fee` decimal(10,2) NOT NULL DEFAULT 0.00,
   `comp` tinyint(1) NOT NULL DEFAULT 0,
+  `application_id` int unsigned DEFAULT NULL COMMENT 'Source online application, if recorded on approve',
+  `payment_transaction_id` varchar(128) DEFAULT NULL COMMENT 'Stripe PaymentIntent id when paid online',
+  `ledger_status` varchar(16) NOT NULL DEFAULT 'recorded' COMMENT 'recorded or refunded',
+  `amount_refunded` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `stripe_refund_id` varchar(128) DEFAULT NULL,
+  `refunded_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `member_id` (`member_id`),
   KEY `year_idx` (`year`),
+  UNIQUE KEY `uniq_payments_application` (`application_id`),
   CONSTRAINT `payments_member` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- Dues rules (per membership type slot)
--- ---------------------------------------------------------------------------
 CREATE TABLE `dues_rules` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `membership_type_slot` tinyint unsigned NOT NULL COMMENT '1-4 (club-labeled)',
@@ -132,21 +126,15 @@ CREATE TABLE `dues_rules` (
   UNIQUE KEY `type_slot` (`membership_type_slot`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- Badge template (Fabric.js canvas JSON + background, back HTML)
--- ---------------------------------------------------------------------------
 CREATE TABLE `badge_templates` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL DEFAULT 'Default' COMMENT 'Display name shown in the designer/print pickers',
+  `name` varchar(100) NOT NULL DEFAULT 'Default',
   `template_data` longtext NOT NULL COMMENT 'JSON: canvas, backgroundPath, orientation, backOrientation, backHtml',
-  `is_default` tinyint(1) NOT NULL DEFAULT 0 COMMENT 'Auto-selected design in badge print (only one row should be 1)',
+  `is_default` tinyint(1) NOT NULL DEFAULT 0,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- Incidents (safety/field incidents)
--- ---------------------------------------------------------------------------
 CREATE TABLE `incidents` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `incident_date` date NOT NULL,
@@ -176,34 +164,12 @@ CREATE TABLE `incident_photos` (
   KEY `idx_incident_photos_incident` (`incident_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-SET FOREIGN_KEY_CHECKS = 1;
-
--- ---------------------------------------------------------------------------
--- Seed data: one club row, one admin user (password set via set_password.php)
--- ---------------------------------------------------------------------------
-INSERT INTO `club` (`id`, `name`, `color_primary`, `color_primary_dark`, `color_bg`, `color_muted`, `color_text`, `membership_type1_label`, `membership_type2_label`, `membership_type3_label`, `membership_type4_label`, `membership_type1_enabled`, `membership_type2_enabled`, `membership_type3_enabled`, `membership_type4_enabled`) VALUES (1, 'RC Flight Operations', '#6f7c3d', '#556030', '#f3efe4', '#665e52', '#252018', 'Adult', 'Youth', 'Senior', 'Spouse', 1, 1, 1, 1);
-
-INSERT INTO `dues_rules` (`membership_type_slot`, `annual_dues`, `prorated_dues`, `initiation_fee`, `prorate_start_month`, `prorate_end_month`) VALUES
-(1, 160.00, 80.00, 50.00, 7, 10),
-(2,  20.00, 20.00,  0.00, 7, 10),
-(3,  20.00, 20.00,  0.00, 7, 10),
-(4,  20.00, 20.00,  0.00, 7, 10);
-
-INSERT INTO `users` (`email`, `password_hash`, `name`, `role`) VALUES
-('admin@yourclub.local', '', 'Club Admin', 'admin');
--- Run scripts/set_password.php after first deploy to set the admin password.
-
-INSERT INTO `badge_templates` (`name`, `template_data`, `is_default`) VALUES ('Default', '{}', 1);
-
--- ---------------------------------------------------------------------------
--- Migration: member_fulfillments table
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `member_fulfillments` (
+CREATE TABLE `member_fulfillments` (
   `id`               int unsigned  NOT NULL AUTO_INCREMENT,
   `member_id`        int unsigned  NOT NULL,
-  `year`             smallint unsigned NOT NULL COMMENT 'Membership year this fulfillment is for',
-  `processed_at`     datetime      DEFAULT NULL COMMENT 'When the renewal/signup was recorded',
-  `processed_by`     int unsigned  DEFAULT NULL COMMENT 'users.id of staff who recorded it',
+  `year`             smallint unsigned NOT NULL,
+  `processed_at`     datetime      DEFAULT NULL,
+  `processed_by`     int unsigned  DEFAULT NULL,
   `renewal_type`     varchar(32)   DEFAULT NULL COMMENT 'new | on_time | late | complementary',
   `card_printed_at`  datetime      DEFAULT NULL,
   `card_printed_by`  int unsigned  DEFAULT NULL,
@@ -217,14 +183,10 @@ CREATE TABLE IF NOT EXISTS `member_fulfillments` (
   CONSTRAINT `mf_member`  FOREIGN KEY (`member_id`)  REFERENCES `members` (`id`)  ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- Historical membership: who was a current member for each calendar year
--- (frozen when recorded — survives renewal year updates on the member row)
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `member_membership_years` (
+CREATE TABLE `member_membership_years` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `member_id` int unsigned NOT NULL,
-  `year` smallint unsigned NOT NULL COMMENT 'Calendar year the member was current',
+  `year` smallint unsigned NOT NULL,
   `recorded_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `source` varchar(32) NOT NULL DEFAULT 'renewal' COMMENT 'renewal | edit | import | backfill | snapshot',
   PRIMARY KEY (`id`),
@@ -233,10 +195,7 @@ CREATE TABLE IF NOT EXISTS `member_membership_years` (
   CONSTRAINT `mmy_member` FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- Migration: login_attempts for brute-force protection
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `login_attempts` (
+CREATE TABLE `login_attempts` (
   `email`         varchar(255) NOT NULL,
   `failed_count`  int unsigned NOT NULL DEFAULT 0,
   `locked_until`  datetime DEFAULT NULL,
@@ -244,10 +203,7 @@ CREATE TABLE IF NOT EXISTS `login_attempts` (
   PRIMARY KEY (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- Audit log (lightweight activity trail)
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `audit_log` (
+CREATE TABLE `audit_log` (
   `id`         int unsigned NOT NULL AUTO_INCREMENT,
   `user_id`    int unsigned NOT NULL DEFAULT 0,
   `action`     varchar(64)  NOT NULL,
@@ -260,10 +216,7 @@ CREATE TABLE IF NOT EXISTS `audit_log` (
   KEY `target` (`target_type`, `target_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- Password reset tokens (forgot password flow)
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `password_reset_tokens` (
+CREATE TABLE `password_reset_tokens` (
   `token_hash` varchar(64)  NOT NULL,
   `email`      varchar(255) NOT NULL,
   `expires_at` datetime    NOT NULL,
@@ -272,10 +225,7 @@ CREATE TABLE IF NOT EXISTS `password_reset_tokens` (
   KEY `email_expires` (`email`, `expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- Password reset IP rate limiting (forgot_password.php)
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `password_reset_ip_events` (
+CREATE TABLE `password_reset_ip_events` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `ip` varchar(45) NOT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -283,14 +233,22 @@ CREATE TABLE IF NOT EXISTS `password_reset_ip_events` (
   KEY `ip_created` (`ip`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- ---------------------------------------------------------------------------
--- WPForms membership applications (pending review queue)
--- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `member_applications` (
+CREATE TABLE `rate_limit_events` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
-  `wpforms_entry_id` varchar(64) NOT NULL,
-  `wpforms_form_id` int unsigned DEFAULT NULL,
+  `endpoint` varchar(100) NOT NULL,
+  `ip` varchar(45) NOT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `endpoint_ip_created` (`endpoint`, `ip`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Native /apply.php queue. wpforms_entry_id is the unique submission reference
+-- (legacy column name from the retired WPForms intake).
+CREATE TABLE `member_applications` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `status` enum('pending_payment','pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `wpforms_entry_id` varchar(64) NOT NULL COMMENT 'Unique submission reference',
+  `wpforms_form_id` int unsigned DEFAULT NULL COMMENT 'Unused; kept for historical rows',
   `submitted_at` datetime DEFAULT NULL,
   `reviewed_at` datetime DEFAULT NULL,
   `reviewed_by` int unsigned DEFAULT NULL,
@@ -306,6 +264,8 @@ CREATE TABLE IF NOT EXISTS `member_applications` (
   `last_name` varchar(255) NOT NULL DEFAULT '',
   `middle_name` varchar(255) DEFAULT NULL,
   `email` varchar(255) DEFAULT NULL,
+  `email_opt_in_club_events` tinyint(1) NOT NULL DEFAULT 0,
+  `email_opt_in_expiry_reminders` tinyint(1) NOT NULL DEFAULT 0,
   `birthday` date DEFAULT NULL,
   `phone` varchar(64) DEFAULT NULL,
   `emergency_contact_name` varchar(255) DEFAULT NULL,
@@ -335,6 +295,8 @@ CREATE TABLE IF NOT EXISTS `member_applications` (
   `file_signature_url` varchar(512) DEFAULT NULL,
   `raw_payload` json DEFAULT NULL,
   `rejection_reason` text,
+  `latest_info_request_message` text DEFAULT NULL,
+  `latest_info_request_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -346,7 +308,7 @@ CREATE TABLE IF NOT EXISTS `member_applications` (
   CONSTRAINT `member_applications_approved_member` FOREIGN KEY (`approved_member_id`) REFERENCES `members` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `membership_comp_invites` (
+CREATE TABLE `membership_comp_invites` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `email` varchar(255) DEFAULT NULL,
   `ama_number` varchar(32) DEFAULT NULL,
@@ -364,24 +326,100 @@ CREATE TABLE IF NOT EXISTS `membership_comp_invites` (
   KEY `idx_comp_invites_active` (`redeemed_at`, `cancelled_at`, `expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- -----------------------------------------------------------------------------
--- End: embedded base schema
--- -----------------------------------------------------------------------------
+CREATE TABLE `member_application_emails` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `application_id` int unsigned NOT NULL,
+  `email_type` enum('received','approved','request_info') NOT NULL,
+  `idempotency_key` varchar(128) NOT NULL,
+  `recipient` varchar(255) NOT NULL DEFAULT '',
+  `subject` varchar(255) NOT NULL DEFAULT '',
+  `status` enum('pending','sent','failed') NOT NULL DEFAULT 'pending',
+  `error_message` text DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_idempotency_key` (`idempotency_key`),
+  KEY `idx_application_emails_app` (`application_id`),
+  KEY `idx_application_emails_type_status` (`email_type`, `status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- -----------------------------------------------------------------------------
--- Begin: embedded upgrade v1.0 additions
--- -----------------------------------------------------------------------------
-SET FOREIGN_KEY_CHECKS = 0;
+CREATE TABLE `member_application_info_requests` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `application_id` int unsigned NOT NULL,
+  `message` text NOT NULL,
+  `requested_by` int unsigned NOT NULL,
+  `dedup_key` varchar(64) NOT NULL,
+  `requested_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_info_request_dedup` (`dedup_key`),
+  KEY `idx_info_requests_application` (`application_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE IF NOT EXISTS `system_config` (
+CREATE TABLE `board_packet_deliveries` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `month` varchar(7) NOT NULL COMMENT 'YYYY-MM calendar month',
+  `recipients` text NOT NULL,
+  `status` enum('claimed','sending','sent','failed') NOT NULL DEFAULT 'claimed',
+  `error_message` text DEFAULT NULL,
+  `sent_at` datetime DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_board_packet_month` (`month`),
+  KEY `idx_board_packet_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `member_magic_links` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `member_id` int unsigned NOT NULL,
+  `token_hash` varchar(64) NOT NULL,
+  `expires_at` datetime NOT NULL,
+  `used_at` datetime DEFAULT NULL,
+  `requested_ip` varchar(45) NOT NULL DEFAULT '',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_member_magic_token` (`token_hash`),
+  KEY `idx_member_magic_member` (`member_id`),
+  KEY `idx_member_magic_expires` (`expires_at`),
+  CONSTRAINT `member_magic_links_member`
+    FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE `system_config` (
   `config_key`   varchar(64)   NOT NULL,
   `config_value` text          DEFAULT NULL,
-  `updated_at`   datetime      NOT NULL DEFAULT CURRENT_TIMESTAMP
-                              ON UPDATE CURRENT_TIMESTAMP,
+  `updated_at`   datetime      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`config_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
+CREATE TABLE `operator_messages` (
+  `id`              int unsigned  NOT NULL AUTO_INCREMENT,
+  `subject`         varchar(255)  NOT NULL,
+  `body`            text          NOT NULL,
+  `sent_to_count`   int unsigned  NOT NULL DEFAULT 0,
+  `target`          varchar(32)   NOT NULL DEFAULT 'all',
+  `sent_at`         datetime      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+INSERT INTO `club` (`id`, `name`, `color_primary`, `color_primary_dark`, `color_bg`, `color_muted`, `color_text`, `membership_type1_label`, `membership_type2_label`, `membership_type3_label`, `membership_type4_label`, `membership_type1_enabled`, `membership_type2_enabled`, `membership_type3_enabled`, `membership_type4_enabled`) VALUES (1, 'RC Flight Operations', '#6f7c3d', '#556030', '#f3efe4', '#665e52', '#252018', 'Adult', 'Youth', 'Senior', 'Spouse', 1, 1, 1, 1);
+
+INSERT INTO `dues_rules` (`membership_type_slot`, `annual_dues`, `prorated_dues`, `initiation_fee`, `prorate_start_month`, `prorate_end_month`) VALUES
+(1, 160.00, 80.00, 50.00, 7, 10),
+(2,  20.00, 20.00,  0.00, 7, 10),
+(3,  20.00, 20.00,  0.00, 7, 10),
+(4,  20.00, 20.00,  0.00, 7, 10);
+
+INSERT INTO `users` (`email`, `password_hash`, `name`, `role`) VALUES
+('admin@yourclub.local', '', 'Club Admin', 'admin');
+-- Run scripts/set_password.php after first deploy to set the admin password.
+
+INSERT INTO `badge_templates` (`name`, `template_data`, `is_default`) VALUES ('Default', '{}', 1);
+
+INSERT INTO `system_config` (`config_key`, `config_value`) VALUES
   ('app_name',        'RC Flight Operations'),
   ('support_email',   ''),
   ('membership_email', ''),
@@ -400,744 +438,7 @@ INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
   ('stripe_publishable_key', ''),
   ('stripe_secret_key', ''),
   ('stripe_webhook_secret', ''),
-  ('stripe_test_mode', '0');
-
-CREATE TABLE IF NOT EXISTS `operator_messages` (
-  `id`              int unsigned  NOT NULL AUTO_INCREMENT,
-  `subject`         varchar(255)  NOT NULL,
-  `body`            text          NOT NULL,
-  `sent_to_count`   int unsigned  NOT NULL DEFAULT 0 COMMENT 'Number of admin addresses emailed',
-  `target`          varchar(32)   NOT NULL DEFAULT 'all' COMMENT 'all',
-  `sent_at`         datetime      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- Drop the legacy soft-delete columns on existing databases (payments are
--- now hard-deleted; the action is captured in audit_log instead).
-SET @col_exists = (
-    SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-    WHERE TABLE_SCHEMA = DATABASE()
-      AND TABLE_NAME   = 'payments'
-      AND COLUMN_NAME  = 'voided_at'
-);
-SET @sql = IF(
-    @col_exists = 1,
-    'ALTER TABLE `payments` DROP COLUMN `voided_at`, DROP COLUMN `voided_by`',
-    'SELECT 1'
-);
-PREPARE stmt FROM @sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-SET FOREIGN_KEY_CHECKS = 1;
--- -----------------------------------------------------------------------------
--- End: embedded upgrade v1.0 additions
--- -----------------------------------------------------------------------------
-
--- -----------------------------------------------------------------------------
--- Begin: embedded upgrade v1.1 membership type slots (safe re-run)
--- -----------------------------------------------------------------------------
-SET FOREIGN_KEY_CHECKS = 0;
-
-SET @t_has_m1_label = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'club' AND COLUMN_NAME = 'membership_type1_label'
-);
-SET @t_sql = IF(
-  @t_has_m1_label = 0,
-  'ALTER TABLE `club`
-    ADD COLUMN `membership_type1_label` varchar(64) NOT NULL DEFAULT ''Adult'',
-    ADD COLUMN `membership_type2_label` varchar(64) NOT NULL DEFAULT ''Youth'',
-    ADD COLUMN `membership_type3_label` varchar(64) NOT NULL DEFAULT ''Senior'',
-    ADD COLUMN `membership_type4_label` varchar(64) NOT NULL DEFAULT ''Spouse'',
-    ADD COLUMN `membership_type1_enabled` tinyint(1) NOT NULL DEFAULT 1,
-    ADD COLUMN `membership_type2_enabled` tinyint(1) NOT NULL DEFAULT 1,
-    ADD COLUMN `membership_type3_enabled` tinyint(1) NOT NULL DEFAULT 1,
-    ADD COLUMN `membership_type4_enabled` tinyint(1) NOT NULL DEFAULT 1',
-  'SELECT 1'
-);
-PREPARE stmt FROM @t_sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-SET @m_has_slot = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'membership_type_slot'
-);
-SET @m_sql = IF(
-  @m_has_slot = 0,
-  'ALTER TABLE `members` ADD COLUMN `membership_type_slot` tinyint unsigned DEFAULT NULL COMMENT ''1-4 (club-labeled)''',
-  'SELECT 1'
-);
-PREPARE stmt FROM @m_sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-SET @m_has_legacy = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'membership_type'
-);
-SET @m_migrate_sql = IF(
-  @m_has_legacy = 1,
-  '
-  UPDATE `members`
-  SET `membership_type_slot` = CASE
-    WHEN `membership_type` = ''Adult''  THEN 1
-    WHEN `membership_type` = ''Youth''  THEN 2
-    WHEN `membership_type` = ''Senior'' THEN 3
-    WHEN `membership_type` = ''Spouse'' THEN 4
-    ELSE NULL
-  END
-  ',
-  'SELECT 1'
-);
-PREPARE stmt FROM @m_migrate_sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-SET @d_has_slot = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dues_rules' AND COLUMN_NAME = 'membership_type_slot'
-);
-SET @d_sql = IF(
-  @d_has_slot = 0,
-  'ALTER TABLE `dues_rules` ADD COLUMN `membership_type_slot` tinyint unsigned DEFAULT NULL COMMENT ''1-4 (club-labeled)''',
-  'SELECT 1'
-);
-PREPARE stmt FROM @d_sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-SET @d_has_legacy = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'dues_rules' AND COLUMN_NAME = 'membership_type'
-);
-SET @d_migrate_sql = IF(
-  @d_has_legacy = 1,
-  '
-  UPDATE `dues_rules`
-  SET `membership_type_slot` = CASE
-    WHEN `membership_type` = ''Adult''  THEN 1
-    WHEN `membership_type` = ''Youth''  THEN 2
-    WHEN `membership_type` = ''Senior'' THEN 3
-    WHEN `membership_type` = ''Spouse'' THEN 4
-    ELSE 1
-  END
-  ',
-  'SELECT 1'
-);
-PREPARE stmt FROM @d_migrate_sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-SET @d_change_legacy_nullable = IF(
-  @d_has_legacy = 1,
-  'ALTER TABLE `dues_rules` MODIFY `membership_type` enum(''Adult'',''Youth'',''Senior'',''Spouse'') DEFAULT NULL',
-  'SELECT 1'
-);
-PREPARE stmt FROM @d_change_legacy_nullable;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-SET @idx_exists = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
-  WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME = 'dues_rules'
-    AND INDEX_NAME = 'type_slot'
-);
-SET @idx_sql = IF(
-  @idx_exists = 0,
-  'ALTER TABLE `dues_rules` ADD UNIQUE KEY `type_slot` (`membership_type_slot`)',
-  'SELECT 1'
-);
-PREPARE stmt FROM @idx_sql;
-EXECUTE stmt;
-DEALLOCATE PREPARE stmt;
-
-SET FOREIGN_KEY_CHECKS = 1;
--- -----------------------------------------------------------------------------
--- End: embedded upgrade v1.1 membership type slots
--- -----------------------------------------------------------------------------
-
--- -----------------------------------------------------------------------------
--- Migration: communication preferences (allow_email, allow_postal on members)
--- -----------------------------------------------------------------------------
-SET @allow_email_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME   = 'members'
-    AND COLUMN_NAME  = 'allow_email'
-);
-SET @sql_allow = IF(
-  @allow_email_col = 0,
-  'ALTER TABLE `members` ADD COLUMN `allow_email` tinyint(1) NOT NULL DEFAULT 1 COMMENT ''Club emails, reminders, report emails'' AFTER `emergency_contact_phone`, ADD COLUMN `allow_postal` tinyint(1) NOT NULL DEFAULT 1 COMMENT ''Postal mailings (newsletters, packets)'' AFTER `allow_email`',
-  'SELECT 1'
-);
-PREPARE stmt_allow FROM @sql_allow;
-EXECUTE stmt_allow;
-DEALLOCATE PREPARE stmt_allow;
-
--- -----------------------------------------------------------------------------
--- Migration: multiple badge designs + board-member flag
---   * badge_templates gains name, is_default, is_board_default
---   * members gains is_board_member
--- -----------------------------------------------------------------------------
-SET @bt_name_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'badge_templates' AND COLUMN_NAME = 'name'
-);
-SET @sql_bt = IF(
-  @bt_name_col = 0,
-  'ALTER TABLE `badge_templates`
-     ADD COLUMN `name` varchar(100) NOT NULL DEFAULT ''Default'' AFTER `id`,
-     ADD COLUMN `is_default` tinyint(1) NOT NULL DEFAULT 0 AFTER `template_data`,
-     ADD COLUMN `is_board_default` tinyint(1) NOT NULL DEFAULT 0 AFTER `is_default`',
-  'SELECT 1'
-);
-PREPARE stmt_bt FROM @sql_bt;
-EXECUTE stmt_bt;
-DEALLOCATE PREPARE stmt_bt;
-
--- Make the oldest existing design the default (only if no default is set yet).
-SET @bt_has_default = (SELECT COUNT(*) FROM `badge_templates` WHERE `is_default` = 1);
-SET @bt_min_id = (SELECT MIN(`id`) FROM `badge_templates`);
-SET @sql_bt_def = IF(
-  @bt_has_default = 0 AND @bt_min_id IS NOT NULL,
-  CONCAT('UPDATE `badge_templates` SET `is_default` = 1 WHERE `id` = ', @bt_min_id),
-  'SELECT 1'
-);
-PREPARE stmt_bt_def FROM @sql_bt_def;
-EXECUTE stmt_bt_def;
-DEALLOCATE PREPARE stmt_bt_def;
-
-SET @board_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'is_board_member'
-);
-SET @sql_board = IF(
-  @board_col = 0,
-  'ALTER TABLE `members` ADD COLUMN `is_board_member` tinyint(1) NOT NULL DEFAULT 0 COMMENT ''Board members can be auto-assigned a different badge design'' AFTER `free_membership`',
-  'SELECT 1'
-);
-PREPARE stmt_board FROM @sql_board;
-EXECUTE stmt_board;
-DEALLOCATE PREPARE stmt_board;
-
--- -----------------------------------------------------------------------------
--- Migration: dues in dues_rules only — backfill from legacy club columns, then drop
--- -----------------------------------------------------------------------------
-SET @club_dues_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'club' AND COLUMN_NAME = 'dues_adult_regular'
-);
-
-SET @sql_dr_slot1 = IF(
-  @club_dues_col > 0,
-  'INSERT INTO `dues_rules` (`membership_type_slot`, `annual_dues`, `prorated_dues`, `initiation_fee`, `prorate_start_month`, `prorate_end_month`)
-   SELECT 1, c.`dues_adult_regular`, c.`dues_adult_prorated`, c.`dues_initiation`, 7, 10
-     FROM `club` c WHERE c.`id` = 1
-      AND NOT EXISTS (SELECT 1 FROM `dues_rules` d WHERE d.`membership_type_slot` = 1)',
-  'SELECT 1'
-);
-PREPARE stmt_dr1 FROM @sql_dr_slot1;
-EXECUTE stmt_dr1;
-DEALLOCATE PREPARE stmt_dr1;
-
-SET @sql_dr_slot2 = IF(
-  @club_dues_col > 0,
-  'INSERT INTO `dues_rules` (`membership_type_slot`, `annual_dues`, `prorated_dues`, `initiation_fee`, `prorate_start_month`, `prorate_end_month`)
-   SELECT 2, c.`dues_reduced`, c.`dues_reduced`, 0, 7, 10
-     FROM `club` c WHERE c.`id` = 1
-      AND NOT EXISTS (SELECT 1 FROM `dues_rules` d WHERE d.`membership_type_slot` = 2)',
-  'SELECT 1'
-);
-PREPARE stmt_dr2 FROM @sql_dr_slot2;
-EXECUTE stmt_dr2;
-DEALLOCATE PREPARE stmt_dr2;
-
-SET @sql_dr_slot3 = IF(
-  @club_dues_col > 0,
-  'INSERT INTO `dues_rules` (`membership_type_slot`, `annual_dues`, `prorated_dues`, `initiation_fee`, `prorate_start_month`, `prorate_end_month`)
-   SELECT 3, c.`dues_reduced`, c.`dues_reduced`, 0, 7, 10
-     FROM `club` c WHERE c.`id` = 1
-      AND NOT EXISTS (SELECT 1 FROM `dues_rules` d WHERE d.`membership_type_slot` = 3)',
-  'SELECT 1'
-);
-PREPARE stmt_dr3 FROM @sql_dr_slot3;
-EXECUTE stmt_dr3;
-DEALLOCATE PREPARE stmt_dr3;
-
-SET @sql_dr_slot4 = IF(
-  @club_dues_col > 0,
-  'INSERT INTO `dues_rules` (`membership_type_slot`, `annual_dues`, `prorated_dues`, `initiation_fee`, `prorate_start_month`, `prorate_end_month`)
-   SELECT 4, c.`dues_reduced`, c.`dues_reduced`, 0, 7, 10
-     FROM `club` c WHERE c.`id` = 1
-      AND NOT EXISTS (SELECT 1 FROM `dues_rules` d WHERE d.`membership_type_slot` = 4)',
-  'SELECT 1'
-);
-PREPARE stmt_dr4 FROM @sql_dr_slot4;
-EXECUTE stmt_dr4;
-DEALLOCATE PREPARE stmt_dr4;
-
-SET @sql_drop_club_dues = IF(
-  @club_dues_col > 0,
-  'ALTER TABLE `club`
-     DROP COLUMN `dues_adult_regular`,
-     DROP COLUMN `dues_adult_prorated`,
-     DROP COLUMN `dues_initiation`,
-     DROP COLUMN `dues_reduced`',
-  'SELECT 1'
-);
-PREPARE stmt_drop_dues FROM @sql_drop_club_dues;
-EXECUTE stmt_drop_dues;
-DEALLOCATE PREPARE stmt_drop_dues;
-
--- -----------------------------------------------------------------------------
--- Migration: drop unused board-member badge columns (removed from app in 1.5)
--- -----------------------------------------------------------------------------
-SET @board_member_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'is_board_member'
-);
-SET @sql_drop_board_member = IF(
-  @board_member_col > 0,
-  'ALTER TABLE `members` DROP COLUMN `is_board_member`',
-  'SELECT 1'
-);
-PREPARE stmt_drop_board_member FROM @sql_drop_board_member;
-EXECUTE stmt_drop_board_member;
-DEALLOCATE PREPARE stmt_drop_board_member;
-
-SET @board_default_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'badge_templates' AND COLUMN_NAME = 'is_board_default'
-);
-SET @sql_drop_board_default = IF(
-  @board_default_col > 0,
-  'ALTER TABLE `badge_templates` DROP COLUMN `is_board_default`',
-  'SELECT 1'
-);
-PREPARE stmt_drop_board_default FROM @sql_drop_board_default;
-EXECUTE stmt_drop_board_default;
-DEALLOCATE PREPARE stmt_drop_board_default;
-
--- -----------------------------------------------------------------------------
--- Migration: member_applications (WPForms integration)
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `member_applications` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
-  `wpforms_entry_id` varchar(64) NOT NULL,
-  `wpforms_form_id` int unsigned DEFAULT NULL,
-  `submitted_at` datetime DEFAULT NULL,
-  `reviewed_at` datetime DEFAULT NULL,
-  `reviewed_by` int unsigned DEFAULT NULL,
-  `approved_member_id` int unsigned DEFAULT NULL,
-  `application_kind` varchar(16) NOT NULL DEFAULT 'unknown',
-  `form_season` varchar(32) DEFAULT NULL,
-  `suggested_renewal_type` varchar(16) DEFAULT NULL,
-  `suggested_renewal_year` smallint unsigned DEFAULT NULL,
-  `matched_member_id` int unsigned DEFAULT NULL,
-  `match_confidence` varchar(16) DEFAULT NULL,
-  `match_method` varchar(32) DEFAULT NULL,
-  `first_name` varchar(255) NOT NULL DEFAULT '',
-  `last_name` varchar(255) NOT NULL DEFAULT '',
-  `middle_name` varchar(255) DEFAULT NULL,
-  `email` varchar(255) DEFAULT NULL,
-  `birthday` date DEFAULT NULL,
-  `phone` varchar(64) DEFAULT NULL,
-  `emergency_contact_name` varchar(255) DEFAULT NULL,
-  `emergency_contact_relationship` varchar(64) DEFAULT NULL,
-  `emergency_contact_phone` varchar(64) DEFAULT NULL,
-  `address_street` varchar(255) DEFAULT NULL,
-  `address_street2` varchar(255) DEFAULT NULL,
-  `address_city` varchar(128) DEFAULT NULL,
-  `address_state` varchar(64) DEFAULT NULL,
-  `address_postal_code` varchar(32) DEFAULT NULL,
-  `ama_number` varchar(64) DEFAULT NULL,
-  `ama_expiration` date DEFAULT NULL,
-  `faa_number` varchar(64) DEFAULT NULL,
-  `faa_expiration` date DEFAULT NULL,
-  `trust_attestation` tinyint(1) NOT NULL DEFAULT 0,
-  `membership_type_slot` tinyint unsigned DEFAULT NULL,
-  `notes` text,
-  `payment_total` decimal(10,2) DEFAULT NULL,
-  `payment_initiation` decimal(10,2) DEFAULT NULL,
-  `payment_processing_fee` decimal(10,2) DEFAULT NULL,
-  `payment_gateway` varchar(64) DEFAULT NULL,
-  `payment_transaction_id` varchar(128) DEFAULT NULL,
-  `payment_status` varchar(32) DEFAULT NULL,
-  `file_ama_verification_url` varchar(512) DEFAULT NULL,
-  `file_faa_registration_url` varchar(512) DEFAULT NULL,
-  `file_badge_photo_url` varchar(512) DEFAULT NULL,
-  `file_signature_url` varchar(512) DEFAULT NULL,
-  `raw_payload` json DEFAULT NULL,
-  `rejection_reason` text,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `wpforms_entry_id` (`wpforms_entry_id`),
-  KEY `status` (`status`),
-  KEY `matched_member_id` (`matched_member_id`),
-  KEY `approved_member_id` (`approved_member_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
-  ('application_webhook_secret', ''),
-  ('stripe_publishable_key', ''),
-  ('stripe_secret_key', ''),
-  ('stripe_webhook_secret', ''),
-  ('stripe_test_mode', '0');
-
--- -----------------------------------------------------------------------------
--- Migration: single phone on members (replaces member_phones table)
--- -----------------------------------------------------------------------------
-SET @members_phone_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'phone'
-);
-SET @sql_members_phone = IF(
-  @members_phone_col = 0,
-  'ALTER TABLE `members` ADD COLUMN `phone` varchar(64) DEFAULT NULL AFTER `email`',
-  'SELECT 1'
-);
-PREPARE stmt_members_phone FROM @sql_members_phone;
-EXECUTE stmt_members_phone;
-DEALLOCATE PREPARE stmt_members_phone;
-
-SET @member_phones_exists = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_phones'
-);
-SET @sql_migrate_phones = IF(
-  @member_phones_exists > 0,
-  'UPDATE `members` m
-     SET m.`phone` = (
-       SELECT mp.`number` FROM `member_phones` mp
-        WHERE mp.`member_id` = m.`id`
-          AND mp.`number` IS NOT NULL AND TRIM(mp.`number`) != ''''
-        ORDER BY FIELD(mp.`type`, ''Cell'', ''Home'', ''Work'', ''Other''), mp.`id`
-        LIMIT 1
-     )
-   WHERE m.`phone` IS NULL OR TRIM(m.`phone`) = ''''',
-  'SELECT 1'
-);
-PREPARE stmt_migrate_phones FROM @sql_migrate_phones;
-EXECUTE stmt_migrate_phones;
-DEALLOCATE PREPARE stmt_migrate_phones;
-
-SET @sql_drop_member_phones = IF(
-  @member_phones_exists > 0,
-  'DROP TABLE `member_phones`',
-  'SELECT 1'
-);
-PREPARE stmt_drop_member_phones FROM @sql_drop_member_phones;
-EXECUTE stmt_drop_member_phones;
-DEALLOCATE PREPARE stmt_drop_member_phones;
-
--- -----------------------------------------------------------------------------
--- Migration: single mailing address on members (replaces member_addresses table)
--- -----------------------------------------------------------------------------
-SET @addr_street_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'address_street'
-);
-SET @sql_addr_cols = IF(
-  @addr_street_col = 0,
-  'ALTER TABLE `members`
-     ADD COLUMN `address_street` varchar(255) DEFAULT NULL AFTER `emergency_contact_phone`,
-     ADD COLUMN `address_street2` varchar(255) DEFAULT NULL AFTER `address_street`,
-     ADD COLUMN `address_city` varchar(128) DEFAULT NULL AFTER `address_street2`,
-     ADD COLUMN `address_state` varchar(64) DEFAULT NULL AFTER `address_city`,
-     ADD COLUMN `address_postal_code` varchar(32) DEFAULT NULL AFTER `address_state`',
-  'SELECT 1'
-);
-PREPARE stmt_addr_cols FROM @sql_addr_cols;
-EXECUTE stmt_addr_cols;
-DEALLOCATE PREPARE stmt_addr_cols;
-
-SET @member_addresses_exists = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_addresses'
-);
-SET @sql_migrate_addrs = IF(
-  @member_addresses_exists > 0,
-  'UPDATE `members` m
-     SET m.`address_street` = (
-           SELECT ma.`street` FROM `member_addresses` ma
-            WHERE ma.`member_id` = m.`id`
-            ORDER BY FIELD(ma.`type`, ''Home'', ''Work'', ''Other''), ma.`id`
-            LIMIT 1
-         ),
-         m.`address_street2` = (
-           SELECT ma.`street2` FROM `member_addresses` ma
-            WHERE ma.`member_id` = m.`id`
-            ORDER BY FIELD(ma.`type`, ''Home'', ''Work'', ''Other''), ma.`id`
-            LIMIT 1
-         ),
-         m.`address_city` = (
-           SELECT ma.`city` FROM `member_addresses` ma
-            WHERE ma.`member_id` = m.`id`
-            ORDER BY FIELD(ma.`type`, ''Home'', ''Work'', ''Other''), ma.`id`
-            LIMIT 1
-         ),
-         m.`address_state` = (
-           SELECT ma.`state` FROM `member_addresses` ma
-            WHERE ma.`member_id` = m.`id`
-            ORDER BY FIELD(ma.`type`, ''Home'', ''Work'', ''Other''), ma.`id`
-            LIMIT 1
-         ),
-         m.`address_postal_code` = (
-           SELECT ma.`postal_code` FROM `member_addresses` ma
-            WHERE ma.`member_id` = m.`id`
-            ORDER BY FIELD(ma.`type`, ''Home'', ''Work'', ''Other''), ma.`id`
-            LIMIT 1
-         )
-   WHERE EXISTS (SELECT 1 FROM `member_addresses` ma WHERE ma.`member_id` = m.`id`)',
-  'SELECT 1'
-);
-PREPARE stmt_migrate_addrs FROM @sql_migrate_addrs;
-EXECUTE stmt_migrate_addrs;
-DEALLOCATE PREPARE stmt_migrate_addrs;
-
-SET @sql_drop_member_addresses = IF(
-  @member_addresses_exists > 0,
-  'DROP TABLE `member_addresses`',
-  'SELECT 1'
-);
-PREPARE stmt_drop_member_addresses FROM @sql_drop_member_addresses;
-EXECUTE stmt_drop_member_addresses;
-DEALLOCATE PREPARE stmt_drop_member_addresses;
-
--- -----------------------------------------------------------------------------
--- Migration: drop communication preference columns (managed outside the app)
--- -----------------------------------------------------------------------------
-SET @allow_email_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'allow_email'
-);
-SET @sql_drop_allow_email = IF(
-  @allow_email_col > 0,
-  'ALTER TABLE `members` DROP COLUMN `allow_email`',
-  'SELECT 1'
-);
-PREPARE stmt_drop_allow_email FROM @sql_drop_allow_email;
-EXECUTE stmt_drop_allow_email;
-DEALLOCATE PREPARE stmt_drop_allow_email;
-
-SET @allow_postal_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'allow_postal'
-);
-SET @sql_drop_allow_postal = IF(
-  @allow_postal_col > 0,
-  'ALTER TABLE `members` DROP COLUMN `allow_postal`',
-  'SELECT 1'
-);
-PREPARE stmt_drop_allow_postal FROM @sql_drop_allow_postal;
-EXECUTE stmt_drop_allow_postal;
-DEALLOCATE PREPARE stmt_drop_allow_postal;
-
--- -----------------------------------------------------------------------------
--- Migration: FAA card attachment on members (faa_card_path)
--- -----------------------------------------------------------------------------
-SET @faa_card_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE()
-    AND TABLE_NAME   = 'members'
-    AND COLUMN_NAME  = 'faa_card_path'
-);
-SET @sql_faa_card = IF(
-  @faa_card_col = 0,
-  'ALTER TABLE `members` ADD COLUMN `faa_card_path` varchar(512) DEFAULT NULL AFTER `faa_expiration`',
-  'SELECT 1'
-);
-PREPARE stmt_faa_card FROM @sql_faa_card;
-EXECUTE stmt_faa_card;
-DEALLOCATE PREPARE stmt_faa_card;
-
--- -----------------------------------------------------------------------------
--- Migration: email opt-in (club events + AMA/FAA expiry reminders)
--- Existing members default to opted-in; new applications default to opted-out.
--- -----------------------------------------------------------------------------
-SET @app_club_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_applications' AND COLUMN_NAME = 'email_opt_in_club_events'
-);
-SET @sql_app_club = IF(
-  @app_club_col = 0,
-  'ALTER TABLE `member_applications` ADD COLUMN `email_opt_in_club_events` tinyint(1) NOT NULL DEFAULT 0 COMMENT ''Applicant opted in to club event/announcement emails'' AFTER `email`',
-  'SELECT 1'
-);
-PREPARE stmt_app_club FROM @sql_app_club;
-EXECUTE stmt_app_club;
-DEALLOCATE PREPARE stmt_app_club;
-
-SET @app_rem_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_applications' AND COLUMN_NAME = 'email_opt_in_expiry_reminders'
-);
-SET @sql_app_rem = IF(
-  @app_rem_col = 0,
-  'ALTER TABLE `member_applications` ADD COLUMN `email_opt_in_expiry_reminders` tinyint(1) NOT NULL DEFAULT 0 COMMENT ''Applicant opted in to AMA/FAA expiry reminder emails'' AFTER `email_opt_in_club_events`',
-  'SELECT 1'
-);
-PREPARE stmt_app_rem FROM @sql_app_rem;
-EXECUTE stmt_app_rem;
-DEALLOCATE PREPARE stmt_app_rem;
-
-SET @mem_club_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'email_opt_in_club_events'
-);
-SET @sql_mem_club = IF(
-  @mem_club_col = 0,
-  'ALTER TABLE `members` ADD COLUMN `email_opt_in_club_events` tinyint(1) NOT NULL DEFAULT 1 COMMENT ''Club event/announcement emails (Sender campaign channel)'' AFTER `email`',
-  'SELECT 1'
-);
-PREPARE stmt_mem_club FROM @sql_mem_club;
-EXECUTE stmt_mem_club;
-DEALLOCATE PREPARE stmt_mem_club;
-
-SET @mem_rem_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'members' AND COLUMN_NAME = 'email_opt_in_expiry_reminders'
-);
-SET @sql_mem_rem = IF(
-  @mem_rem_col = 0,
-  'ALTER TABLE `members` ADD COLUMN `email_opt_in_expiry_reminders` tinyint(1) NOT NULL DEFAULT 1 COMMENT ''AMA/FAA expiry reminder emails (Sender transactional channel)'' AFTER `email_opt_in_club_events`',
-  'SELECT 1'
-);
-PREPARE stmt_mem_rem FROM @sql_mem_rem;
-EXECUTE stmt_mem_rem;
-DEALLOCATE PREPARE stmt_mem_rem;
-
--- -----------------------------------------------------------------------------
--- Migration: TRUST attestation on membership applications
--- FAA number/card remain on the table for historical data; apply.php no longer collects them.
--- -----------------------------------------------------------------------------
-SET @app_trust_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_applications' AND COLUMN_NAME = 'trust_attestation'
-);
-SET @sql_app_trust = IF(
-  @app_trust_col = 0,
-  'ALTER TABLE `member_applications` ADD COLUMN `trust_attestation` tinyint(1) NOT NULL DEFAULT 0 COMMENT ''Applicant certified TRUST completion and will carry proof when flying'' AFTER `faa_expiration`',
-  'SELECT 1'
-);
-PREPARE stmt_app_trust FROM @sql_app_trust;
-EXECUTE stmt_app_trust;
-DEALLOCATE PREPARE stmt_app_trust;
-
--- -----------------------------------------------------------------------------
--- Migration: application status emails + staff information-request history
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `member_application_emails` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `application_id` int unsigned NOT NULL,
-  `email_type` enum('received','approved','request_info') NOT NULL,
-  `idempotency_key` varchar(128) NOT NULL,
-  `recipient` varchar(255) NOT NULL DEFAULT '',
-  `subject` varchar(255) NOT NULL DEFAULT '',
-  `status` enum('pending','sent','failed') NOT NULL DEFAULT 'pending',
-  `error_message` text DEFAULT NULL,
-  `sent_at` datetime DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_idempotency_key` (`idempotency_key`),
-  KEY `idx_application_emails_app` (`application_id`),
-  KEY `idx_application_emails_type_status` (`email_type`, `status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-CREATE TABLE IF NOT EXISTS `member_application_info_requests` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `application_id` int unsigned NOT NULL,
-  `message` text NOT NULL,
-  `requested_by` int unsigned NOT NULL,
-  `dedup_key` varchar(64) NOT NULL,
-  `requested_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_info_request_dedup` (`dedup_key`),
-  KEY `idx_info_requests_application` (`application_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-SET @latest_info_msg_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_applications' AND COLUMN_NAME = 'latest_info_request_message'
-);
-SET @sql_latest_info_msg = IF(
-  @latest_info_msg_col = 0,
-  'ALTER TABLE `member_applications` ADD COLUMN `latest_info_request_message` text DEFAULT NULL AFTER `rejection_reason`',
-  'SELECT 1'
-);
-PREPARE stmt_latest_info_msg FROM @sql_latest_info_msg;
-EXECUTE stmt_latest_info_msg;
-DEALLOCATE PREPARE stmt_latest_info_msg;
-
-SET @latest_info_at_col = (
-  SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'member_applications' AND COLUMN_NAME = 'latest_info_request_at'
-);
-SET @sql_latest_info_at = IF(
-  @latest_info_at_col = 0,
-  'ALTER TABLE `member_applications` ADD COLUMN `latest_info_request_at` datetime DEFAULT NULL AFTER `latest_info_request_message`',
-  'SELECT 1'
-);
-PREPARE stmt_latest_info_at FROM @sql_latest_info_at;
-EXECUTE stmt_latest_info_at;
-DEALLOCATE PREPARE stmt_latest_info_at;
-
--- -----------------------------------------------------------------------------
--- Migration: monthly board packet automatic delivery
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `board_packet_deliveries` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `month` varchar(7) NOT NULL COMMENT 'YYYY-MM calendar month',
-  `recipients` text NOT NULL,
-  `status` enum('claimed','sending','sent','failed') NOT NULL DEFAULT 'claimed',
-  `error_message` text DEFAULT NULL,
-  `sent_at` datetime DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_board_packet_month` (`month`),
-  KEY `idx_board_packet_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT IGNORE INTO `system_config` (`config_key`, `config_value`) VALUES
+  ('stripe_test_mode', '0'),
   ('board_packet_enabled', '0'),
   ('board_packet_send_day', '1'),
   ('board_packet_recipients', '');
-
--- -----------------------------------------------------------------------------
--- Migration: incident photo attachments
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `incident_photos` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `incident_id` int unsigned NOT NULL,
-  `file_path` varchar(512) NOT NULL DEFAULT '',
-  `original_filename` varchar(255) DEFAULT NULL,
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  KEY `idx_incident_photos_incident` (`incident_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
--- -----------------------------------------------------------------------------
--- Migration: member magic-link self-service portal
--- -----------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `member_magic_links` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `member_id` int unsigned NOT NULL,
-  `token_hash` varchar(64) NOT NULL,
-  `expires_at` datetime NOT NULL,
-  `used_at` datetime DEFAULT NULL,
-  `requested_ip` varchar(45) NOT NULL DEFAULT '',
-  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_member_magic_token` (`token_hash`),
-  KEY `idx_member_magic_member` (`member_id`),
-  KEY `idx_member_magic_expires` (`expires_at`),
-  CONSTRAINT `member_magic_links_member`
-    FOREIGN KEY (`member_id`) REFERENCES `members` (`id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

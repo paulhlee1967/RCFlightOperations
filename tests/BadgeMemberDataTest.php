@@ -46,6 +46,8 @@ final class BadgeMemberDataTest extends TestCase
         $this->assertSame('03/15/2020', $data['member_since']);
         $this->assertSame('Youth', $data['membership_type']);
         $this->assertSame('2026', $data['renewal_year']);
+        $this->assertArrayHasKey('faa_number', $data);
+        $this->assertSame('', $data['faa_number']);
         $this->assertSame("1 Runway Rd\nSuite 2\nSpringfield, IL 62701", $data['address_block']);
         $this->assertSame('', $data['photo_data_url']);
         $this->assertSame('', $data['photo_url']);

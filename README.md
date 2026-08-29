@@ -10,8 +10,8 @@ Open-source (**MIT**) membership management for AMA-affiliated RC flying clubs. 
 - **New member wizard** — Guided five-step signup: contact → compliance → membership → record first payment → print & mail
 - **Renewals & dues** — Record cash/check payments in the staff ledger; prorated, late, and complimentary renewals
 - **Online applications** — Public form at `/apply.php` (AMA verify, Stripe, email opt-in, club-record prefill); staff review queue in **Applications** ([docs/applications.html](docs/applications.html))
-- **Member self-service** — Passwordless `/membership` magic-link profile for contact, AMA/FAA, uploads, and email prefs ([docs/members.html](docs/members.html#self-service))
-- **AMA & FAA compliance** — Track numbers and expirations; live AMA lookup before renewal
+- **Member self-service** — Passwordless `/membership` magic-link profile for contact, AMA, TRUST attestation, uploads, and email prefs ([docs/members.html](docs/members.html#self-service))
+- **AMA & TRUST compliance** — Track AMA numbers and expirations (live lookup) plus TRUST attestation; FAA registration columns remain in the database only
 - **Badge designer & printing** — Multiple CR80 templates, Fabric.js canvas editor, live member preview, undo/redo, personalized print at renewal
 - **Reports** — Membership, retention, revenue, compliance, and more — on screen, CSV, branded PDF, or email
 - **Incident log** — Optional dated safety/field incident records

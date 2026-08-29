@@ -31,3 +31,21 @@
         </div>
     </div>
 </section>
+
+<section class="border rounded p-3 p-md-4 bg-light bg-opacity-50 mt-3">
+    <h2 class="h6 text-uppercase text-muted fw-semibold mb-3">TRUST attestation</h2>
+    <p class="small text-muted mb-3">
+        The club records that this member has completed The Recreational UAS Safety Test (TRUST).
+        FAA registration numbers are not tracked here.
+    </p>
+    <div class="form-check">
+        <input type="hidden" name="trust_attestation" value="0">
+        <input class="form-check-input" type="checkbox" name="trust_attestation" id="trust_attestation" value="1"<?= checked($member['trust_attestation'] ?? 0) ?>>
+        <label class="form-check-label" for="trust_attestation">
+            Member has completed TRUST and will carry proof when flying
+        </label>
+    </div>
+    <?php if (!empty($member['trust_attested_at'])): ?>
+        <p class="small text-muted mb-0 mt-2">First recorded <?= h(formatDate(substr((string) $member['trust_attested_at'], 0, 10))) ?>.</p>
+    <?php endif; ?>
+</section>

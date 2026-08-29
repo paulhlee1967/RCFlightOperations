@@ -215,6 +215,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'recor
         ));
     }
 
+    if (payment_active_for_member_year($pdo, $memberId, $renewalYear) !== null) {
+        header('Location: member_process.php?id=' . $memberId . '&year=' . $renewalYear . '&renewal_error=already_paid' . ($fromWizard ? '&wizard=1' : ''));
+        exit;
+    }
+
     // Calculate dues — fetch rules once and pass in to avoid extra DB queries
     $paidAt          = date('Y-m-d');
     $typeSlot        = (int) ($member['membership_type_slot'] ?? 0);
@@ -344,7 +349,12 @@ $payStmt = $pdo->prepare('
     ORDER BY created_at DESC LIMIT 1
 ');
 $payStmt->execute([$memberId, $workYear]);
-$latestPayment = $payStmt->fetch(PDO::FETCH_ASSOC);
+$latestPayment = $payStmt->fetch(PDO::FETCH_ASSOC) ?: null;
+$activePayment = payment_active_for_member_year($pdo, $memberId, $workYear);
+$yearAlreadyPaid = $activePayment !== null;
+if ($activePayment !== null) {
+    $latestPayment = $activePayment;
+}
 
 // Validation flags for the Review panel
 $warnings = [];
@@ -371,6 +381,9 @@ if (empty($member['addr_street']) || empty($member['addr_city'])) {
 }
 if (empty($member['membership_type_slot'])) {
     $warnings[] = ['type' => 'danger', 'msg' => 'Membership type not set. Set it on the member record first.', 'tab' => 'membership', 'field' => 'membership_type_slot'];
+}
+if (empty($member['trust_attestation'])) {
+    $warnings[] = ['type' => 'warning', 'msg' => 'TRUST attestation is not on file. The member should certify TRUST before flying.', 'tab' => 'compliance', 'field' => 'trust_attestation'];
 }
 
 // ---------------------------------------------------------------------------
@@ -451,6 +464,13 @@ if ($fromWizard) {
 <div class="alert alert-warning alert-dismissible fade show">
     <strong>Cannot record:</strong> AMA expiration must be on or after Dec 31 of <?= $workYear ?>. Update it on the
     <a href="<?= h($wizardComplianceUrl) ?>" class="alert-link">Compliance tab</a> first.
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<?php elseif ($renewalError === 'already_paid'): ?>
+<div class="alert alert-warning alert-dismissible fade show">
+    <strong>Cannot record:</strong> <?= (int) $workYear ?> already has a payment on file.
+    To correct a cash or check mistake, delete that payment first, then record again.
+    Stripe charges use <strong>Record refund</strong> instead of delete.
     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 <?php endif; ?>
@@ -542,6 +562,14 @@ if ($fromWizard) {
                     <span class="text-danger">Not set</span>
                     <?php endif; ?>
                 </div>
+                <div class="small mt-1">
+                    <span class="text-muted">TRUST:</span>
+                    <?php if (!empty($member['trust_attestation'])): ?>
+                    <span class="text-success">Certified</span>
+                    <?php else: ?>
+                    <span class="text-warning">Not on file</span>
+                    <?php endif; ?>
+                </div>
             </div>
 
             <div class="col-sm-6 col-md-4">
@@ -582,11 +610,14 @@ if ($fromWizard) {
     </div>
     <div class="card-body">
 
-        <?php if ($fulfillment['processed_at'] && $latestPayment): ?>
-        <?php /* Already processed — show summary + allow re-process */ ?>
+        <?php if ($yearAlreadyPaid && $latestPayment): ?>
         <div class="alert alert-success py-2 mb-3">
             <strong><?= h(ucwords(str_replace('_', ' ', $fulfillment['renewal_type'] ?? 'renewal'))) ?></strong>
+            <?php if (!empty($fulfillment['processed_at'])): ?>
             recorded on <?= date('M j, Y', strtotime($fulfillment['processed_at'])) ?>.
+            <?php else: ?>
+            is already on file for <?= (int) $workYear ?>.
+            <?php endif; ?>
             Dues: <strong>$<?= number_format((float)$latestPayment['amount_dues'], 2) ?></strong>
             <?php if ((float)$latestPayment['amount_initiation'] > 0): ?>
             + Init: <strong>$<?= number_format((float)$latestPayment['amount_initiation'], 2) ?></strong>
@@ -594,26 +625,29 @@ if ($fromWizard) {
             <?php if ((float)$latestPayment['amount_late_fee'] > 0): ?>
             + Late fee: <strong>$<?= number_format((float)$latestPayment['amount_late_fee'], 2) ?></strong>
             <?php endif; ?>
+            <?php if ((float) ($latestPayment['amount_processing_fee'] ?? 0) > 0): ?>
+            + Processing: <strong>$<?= number_format((float)$latestPayment['amount_processing_fee'], 2) ?></strong>
+            <?php endif; ?>
             <?php if ($latestPayment['comp']): ?>
             <span class="badge bg-secondary ms-1">Complementary</span>
             <?php endif; ?>
+            <?php if (!empty($latestPayment['payment_transaction_id'])): ?>
+            <div class="small text-muted mt-1">Stripe: <code><?= h((string) $latestPayment['payment_transaction_id']) ?></code></div>
+            <?php endif; ?>
             <?php if (canManagePayments()): ?>
-            <form method="post" action="payment_delete.php" class="d-inline-block ms-2"
-                  data-confirm-submit="Delete this payment? This permanently removes it from the record.">
-                <?= csrf_field() ?>
-                <input type="hidden" name="payment_id" value="<?= (int) $latestPayment['id'] ?>">
-                <input type="hidden" name="member_id" value="<?= (int) $memberId ?>">
-                <input type="hidden" name="return" value="process">
-                <button type="submit" class="btn btn-sm btn-outline-danger">Delete this payment</button>
-            </form>
+            <?php
+            $payment = $latestPayment;
+            $paymentReturn = 'process';
+            require __DIR__ . '/includes/payment_row_actions.php';
+            ?>
             <?php endif; ?>
         </div>
-        <details class="mb-0">
-            <summary class="text-muted small" style="cursor:pointer;">Re-record / correct this year's renewal</summary>
-            <div class="pt-3">
-        <?php endif; ?>
-
-        <?php if (!canProcessMemberships()): ?>
+        <p class="small text-muted mb-0">
+            <?= (int) $workYear ?> already has a payment. Recording again would double-count dues.
+            To correct a cash or check mistake, delete that payment, then record once.
+            Stripe charges stay on the ledger — use <strong>Record refund</strong> if the money came back.
+        </p>
+        <?php elseif (!canProcessMemberships()): ?>
         <p class="text-muted">You do not have permission to record renewals.</p>
         <?php else: ?>
         <?php if (!$hasPriorMembership): ?>
@@ -731,7 +765,7 @@ if ($fromWizard) {
 
             <p class="text-muted small mt-2 mb-0">
                 <strong>New (prorated):</strong> 2nd half of year — prorated dues + initiation fee ·
-                <strong>On-time:</strong> Oct 1–Dec 31 — regular dues only ·
+                <strong>On-time:</strong> <?= h(renewal_on_time_window_label($pdo)) ?> — regular dues only ·
                 <strong>New/Late:</strong> full dues + initiation fee.<br>
                 <?= h($typeLabel) ?> rates —
                 Regular: <strong>$<?= number_format($regPreview, 0) ?></strong>
@@ -739,11 +773,6 @@ if ($fromWizard) {
                 / Init: <strong>$<?= number_format($iniPreview, 0) ?></strong>
             </p>
         </form>
-        <?php endif; ?>
-
-        <?php if ($fulfillment['processed_at'] && $latestPayment): ?>
-            </div>
-        </details>
         <?php endif; ?>
 
     </div><!-- /.card-body -->

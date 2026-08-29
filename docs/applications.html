@@ -67,9 +67,11 @@
       <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
       <div class="callout-body">
         <strong>Stripe payments on apply.php</strong>
-        Paid applications show Stripe totals for review. After approval,
-        use <a href="renewals.html#record">Process Signup / Renewal</a> to record fulfillment
-        the same way you would for any other member (complimentary and coupon waivers are flagged automatically).
+        Paid applications show Stripe totals for review. When you approve,
+        the payment (or a waived/complimentary $0 row) is written to the member’s
+        payment history automatically. You are sent to <strong>print the badge and mailer</strong> —
+        you do not re-enter the amount. Walk-in cash/check renewals are still recorded
+        with <a href="renewals.html#record">Process Signup / Renewal</a>.
       </div>
     </div>
 
@@ -79,7 +81,8 @@
       the form data to existing members (AMA number, name, email, birthday), review uploaded
       file links (badge photo and, on older submissions, any FAA registration upload), and decide whether to approve or reject.
       Approved applications create a new member or update a matched member, copy the badge photo
-      when one was submitted, then hand off to renewal recording.
+      when one was submitted, copy the TRUST attestation onto the member record, and — when the
+      applicant already paid via Stripe or the fee was waived — write the payment into the ledger.
     </p>
     <p>
       The navbar badge and dashboard “Needs attention” card show how many applications are
@@ -97,8 +100,9 @@
     <h2 id="ama-gate">AMA gate &amp; club-record prefill</h2>
     <p>
       Before the full application form, applicants enter their <strong>AMA number</strong> and
-      <strong>last name</strong>. The app verifies membership against AMA’s public lookup, then
-      applies club rules:
+      <strong>last name</strong>. The app verifies membership against AMA’s public lookup. If that
+      lookup is down, they can continue by entering the expiration from their AMA card (staff see the
+      same message on member records). Then club rules apply:
     </p>
     <ul>
       <li><strong>Minimum AMA expiration</strong> — membership must be valid through your club’s required date (life members exempt).</li>
@@ -106,7 +110,7 @@
       <li><strong>Renewal eligibility</strong> — during renewal season, a matching current member may choose <strong>Renewal</strong>; otherwise the form steers them to <strong>New member</strong>.</li>
       <li><strong>Prefill from club roster</strong> — when the AMA # matches an existing member, editable fields (address, phone, email, birthday, emergency contact, membership type) are filled from the club record. First name, last name, AMA #, and AMA expiration stay read-only from the AMA verification.</li>
       <li><strong>Existing badge photo</strong> — if the club record has a badge photo, it is shown on the apply form. Applicants may keep it (leave the upload blank) or replace it. New members without a photo on file must upload one.</li>
-      <li><strong>TRUST attestation</strong> — applicants must certify they have passed The Recreational UAS Safety Test (TRUST) and will carry proof of completion at the airfield. The form links to <a href="https://trust.modelaircraft.org/" target="_blank" rel="noopener noreferrer">TRUST</a> and <a href="https://faadronezone.faa.gov/" target="_blank" rel="noopener noreferrer">FAA DroneZone</a>. FAA registration numbers and card uploads are no longer collected on the application (columns remain on the member record for historical data).</li>
+      <li><strong>TRUST attestation</strong> — applicants must certify they have passed The Recreational UAS Safety Test (TRUST) and will carry proof of completion at the airfield. That checkbox is copied onto the member’s Compliance tab on approve. The form links to <a href="https://trust.modelaircraft.org/" target="_blank" rel="noopener noreferrer">TRUST</a> and <a href="https://faadronezone.faa.gov/" target="_blank" rel="noopener noreferrer">FAA DroneZone</a>. FAA registration numbers and card uploads are not collected (historical columns remain in the database only).</li>
     </ul>
     <p>
       Applicants can still edit any prefilled value before submit. Staff matching on approve still
@@ -117,17 +121,19 @@
     <ol>
       <li>Open <strong>Applications</strong> from the top nav (or follow the dashboard link).</li>
       <li>Select an applicant from the list to open the detail panel.</li>
-      <li>Check the suggested member match and any <strong>Changes vs matched member</strong> table.</li>
+      <li>Check the <strong>Ready to approve?</strong> list (payment, TRUST, badge photo, AMA expiration). Unfinished Stripe checkout is the only lock; the rest are reminders. If those reminders are still off, Approve asks you to confirm.</li>
+      <li>Check the suggested member match and any <strong>Changes vs matched member</strong> table. If several members share the name, you must pick the right person (creating a new record is an explicit last choice, not the default).</li>
       <li>Review payment info, <a href="#email-preferences">email preferences</a>, and uploaded file links (badge photo is copied to the member record on approve).</li>
       <li>Use <strong>Request information</strong> if you need more details from the applicant (application stays pending).</li>
       <li>Adjust <strong>Renewal type</strong> and <strong>Renewal year</strong> if needed.</li>
       <li>Click <strong>Approve &amp; process</strong> or <strong>Reject</strong>.</li>
     </ol>
     <p>
-      Approval redirects to <strong>Process Signup / Renewal</strong> for the member so you
-      can record payment and print a badge. If a badge photo was on the application, it should
-      already be on the member record — go straight to fulfillment when ready. See
-      <a href="renewals.html#record">Renewals &amp; Dues</a> and <a href="badges.html#print">Badge printing</a>.
+      Approval redirects to <strong>Process Signup / Renewal</strong>. If Stripe (or a waiver)
+      already paid, the ledger row is already there — print the badge and mailer.
+      If this was a no-payment walk-in style application, record cash/check as usual.
+      If a badge photo was on the application, it should already be on the member record.
+      See <a href="renewals.html#record">Renewals &amp; Dues</a> and <a href="badges.html#print">Badge printing</a>.
     </p>
 
     <h2 id="filters">Filters &amp; pagination</h2>
@@ -180,6 +186,9 @@
       <li><strong>Coupon / complimentary</strong> — from notes or waived payment status</li>
       <li><strong>Total paid</strong> — Stripe charge when payment was required</li>
     </ul>
+    <p>
+      On approve, that total is written to the member’s payment history (dues, initiation or late fee, and Stripe processing fee). You do not type it again.
+    </p>
 
     <h2 id="email-preferences">Email preferences</h2>
     <p>
@@ -224,7 +233,9 @@
     <ul>
       <li><strong>Matched member</strong> — updates only non-empty fields from the form (does not wipe existing data).</li>
       <li><strong>No match</strong> — creates a new member record.</li>
-      <li><strong>Ambiguous match</strong> — pick the correct member from the dropdown before approving.</li>
+      <li><strong>Ambiguous match</strong> — you must choose the correct member from the dropdown (or explicitly create a new record). Approve is refused if the choice is left blank, so you do not accidentally add a duplicate.</li>
+      <li><strong>TRUST</strong> — copied onto the member Compliance tab when the applicant certified it.</li>
+      <li><strong>Payment</strong> — Stripe or waived amounts are written to Payment history; you then print the badge and mailer. Cash/check applications still use Process Signup / Renewal to record payment.</li>
     </ul>
 
     <h3>Reject</h3>

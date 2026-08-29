@@ -51,6 +51,7 @@ $expectedTables = [
     'member_magic_links',
     'system_config', 'operator_messages',
     'audit_log', 'login_attempts', 'password_reset_tokens', 'password_reset_ip_events',
+    'rate_limit_events',
 ];
 $expectedColumns = [
     'club' => [
@@ -66,12 +67,14 @@ $expectedColumns = [
         'email_opt_in_club_events', 'email_opt_in_expiry_reminders',
         'phone', 'birthday', 'photo_path', 'notes',
         'date_joined', 'membership_type_slot', 'membership_renewal_year', 'inactive', 'suspended', 'life_member', 'free_membership',
-        'gate_key_number', 'badge_printed_at', 'ama_number', 'ama_expiration', 'ama_life_member', 'faa_number', 'faa_expiration', 'faa_card_path',
+        'gate_key_number', 'badge_printed_at', 'ama_number', 'ama_expiration', 'ama_life_member',
+        'trust_attestation', 'trust_attested_at',
+        'faa_number', 'faa_expiration', 'faa_card_path',
         'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contact_phone',
         'address_street', 'address_street2', 'address_city', 'address_state', 'address_postal_code',
         'created_at', 'updated_at',
     ],
-    'payments' => ['id', 'member_id', 'paid_at', 'year', 'amount_dues', 'amount_initiation', 'amount_late_fee', 'comp', 'created_at'],
+    'payments' => ['id', 'member_id', 'paid_at', 'year', 'amount_dues', 'amount_initiation', 'amount_late_fee', 'amount_processing_fee', 'comp', 'application_id', 'payment_transaction_id', 'ledger_status', 'amount_refunded', 'stripe_refund_id', 'refunded_at', 'created_at'],
     'dues_rules' => ['id', 'membership_type_slot', 'annual_dues', 'prorated_dues', 'initiation_fee', 'prorate_start_month', 'prorate_end_month'],
     'badge_templates' => ['id', 'name', 'template_data', 'is_default', 'updated_at'],
     'incidents' => [
@@ -116,6 +119,7 @@ $expectedColumns = [
     'login_attempts'  => ['email', 'failed_count', 'locked_until', 'updated_at'],
     'password_reset_tokens' => ['token_hash', 'email', 'expires_at', 'created_at'],
     'password_reset_ip_events' => ['id', 'ip', 'created_at'],
+    'rate_limit_events' => ['id', 'endpoint', 'ip', 'created_at'],
 ];
 
 $missing = [];

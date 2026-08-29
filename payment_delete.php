@@ -11,6 +11,7 @@ require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit_log.php';
 require_once __DIR__ . '/includes/flash.php';
 require_once __DIR__ . '/includes/membership_status.php';
+require_once __DIR__ . '/includes/payments_ledger.php';
 
 requireLogin();
 if (!canManagePayments()) {
@@ -26,6 +27,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 csrf_validate();
 
+payment_ensure_refund_schema($pdo);
+
 $paymentId = (int) ($_POST['payment_id'] ?? 0);
 $memberId  = (int) ($_POST['member_id'] ?? 0);
 $return    = (string) ($_POST['return'] ?? 'edit');
@@ -36,12 +39,16 @@ if ($paymentId <= 0 || $memberId <= 0) {
     exit;
 }
 
-$stmt = $pdo->prepare('SELECT id, year FROM payments WHERE id = ? AND member_id = ? LIMIT 1');
+$stmt = $pdo->prepare('SELECT * FROM payments WHERE id = ? AND member_id = ? LIMIT 1');
 $stmt->execute([$paymentId, $memberId]);
 $payment = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$payment) {
     flash('That payment could not be deleted (not found).', 'warning');
+} elseif (payment_is_stripe($payment)) {
+    flash('This is a Stripe payment. Record a refund instead of deleting it, or revenue reports will be wrong.', 'warning');
+} elseif (payment_is_refunded($payment)) {
+    flash('This payment is already marked refunded. Leave it in the history.', 'warning');
 } else {
     $pdo->beginTransaction();
     try {

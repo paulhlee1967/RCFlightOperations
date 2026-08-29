@@ -91,6 +91,9 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_application_emails.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_board_packet.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_incident_photos.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_portal.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_trust_ledger.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_payment_refunds.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_rate_limit_events.sql
 ```
 
 | Script | What it does |
@@ -107,6 +110,9 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_portal.sql
 | `migrate_board_packet.sql` | Creates `board_packet_deliveries` log table and board packet `system_config` keys |
 | `migrate_incident_photos.sql` | Creates `incident_photos` table for incident photo attachments |
 | `migrate_member_portal.sql` | Creates `member_magic_links` for passwordless member self-service profile links |
+| `migrate_member_trust_ledger.sql` | Adds TRUST on `members`, copies attestation from approved applications, and records Stripe/waived application payments on `payments` (`amount_processing_fee`, `application_id`) |
+| `migrate_payment_refunds.sql` | Adds `ledger_status`, `amount_refunded`, `stripe_refund_id`, `refunded_at` so Stripe refunds stay on the ledger (do not hard-delete Stripe rows) |
+| `migrate_rate_limit_events.sql` | Creates `rate_limit_events` if the table was never created by a public/API request |
 
 **Note:** If a member had multiple phones or addresses, only the preferred one is kept (same rules as local dev). Extra rows in the old tables are discarded when those tables are dropped — back up before migrating if you need to audit them.
 
@@ -127,7 +133,7 @@ Expected output: `Database OK: all expected tables and columns present.`
 ### 7. Smoke test
 
 - Open **Members** — edit a member; confirm single phone and mailing address fields.
-- Open **Applications**; submit a test via `/apply.php` (try both email opt-in checkboxes) and approve it — badge photo and FAA card should copy to the member record; email preferences should appear in the detail panel.
+- Open **Applications**; submit a test via `/apply.php` (try both email opt-in checkboxes) and approve it — badge photo and TRUST attestation should copy to the member record; email preferences should appear in the detail panel. Historical FAA card copy only applies to old submissions that still have a file.
 - Spot-check a badge print / envelope (address still renders).
 - Turn off maintenance mode.
 

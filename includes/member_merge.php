@@ -34,6 +34,8 @@ function member_merge_scalar_columns(): array
         'ama_number',
         'ama_expiration',
         'ama_life_member',
+        'trust_attestation',
+        'trust_attested_at',
         'faa_number',
         'faa_expiration',
         'emergency_contact_name',

@@ -15,6 +15,7 @@ require_once __DIR__ . '/membership_status.php';
 require_once __DIR__ . '/dues_helpers.php';
 require_once __DIR__ . '/installation_config.php';
 require_once __DIR__ . '/mail.php';
+require_once __DIR__ . '/payments_ledger.php';
 
 function application_parse_money(?string $value): ?float
 {
@@ -363,6 +364,129 @@ function application_can_approve(?string $status): bool
 }
 
 /**
+ * Officer-facing approve checklist. Payment still waiting is the only hard block.
+ *
+ * @return list<array{key:string, ok:bool, blocks:bool, label:string, detail:string}>
+ */
+function application_approve_checklist(array $application, ?PDO $pdo = null): array
+{
+    $status = (string) ($application['status'] ?? '');
+    $payment = application_payment_breakdown($application, $pdo);
+    $paidOrWaived = ($status !== 'pending_payment')
+        && (
+            strtolower((string) ($application['payment_status'] ?? '')) === 'succeeded'
+            || strtolower((string) ($application['payment_status'] ?? '')) === 'waived'
+            || !empty($payment['coupon_applied'])
+            || ((float) ($application['payment_total'] ?? 0) > 0)
+        );
+    $awaitingPay = $status === 'pending_payment';
+
+    $amaExp = trim((string) ($application['ama_expiration'] ?? ''));
+    $amaOk = $amaExp !== '' && strtotime($amaExp) !== false && strtotime($amaExp) >= strtotime(date('Y-m-d'));
+    $photoOk = trim((string) ($application['file_badge_photo_url'] ?? '')) !== '';
+    $trustOk = !empty($application['trust_attestation']);
+
+    $paymentDetail = $awaitingPay
+        ? 'Stripe checkout is not finished — approve is locked.'
+        : ($paidOrWaived ? 'Paid or waived.' : 'No payment on file — walk-in cash still uses Process Signup.');
+
+    return [
+        [
+            'key'    => 'payment',
+            'ok'     => !$awaitingPay && $paidOrWaived,
+            'blocks' => $awaitingPay,
+            'label'  => 'Payment',
+            'detail' => $paymentDetail,
+        ],
+        [
+            'key'    => 'trust',
+            'ok'     => $trustOk,
+            'blocks' => false,
+            'label'  => 'TRUST',
+            'detail' => $trustOk ? 'Applicant certified TRUST.' : 'Not certified — request info or check the box after they attest.',
+        ],
+        [
+            'key'    => 'photo',
+            'ok'     => $photoOk,
+            'blocks' => false,
+            'label'  => 'Badge photo',
+            'detail' => $photoOk ? 'On file.' : 'Missing — you can still approve and add a photo later.',
+        ],
+        [
+            'key'    => 'ama',
+            'ok'     => $amaOk,
+            'blocks' => false,
+            'label'  => 'AMA expiration',
+            'detail' => $amaOk
+                ? ('Valid through ' . formatDate($amaExp) . '.')
+                : ($amaExp === '' ? 'No expiration on file.' : ('Expires ' . formatDate($amaExp) . ' — request a current AMA.')),
+        ],
+    ];
+}
+
+/**
+ * Parse the approve-form match dropdown.
+ *
+ * @return array{member_id:?int, create_new:bool}
+ */
+function application_parse_match_override(mixed $raw): array
+{
+    $value = trim((string) $raw);
+    if ($value === 'new') {
+        return ['member_id' => null, 'create_new' => true];
+    }
+    if ($value === '' || !ctype_digit($value)) {
+        return ['member_id' => null, 'create_new' => false];
+    }
+    $id = (int) $value;
+
+    return ['member_id' => $id > 0 ? $id : null, 'create_new' => false];
+}
+
+/**
+ * Ambiguous name matches must pick an existing member or explicitly create new.
+ */
+function application_approve_needs_member_choice(
+    array $application,
+    ?int $overrideMemberId,
+    bool $explicitCreateNew = false
+): bool {
+    if (strtolower((string) ($application['match_confidence'] ?? '')) !== 'ambiguous') {
+        return false;
+    }
+    if ($overrideMemberId !== null && $overrideMemberId > 0) {
+        return false;
+    }
+
+    return !$explicitCreateNew;
+}
+
+/**
+ * Browser confirm text when Approve would proceed with soft gaps.
+ *
+ * @param list<array{key:string, ok:bool, blocks:bool, label:string, detail:string}> $checklist
+ */
+function application_approve_gap_confirm_message(array $checklist, bool $underpaid = false): ?string
+{
+    $gaps = [];
+    foreach ($checklist as $item) {
+        if (empty($item['ok']) && empty($item['blocks'])) {
+            $gaps[] = (string) ($item['label'] ?? '');
+        }
+    }
+    if ($underpaid) {
+        $gaps[] = 'payment shortfall';
+    }
+    $gaps = array_values(array_filter($gaps, static fn (string $label): bool => $label !== ''));
+    if ($gaps === []) {
+        return null;
+    }
+
+    return 'This application is missing or incomplete: ' . implode(', ', $gaps)
+        . '. Approve anyway? You can still request information instead.';
+}
+
+/**
  * Payment context for member_process after approving an online application.
  *
  * @return array{
@@ -386,10 +510,268 @@ function application_online_payment_context(array $application, ?PDO $pdo = null
         'payment'               => $payment,
         'paid_online'           => $paidOnline,
         'waived'                => $waived,
-        'suggest_complementary' => $waived || $paidOnline,
+        'suggest_complementary' => $waived,
         'stripe_id'             => trim((string) ($application['payment_transaction_id'] ?? '')),
         'gateway'               => trim((string) ($application['payment_gateway'] ?? '')),
     ];
+}
+
+/**
+ * Ledger amounts to write when approving an application that already collected
+ * (or waived) payment online. Cash/check walk-ins are not recorded here.
+ *
+ * @param array<string, mixed> $application
+ * @param array<string, mixed>|null $context  From application_online_payment_context()
+ * @return array{
+ *   should_record: bool,
+ *   comp: int,
+ *   amount_dues: float,
+ *   amount_initiation: float,
+ *   amount_late_fee: float,
+ *   amount_processing_fee: float,
+ *   source: string
+ * }
+ */
+function application_ledger_amounts(array $application, ?array $context = null, string $renewalType = 'new'): array
+{
+    $context = $context ?? application_online_payment_context($application);
+    $empty = [
+        'should_record'          => false,
+        'comp'                   => 0,
+        'amount_dues'            => 0.0,
+        'amount_initiation'      => 0.0,
+        'amount_late_fee'        => 0.0,
+        'amount_processing_fee'  => 0.0,
+        'source'                 => 'staff',
+    ];
+
+    $paidOnline = !empty($context['paid_online']);
+    $waived = !empty($context['waived']);
+    if (!$paidOnline && !$waived) {
+        return $empty;
+    }
+
+    if ($waived && !$paidOnline) {
+        return [
+            'should_record'          => true,
+            'comp'                   => 1,
+            'amount_dues'            => 0.0,
+            'amount_initiation'      => 0.0,
+            'amount_late_fee'        => 0.0,
+            'amount_processing_fee'  => 0.0,
+            'source'                 => 'waived',
+        ];
+    }
+
+    $payment = is_array($context['payment'] ?? null) ? $context['payment'] : [];
+    $processing = round((float) ($payment['processing'] ?? 0), 2);
+    $initiation = round((float) ($payment['initiation'] ?? 0), 2);
+    $total = round((float) ($payment['total_paid'] ?? $application['payment_total'] ?? 0), 2);
+    $dues = round($total - $processing - $initiation, 2);
+    if ($dues < 0) {
+        $dues = $total;
+        $processing = 0.0;
+        $initiation = 0.0;
+    }
+
+    $initFee = 0.0;
+    $lateFee = 0.0;
+    if ($renewalType === 'late') {
+        $lateFee = $initiation;
+    } else {
+        $initFee = $initiation;
+    }
+
+    return [
+        'should_record'          => true,
+        'comp'                   => 0,
+        'amount_dues'            => $dues,
+        'amount_initiation'      => $initFee,
+        'amount_late_fee'        => $lateFee,
+        'amount_processing_fee'  => $processing,
+        'source'                 => 'stripe',
+    ];
+}
+
+function application_ensure_payment_ledger_schema(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    $add = static function (PDO $pdo, string $sql, string $column) {
+        try {
+            $stmt = $pdo->query("SHOW COLUMNS FROM payments LIKE " . $pdo->quote($column));
+            if ($stmt && $stmt->fetch()) {
+                return;
+            }
+            $pdo->exec($sql);
+        } catch (Throwable $e) {
+            // Column or index may already exist.
+        }
+    };
+
+    $add($pdo, 'ALTER TABLE payments ADD COLUMN amount_processing_fee decimal(10,2) NOT NULL DEFAULT 0.00 AFTER amount_late_fee', 'amount_processing_fee');
+    $add($pdo, 'ALTER TABLE payments ADD COLUMN application_id int unsigned DEFAULT NULL AFTER comp', 'application_id');
+    $add($pdo, 'ALTER TABLE payments ADD COLUMN payment_transaction_id varchar(128) DEFAULT NULL AFTER application_id', 'payment_transaction_id');
+    if (function_exists('payment_ensure_refund_schema')) {
+        payment_ensure_refund_schema($pdo);
+    } else {
+        require_once __DIR__ . '/payments_ledger.php';
+        payment_ensure_refund_schema($pdo);
+    }
+
+    try {
+        $idx = $pdo->query('SHOW INDEX FROM payments');
+        $has = false;
+        if ($idx) {
+            while ($row = $idx->fetch(PDO::FETCH_ASSOC)) {
+                if (($row['Key_name'] ?? '') === 'uniq_payments_application') {
+                    $has = true;
+                    break;
+                }
+            }
+        }
+        if (!$has) {
+            $pdo->exec('ALTER TABLE payments ADD UNIQUE KEY uniq_payments_application (application_id)');
+        }
+    } catch (Throwable $e) {
+    }
+}
+
+/**
+ * Copy TRUST from an approved application onto the member (never clears an existing attestation).
+ *
+ * @param array<string, mixed> $application
+ */
+function application_copy_trust_to_member(PDO $pdo, array $application, int $memberId): void
+{
+    if ($memberId <= 0 || empty($application['trust_attestation'])) {
+        return;
+    }
+    require_once __DIR__ . '/member_save.php';
+    member_ensure_trust_schema($pdo);
+    $pdo->prepare(
+        'UPDATE members
+         SET trust_attestation = 1,
+             trust_attested_at = COALESCE(trust_attested_at, NOW())
+         WHERE id = ?'
+    )->execute([$memberId]);
+}
+
+/**
+ * Write Stripe/waived payment + fulfillment so staff skip "record payment" and go to print/mail.
+ *
+ * @param array<string, mixed> $application
+ * @return array{ok:bool, recorded:bool, error:?string}
+ */
+function application_record_approved_ledger(
+    PDO $pdo,
+    array $application,
+    int $memberId,
+    int $reviewedBy,
+    string $renewalType,
+    int $renewalYear
+): array {
+    $applicationId = (int) ($application['id'] ?? 0);
+    $context = application_online_payment_context($application, $pdo);
+    $ledger = application_ledger_amounts($application, $context, $renewalType);
+    if (!$ledger['should_record'] || $memberId <= 0 || $renewalYear < 1990) {
+        return ['ok' => true, 'recorded' => false, 'error' => null];
+    }
+
+    application_ensure_payment_ledger_schema($pdo);
+    ensureMembershipYearsTable($pdo);
+
+    if ($applicationId > 0) {
+        try {
+            $exists = $pdo->prepare('SELECT id FROM payments WHERE application_id = ? LIMIT 1');
+            $exists->execute([$applicationId]);
+            if ($exists->fetch()) {
+                return ['ok' => true, 'recorded' => true, 'error' => null];
+            }
+        } catch (Throwable $e) {
+            // application_id column may be missing until ensure ran; continue to insert.
+        }
+    }
+
+    $submitted = (string) ($application['submitted_at'] ?? $application['created_at'] ?? '');
+    $paidAt = preg_match('/^\d{4}-\d{2}-\d{2}/', $submitted) === 1
+        ? substr($submitted, 0, 10)
+        : date('Y-m-d');
+
+    $stripeId = $context['stripe_id'] !== '' ? $context['stripe_id'] : null;
+    $label = $ledger['source'] === 'waived'
+        ? 'Online application (payment waived)'
+        : 'Online application (Stripe)';
+    $noteSuffix = $label . ' for ' . $renewalYear . ' recorded on ' . $paidAt;
+    if ($applicationId > 0) {
+        $noteSuffix .= ' — application #' . $applicationId;
+    }
+
+    try {
+        $pdo->beginTransaction();
+
+        $pdo->prepare('
+            INSERT INTO payments (
+                member_id, paid_at, year, amount_dues, amount_initiation, amount_late_fee,
+                amount_processing_fee, comp, application_id, payment_transaction_id
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ')->execute([
+            $memberId,
+            $paidAt,
+            $renewalYear,
+            $ledger['amount_dues'],
+            $ledger['amount_initiation'],
+            $ledger['amount_late_fee'],
+            $ledger['amount_processing_fee'],
+            $ledger['comp'],
+            $applicationId > 0 ? $applicationId : null,
+            $stripeId,
+        ]);
+        $paymentId = (int) $pdo->lastInsertId();
+
+        $memberStmt = $pdo->prepare('SELECT notes FROM members WHERE id = ? LIMIT 1');
+        $memberStmt->execute([$memberId]);
+        $existingNotes = trim((string) ($memberStmt->fetchColumn() ?: ''));
+        $newNotes = $existingNotes !== '' ? $existingNotes . "\n" . $noteSuffix : $noteSuffix;
+
+        $pdo->prepare('UPDATE members SET membership_renewal_year = ?, notes = ?, inactive = 0 WHERE id = ?')
+            ->execute([$renewalYear, $newNotes, $memberId]);
+
+        $pdo->prepare('
+            INSERT INTO member_fulfillments (member_id, year, processed_at, processed_by, renewal_type)
+            VALUES (?, ?, NOW(), ?, ?)
+            ON DUPLICATE KEY UPDATE processed_at = NOW(), processed_by = ?, renewal_type = ?
+        ')->execute([$memberId, $renewalYear, $reviewedBy, $renewalType, $reviewedBy, $renewalType]);
+
+        recordMemberMembershipYear($pdo, $memberId, $renewalYear, 'renewal');
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        $msg = $e->getMessage();
+        if (stripos($msg, 'Duplicate') !== false || stripos($msg, 'uniq_payments_application') !== false) {
+            return ['ok' => true, 'recorded' => true, 'error' => null];
+        }
+        error_log('application_record_approved_ledger failed: ' . $msg);
+
+        return ['ok' => false, 'recorded' => false, 'error' => 'Could not record the online payment in the ledger. Try approve again.'];
+    }
+
+    require_once __DIR__ . '/audit_log.php';
+    audit_log($pdo, $reviewedBy, 'payment_add', 'payment', $paymentId, json_encode([
+        'member_id'      => $memberId,
+        'year'           => $renewalYear,
+        'application_id' => $applicationId,
+        'source'         => $ledger['source'],
+    ]));
+
+    return ['ok' => true, 'recorded' => true, 'error' => null];
 }
 
 /**
@@ -461,6 +843,7 @@ function application_member_post_from_row(array $app): array
         'ama_number'                     => $app['ama_number'] ?? '',
         'ama_expiration'                 => $app['ama_expiration'] ?? '',
         'ama_life_member'                => '0',
+        'trust_attestation'              => !empty($app['trust_attestation']) ? '1' : '0',
         'faa_number'                     => $app['faa_number'] ?? '',
         'faa_expiration'                 => $app['faa_expiration'] ?? '',
         'emergency_contact_name'         => $app['emergency_contact_name'] ?? '',
@@ -535,7 +918,7 @@ function application_update_existing_member(PDO $pdo, int $memberId, array $app,
 }
 
 /**
- * @return array{ok:bool, member_id:?int, error:?string, renewal_type?:string, renewal_year?:int, photo_imported?:?bool, photo_error?:?string, faa_card_imported?:?bool, faa_card_error?:?string}
+ * @return array{ok:bool, member_id:?int, error:?string, renewal_type?:string, renewal_year?:int, photo_imported?:?bool, photo_error?:?string, faa_card_imported?:?bool, faa_card_error?:?string, ledger_recorded?:bool}
  */
 function application_approve(
     PDO $pdo,
@@ -544,7 +927,8 @@ function application_approve(
     ?int $overrideMemberId = null,
     ?string $renewalType = null,
     ?int $renewalYear = null,
-    array $fieldChoices = []
+    array $fieldChoices = [],
+    bool $explicitCreateNew = false
 ): array {
     $app = application_fetch($pdo, $applicationId);
     if ($app === null) {
@@ -556,6 +940,10 @@ function application_approve(
         }
 
         return ['ok' => false, 'member_id' => null, 'error' => 'Application is not pending review.'];
+    }
+
+    if (application_approve_needs_member_choice($app, $overrideMemberId, $explicitCreateNew)) {
+        return ['ok' => false, 'member_id' => null, 'error' => 'Multiple members match this name. Choose the correct member (or explicitly create a new record) before approving.'];
     }
 
     $fieldChoices = application_parse_field_choices($fieldChoices);
@@ -629,6 +1017,20 @@ function application_approve(
     $finalRenewalType = $renewalType ?: ($app['suggested_renewal_type'] ?? 'new');
     $finalRenewalYear = $renewalYear ?: (int) ($app['suggested_renewal_year'] ?? defaultRenewalYear($pdo));
 
+    application_copy_trust_to_member($pdo, $app, $memberId);
+
+    $ledgerResult = application_record_approved_ledger(
+        $pdo,
+        $app,
+        $memberId,
+        $reviewedBy,
+        (string) $finalRenewalType,
+        (int) $finalRenewalYear
+    );
+    if (!$ledgerResult['ok']) {
+        return ['ok' => false, 'member_id' => $memberId, 'error' => $ledgerResult['error']];
+    }
+
     $pdo->prepare('
         UPDATE member_applications
         SET status = \'approved\',
@@ -670,6 +1072,7 @@ function application_approve(
         'photo_error'    => $photoError,
         'faa_card_imported' => $faaCardImported,
         'faa_card_error'    => $faaCardError,
+        'ledger_recorded'   => !empty($ledgerResult['recorded']),
     ];
 }
 
@@ -803,12 +1206,20 @@ function application_kind_label(?string $kind): string
     };
 }
 
-function application_season_label(?string $season): string
+function application_season_label(?string $season, ?array $windows = null): string
 {
+    $w = $windows ?? renewal_season_windows();
+    $prebook = month_short_name((int) $w['prebook_month']);
+    $prebookDay = (int) $w['prebook_day'];
+    $prorateStart = month_short_name((int) $w['prorate_start']);
+    $lastProrateDay = max(1, $prebookDay - 1);
+    $lastProrateMonth = month_short_name((int) $w['prorate_end']);
+    $regularEndMonth = month_short_name(max(1, (int) $w['prorate_start'] - 1));
+
     return match ($season) {
-        'renewal_window' => 'Renewal season (Oct–Dec)',
-        'regular_new'    => 'Regular new (Jan–Jun)',
-        'prorated_new'   => 'Prorated new (Jul–Oct 14)',
+        'renewal_window' => 'Renewal season (' . $prebook . ' ' . $prebookDay . '–Dec)',
+        'regular_new'    => 'Regular new (Jan–' . $regularEndMonth . ')',
+        'prorated_new'   => 'Prorated new (' . $prorateStart . '–' . $lastProrateMonth . ' ' . $lastProrateDay . ')',
         default          => '—',
     };
 }

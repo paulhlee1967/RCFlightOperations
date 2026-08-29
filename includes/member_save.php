@@ -7,6 +7,50 @@
 
 require_once __DIR__ . '/validation.php';
 
+function member_ensure_trust_schema(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM members LIKE 'trust_attestation'");
+        if (!$stmt || !$stmt->fetch()) {
+            $pdo->exec(
+                'ALTER TABLE members ADD COLUMN trust_attestation tinyint(1) NOT NULL DEFAULT 0 AFTER faa_card_path'
+            );
+        }
+    } catch (Throwable $e) {
+    }
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM members LIKE 'trust_attested_at'");
+        if (!$stmt || !$stmt->fetch()) {
+            $pdo->exec(
+                'ALTER TABLE members ADD COLUMN trust_attested_at datetime DEFAULT NULL AFTER trust_attestation'
+            );
+        }
+    } catch (Throwable $e) {
+    }
+}
+
+/**
+ * @param array<string, mixed> $existing  Current member row (may be empty on insert)
+ * @return array{0:int, 1:?string}  [trust_attestation, trust_attested_at]
+ */
+function member_trust_values_for_save(array $clean, array $existing = []): array
+{
+    $trust = !empty($clean['trust_attestation']) ? 1 : 0;
+    $wasTrust = !empty($existing['trust_attestation']);
+    $existingAt = trim((string) ($existing['trust_attested_at'] ?? ''));
+    $trustAt = null;
+    if ($trust) {
+        $trustAt = ($wasTrust && $existingAt !== '') ? $existingAt : date('Y-m-d H:i:s');
+    }
+
+    return [$trust, $trustAt];
+}
+
 /** @return array<string, string> */
 function member_photo_allowed_mimes(): array
 {
@@ -391,8 +435,10 @@ function save_member_from_post(PDO $pdo, ?int $memberId, array $post, array $fil
     $amaLife        = $c['ama_life_member'];
     $faaNumber      = $c['faa_number'] ?? null;
     $faaExp         = $c['faa_expiration'] ?? null;
-    if ($memberId && (!array_key_exists('faa_number', $c) || !array_key_exists('faa_expiration', $c))) {
-        $existStmt = $pdo->prepare('SELECT faa_number, faa_expiration FROM members WHERE id = ? LIMIT 1');
+    member_ensure_trust_schema($pdo);
+    $exist = [];
+    if ($memberId) {
+        $existStmt = $pdo->prepare('SELECT faa_number, faa_expiration, trust_attestation, trust_attested_at FROM members WHERE id = ? LIMIT 1');
         $existStmt->execute([$memberId]);
         $exist = $existStmt->fetch(PDO::FETCH_ASSOC) ?: [];
         if (!array_key_exists('faa_number', $c)) {
@@ -401,6 +447,13 @@ function save_member_from_post(PDO $pdo, ?int $memberId, array $post, array $fil
         if (!array_key_exists('faa_expiration', $c)) {
             $faaExp = $exist['faa_expiration'] ?? null;
         }
+    }
+    if (array_key_exists('trust_attestation', $c)) {
+        [$trustAttestation, $trustAttestedAt] = member_trust_values_for_save($c, $exist);
+    } else {
+        $trustAttestation = (int) ($exist['trust_attestation'] ?? 0);
+        $existingAt = trim((string) ($exist['trust_attested_at'] ?? ''));
+        $trustAttestedAt = $existingAt !== '' ? $existingAt : null;
     }
     $emergencyName  = $c['emergency_contact_name'];
     $emergencyRel   = $c['emergency_contact_relationship'];
@@ -413,11 +466,11 @@ function save_member_from_post(PDO $pdo, ?int $memberId, array $post, array $fil
     $addressPostal  = $c['address_postal_code'];
 
     if ($memberId) {
-        $stmt = $pdo->prepare('UPDATE members SET title=?, first_name=?, last_name=?, email=?, phone=?, birthday=?, notes=?, date_joined=?, membership_type_slot=?, membership_renewal_year=?, inactive=?, suspended=?, life_member=?, free_membership=?, gate_key_number=?, ama_number=?, ama_expiration=?, ama_life_member=?, faa_number=?, faa_expiration=?, emergency_contact_name=?, emergency_contact_relationship=?, emergency_contact_phone=?, address_street=?, address_street2=?, address_city=?, address_state=?, address_postal_code=? WHERE id=?');
-        $stmt->execute([$title, $firstName, $lastName, $email, $phone, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $gateKey, $amaNumber, $amaExp, $amaLife, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $addressStreet, $addressStreet2, $addressCity, $addressState, $addressPostal, $memberId]);
+        $stmt = $pdo->prepare('UPDATE members SET title=?, first_name=?, last_name=?, email=?, phone=?, birthday=?, notes=?, date_joined=?, membership_type_slot=?, membership_renewal_year=?, inactive=?, suspended=?, life_member=?, free_membership=?, gate_key_number=?, ama_number=?, ama_expiration=?, ama_life_member=?, trust_attestation=?, trust_attested_at=?, faa_number=?, faa_expiration=?, emergency_contact_name=?, emergency_contact_relationship=?, emergency_contact_phone=?, address_street=?, address_street2=?, address_city=?, address_state=?, address_postal_code=? WHERE id=?');
+        $stmt->execute([$title, $firstName, $lastName, $email, $phone, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $gateKey, $amaNumber, $amaExp, $amaLife, $trustAttestation, $trustAttestedAt, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $addressStreet, $addressStreet2, $addressCity, $addressState, $addressPostal, $memberId]);
     } else {
-        $stmt = $pdo->prepare('INSERT INTO members (title, first_name, last_name, email, phone, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, address_street, address_street2, address_city, address_state, address_postal_code) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-        $stmt->execute([$title, $firstName, $lastName, $email, $phone, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $gateKey, $amaNumber, $amaExp, $amaLife, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $addressStreet, $addressStreet2, $addressCity, $addressState, $addressPostal]);
+        $stmt = $pdo->prepare('INSERT INTO members (title, first_name, last_name, email, phone, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, trust_attestation, trust_attested_at, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, address_street, address_street2, address_city, address_state, address_postal_code) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+        $stmt->execute([$title, $firstName, $lastName, $email, $phone, $birthday, $notes, $dateJoined, $memSlot, $renewalYear, $inactive, $suspended, $lifeMember, $freeMembership, $gateKey, $amaNumber, $amaExp, $amaLife, $trustAttestation, $trustAttestedAt, $faaNumber, $faaExp, $emergencyName, $emergencyRel, $emergencyPhone, $addressStreet, $addressStreet2, $addressCity, $addressState, $addressPostal]);
         $memberId = (int) $pdo->lastInsertId();
     }
 

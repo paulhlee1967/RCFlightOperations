@@ -330,7 +330,10 @@ body {
 }
 .callout-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: .05rem; }
 .callout-body { flex: 1; font-size: .9rem; line-height: 1.55; }
-.callout-body strong { display: block; margin-bottom: .2rem; }
+.callout-body > strong:first-child { display: block; margin-bottom: .35rem; }
+.callout-body ul { margin: .35rem 0 0; padding-left: 1.15rem; }
+.callout-body li { margin-bottom: .35rem; }
+.callout-body li:last-child { margin-bottom: 0; }
 
 .callout-info    { background: #e8ebe4; border-color: #5a6b52; color: #2d3328; }
 .callout-warning { background: #f7efd9; border-color: #a67c1a; color: #4a3a12; }

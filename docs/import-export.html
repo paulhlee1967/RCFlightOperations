@@ -130,7 +130,8 @@
     <h2 id="import-tips">Import Tips</h2>
     <ul>
       <li>
-        <strong>Existing member matching</strong> (when "Update existing" is checked) tries
+        <strong>Existing member matching</strong> is off by default (always add new records).
+        When <strong>Update existing members</strong> is checked, matching tries
         the strictest keys first: all of first, last, email, and birthday when those CSV columns
         are mapped and the row has email + a parsed birthday; otherwise first+last+email when
         email is present; otherwise first+last only if <em>exactly one</em> member in your

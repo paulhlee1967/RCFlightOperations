@@ -20,6 +20,9 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 $error = '';
+if ($error === '' && ($_GET['reason'] ?? '') === 'idle' && $_SERVER['REQUEST_METHOD'] !== 'POST') {
+    $error = 'You were signed out after 30 minutes of inactivity. Sign in again to continue.';
+}
 
 // Brute-force: max attempts and lock duration (minutes)
 $login_max_attempts = 5;
@@ -67,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_email'] = $user['email'];
                 $_SESSION['user_name']  = $user['name'];
                 $_SESSION['user_role']  = normalizeUserRole((string) ($user['role'] ?? 'manager'));
+                staff_session_touch();
 
                 $redirect = safe_redirect_url($_GET['redirect'] ?? 'index.php', 'index.php');
                 header('Location: ' . $redirect);

@@ -51,7 +51,7 @@
     <div class="sidebar-title">Other Docs</div>
     <a href="index.html">← Docs home</a>
     <a href="renewals.html">Renewals &amp; Dues</a>
-    <a href="compliance.html">AMA &amp; FAA</a>
+    <a href="compliance.html">AMA &amp; TRUST</a>
     <a href="members.html">Members</a>
     <a href="admin.html">Administration</a>
   </nav>
@@ -159,16 +159,19 @@
 </div>
 
 <h3 id="r-revenue">Revenue by year</h3>
-<p>Dues, initiation, and late-fee revenue recorded per membership year, with a grand total.</p>
+<p>What the club collected per membership year, with Stripe processing shown separately so it is not mistaken for club income.</p>
 <div class="docs-table-wrap">
   <table class="docs-table">
     <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
     <tbody>
-      <tr><td>Payments</td><td>Number of payment records for the year</td></tr>
-      <tr><td>Dues</td><td>Total annual / prorated dues collected</td></tr>
-      <tr><td>Initiation</td><td>Total initiation fees</td></tr>
-      <tr><td>Late fees</td><td>Total late fees</td></tr>
-      <tr><td>Total</td><td>Sum of the three above</td></tr>
+      <tr><td>Payments</td><td>Payment rows that are still recorded (refunded Stripe rows are omitted)</td></tr>
+      <tr><td>Dues</td><td>Annual / prorated dues collected</td></tr>
+      <tr><td>Initiation</td><td>Initiation fees</td></tr>
+      <tr><td>Late fees</td><td>Late fees</td></tr>
+      <tr><td>Club net</td><td>Dues + initiation + late fees — money the club keeps</td></tr>
+      <tr><td>Stripe processing</td><td>Card fee collected from the applicant and passed through to Stripe (not club income)</td></tr>
+      <tr><td>Charged to members</td><td>Club net + Stripe processing (what the member paid)</td></tr>
+      <tr><td>Refunds</td><td>Stripe payments marked refunded on the ledger (refund in the Stripe Dashboard first)</td></tr>
     </tbody>
   </table>
 </div>
@@ -176,7 +179,8 @@
   <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
   <div class="callout-body">
     Revenue is attributed to the membership year recorded on each payment — so a renewal
-    you collect in October for next year counts toward <em>next</em> year.
+    you collect during the pre-book window for next year counts toward <em>next</em> year.
+    Cash/check mistakes can be deleted. Stripe charges should be <strong>Record refund</strong>, not deleted.
   </div>
 </div>
 
@@ -211,7 +215,7 @@
 <h3 id="r-datacompleteness">Missing member data</h3>
 <p>
   Current members with one or more incomplete fields: email, phone, mailing address,
-  emergency contact, AMA numbers, or membership type. Lists each member's missing
+  emergency contact, AMA numbers, TRUST attestation, or membership type. Lists each member's missing
   fields and supports <a href="#email-members">emailing the group</a> (members with an
   email on file).
 </p>
@@ -432,8 +436,8 @@
 
 <h3>Do reports move money or charge anyone?</h3>
 <p>
-  No. Like the rest of the app, reports only summarize records you've already entered —
-  RC Flight Operations never processes payments. See
+  No. Reports only summarize the ledger. Cash and check rows are what officers typed in;
+  Stripe (or waived) rows are posted when an application is approved. See
   <a href="renewals.html#about-payments">About Payments</a>.
 </p>
 
@@ -445,7 +449,7 @@
   <span>
     <a href="../about.php">About</a>
     &nbsp;·&nbsp;
-    <a href="compliance.html">← AMA &amp; FAA</a>
+    <a href="compliance.html">← AMA &amp; TRUST</a>
     &nbsp;·&nbsp;
     <a href="admin.html">Next: Administration →</a>
   </span>

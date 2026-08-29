@@ -13,6 +13,7 @@ final class MemberPortalTest extends TestCase
         $fields = member_portal_editable_fields();
         $this->assertContains('phone', $fields);
         $this->assertContains('ama_number', $fields);
+        $this->assertContains('trust_attestation', $fields);
         $this->assertNotContains('faa_number', $fields);
         $this->assertNotContains('faa_expiration', $fields);
         $this->assertContains('email_opt_in_expiry_reminders', $fields);
@@ -38,6 +39,7 @@ final class MemberPortalTest extends TestCase
             'email_opt_in_club_events' => '1',
             'email_opt_in_expiry_reminders' => '0',
             'ama_life_member' => '1',
+            'trust_attestation' => '1',
         ]);
         $this->assertSame([], $errors);
         $this->assertSame('555-1212', $clean['phone']);
@@ -45,6 +47,7 @@ final class MemberPortalTest extends TestCase
         $this->assertSame(1, $clean['email_opt_in_club_events']);
         $this->assertSame(0, $clean['email_opt_in_expiry_reminders']);
         $this->assertSame(1, $clean['ama_life_member']);
+        $this->assertSame(1, $clean['trust_attestation']);
     }
 
     public function test_validate_input_rejects_bad_dates(): void
@@ -80,6 +83,7 @@ final class MemberPortalTest extends TestCase
             'emergency_contact_relationship' => null,
             'emergency_contact_phone' => null,
             'ama_expiration' => null,
+            'trust_attestation' => 0,
         ];
         $diff = member_portal_field_diff($before, $after);
         $this->assertArrayHasKey('phone', $diff);

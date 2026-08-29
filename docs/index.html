@@ -147,7 +147,7 @@
       font-size: .9rem;
       color: #2d3328;
     }
-    .docs-callout strong { display: block; margin-bottom: .2rem; }
+    .docs-callout > strong:first-child { display: block; margin-bottom: .35rem; }
 
     /* ── Footer ── */
     .docs-footer {
@@ -198,11 +198,11 @@
 
   <div class="docs-callout">
     <strong><i class="bi bi-info-circle me-1"></i>About payments</strong>
-    RC Flight Operations does <strong>not process payments</strong> of any kind. There's no
-    connection to credit cards, PayPal, or any payment service. What it does is let you
-    <strong>record dues you've already collected</strong> through your club's normal channels —
-    cash at a meeting, a check in the mail, whatever works for your club.
-    See <a href="renewals.html">Renewals &amp; Dues</a> for details.
+    Walk-in cash and check are recorded after you collect them
+    (<a href="renewals.html">Process Signup / Renewal</a>).
+    Online applications paid with <strong>Stripe</strong> (or waived) are written to Payment history
+    when you approve — you do not re-enter the amount.
+    See <a href="renewals.html#about-payments">Renewals &amp; Dues</a> for details.
   </div>
 
   <!-- ── Getting started ── -->
@@ -241,7 +241,7 @@
   <div class="doc-card" data-href="renewals.html">
     <div class="card-icon"><i class="bi bi-arrow-repeat"></i></div>
     <h3>Renewals &amp; Dues</h3>
-    <p>Record dues payments your club has already collected. Handle on-time, late, prorated, and complimentary renewals.</p>
+    <p>Record walk-in cash/check, or post Stripe from an approved application. Handle on-time, late, prorated, and complimentary renewals.</p>
     <div class="card-links">
       <a href="renewals.html#record">Process Signup / Renewal</a>
       <a href="renewals.html#dues">Dues config</a>
@@ -261,7 +261,7 @@
   <div class="doc-card" data-href="applications.html">
     <div class="card-icon"><i class="bi bi-inbox"></i></div>
     <h3>Website Applications</h3>
-    <p>Review online membership applications from <code>apply.php</code> before creating or updating members — AMA gate with club-record prefill, Stripe, email preferences, TRUST attestation, filters by renewal year, and badge import on approve.</p>
+    <p>Review online membership applications from <code>apply.php</code> before creating or updating members — AMA gate with club-record prefill, Stripe (posted to the ledger on approve), email preferences, TRUST attestation, filters by renewal year, and badge import on approve.</p>
     <div class="card-links">
       <a href="applications.html#ama-gate">AMA gate &amp; prefill</a>
       <a href="applications.html#workflow">Review workflow</a>
@@ -274,11 +274,11 @@
 <div class="col-12 col-md-4">
   <div class="doc-card" data-href="compliance.html">
     <div class="card-icon"><i class="bi bi-shield-check"></i></div>
-    <h3>AMA &amp; FAA Compliance</h3>
-    <p>Track AMA numbers and expiration dates for every member. Verify AMA membership with one click before recording a renewal.</p>
+    <h3>AMA &amp; TRUST Compliance</h3>
+    <p>Track AMA numbers and expiration dates, plus TRUST attestation, for every member. Verify AMA membership with one click before recording a renewal.</p>
     <div class="card-links">
       <a href="compliance.html#ama-lookup">AMA lookup</a>
-      <a href="compliance.html#faa">FAA numbers</a>
+      <a href="compliance.html#faa">TRUST attestation</a>
       <a href="compliance.html#report">Compliance report</a>
     </div>
   </div>

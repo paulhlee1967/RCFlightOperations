@@ -210,6 +210,22 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                                 </div>
                             </div>
                             <div id="ama-verify-errors" class="alert alert-danger mt-3 mb-0 d-none" role="alert"></div>
+                            <div id="ama-manual-panel" class="border rounded p-3 mt-3 d-none">
+                                <p class="small mb-2"><strong>AMA lookup down; enter expiration manually.</strong> Use the date on your AMA card. First name must match your AMA card.</p>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="ama_manual_first_name">First name</label>
+                                        <input type="text" id="ama_manual_first_name" class="form-control" autocomplete="given-name">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label" for="ama_manual_expiration">AMA expiration (MM/DD/YYYY)</label>
+                                        <input type="text" id="ama_manual_expiration" class="form-control js-date-us" placeholder="MM/DD/YYYY" inputmode="numeric" maxlength="10">
+                                    </div>
+                                    <div class="col-12">
+                                        <button type="button" class="btn btn-outline-primary" id="ama-manual-btn">Continue with card expiration</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                         <div id="ama-gate-success" class="<?= $amaVerified ? '' : 'd-none' ?>">
                             <div class="alert alert-success mb-2 py-2">
@@ -351,7 +367,7 @@ require_once __DIR__ . '/includes/csp_nonce.php';
             </div>
 
             <div class="card mb-3">
-                <div class="card-header fw-semibold">AMA &amp; FAA</div>
+                <div class="card-header fw-semibold">AMA &amp; TRUST</div>
                 <div class="card-body">
                     <div class="row g-3 mb-3">
                         <div class="col-md-6">

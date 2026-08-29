@@ -1,0 +1,21 @@
+# Optional MySQL for integration tests. Everyday local Mac setup is still Homebrew
+# (see LOCAL_DEV.md). CI uses the same schema_full.sql import.
+#
+#   docker compose -f docker-compose.test.yml up -d
+#   mysql -h 127.0.0.1 -P 3307 -u root -ptest flightops_test < schema_full.sql
+#   TEST_DB_HOST=127.0.0.1 TEST_DB_PORT=3307 TEST_DB_NAME=flightops_test \
+#     TEST_DB_USER=root TEST_DB_PASSWORD=test composer test:integration
+
+services:
+  mysql:
+    image: mariadb:11
+    environment:
+      MYSQL_ROOT_PASSWORD: test
+      MYSQL_DATABASE: flightops_test
+    ports:
+      - "3307:3306"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 20

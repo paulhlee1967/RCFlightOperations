@@ -12,6 +12,7 @@ require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/audit_log.php';
 require_once __DIR__ . '/includes/validation.php';
 require_once __DIR__ . '/includes/flash.php';
+require_once __DIR__ . '/includes/payments_ledger.php';
 
 requireLogin();
 if (!canEditMembers()) {
@@ -41,16 +42,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $late   = $c['amount_late_fee'];
             $comp   = $c['comp'];
 
-            $ins = $pdo->prepare('INSERT INTO payments (member_id, paid_at, year, amount_dues, amount_initiation, amount_late_fee, comp) VALUES (?,?,?,?,?,?,?)');
-            $ins->execute([$memberId, $paidAt, $year, $dues, $init, $late, $comp ? 1 : 0]);
-            recordMemberMembershipYear($pdo, $memberId, $year, 'payment');
-            audit_log($pdo,
-                currentUserId(),
-                'payment_add',
-                'payment',
-                (int) $pdo->lastInsertId(),
-                json_encode(['member_id' => $memberId, 'year' => $year])
-            );
+            if (payment_active_for_member_year($pdo, $memberId, $year) !== null) {
+                flash($year . ' already has a payment on file. Delete a cash/check mistake first, or use Record refund for Stripe — do not add a second row.', 'warning');
+            } else {
+                $ins = $pdo->prepare('INSERT INTO payments (member_id, paid_at, year, amount_dues, amount_initiation, amount_late_fee, comp) VALUES (?,?,?,?,?,?,?)');
+                $ins->execute([$memberId, $paidAt, $year, $dues, $init, $late, $comp ? 1 : 0]);
+                recordMemberMembershipYear($pdo, $memberId, $year, 'payment');
+                audit_log($pdo,
+                    currentUserId(),
+                    'payment_add',
+                    'payment',
+                    (int) $pdo->lastInsertId(),
+                    json_encode(['member_id' => $memberId, 'year' => $year])
+                );
+            }
         }
     }
 }

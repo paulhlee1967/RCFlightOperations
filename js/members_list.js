@@ -122,6 +122,7 @@
             ['Email',      d.email],
             ['Phone',      d.phone],
             ['AMA #',      d.ama_number],
+            ['TRUST',      d.trust_attestation ? 'Certified' : ''],
             ['Gate key',   d.gate_key],
         ];
         html += '<dl class="row g-1 small mb-3">';

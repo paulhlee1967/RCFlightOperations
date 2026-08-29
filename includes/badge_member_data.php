@@ -74,6 +74,7 @@ function badge_member_data_from_row(array $m, array $membershipTypeLabels, int $
             : '',
         'renewal_year'                   => (string) ($m['membership_renewal_year'] ?? ''),
         'ama_number'                     => (string) ($m['ama_number'] ?? ''),
+        // Kept so older saved designs with an FAA merge field still print.
         'faa_number'                     => (string) ($m['faa_number'] ?? ''),
         'gate_key_number'                => (string) ($m['gate_key_number'] ?? ''),
         'street'                         => (string) ($m['street'] ?? ''),

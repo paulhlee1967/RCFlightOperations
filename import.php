@@ -606,9 +606,10 @@ render_page_header([
     <?php endif; ?>
     <div class="mb-3">
         <label class="form-check">
-            <input type="checkbox" name="update_existing_or_add" value="1" class="form-check-input" checked>
-            <span class="form-check-label">When checked: update existing members if a unique match is found — tries <strong>first + last + email + birthday</strong> (all mapped and present), then <strong>first + last + email</strong>, then <strong>first + last</strong> only when exactly one member has that name. If unchecked: always add as new.</span>
+            <input type="checkbox" name="update_existing_or_add" value="1" class="form-check-input">
+            <span class="form-check-label"><strong>Update existing members</strong> when a unique match is found. Leave unchecked to always add new records (safer).</span>
         </label>
+        <div class="form-text">Matching tries <strong>first + last + email + birthday</strong> (all mapped and present), then <strong>first + last + email</strong>, then <strong>first + last</strong> only when exactly one member has that name.</div>
     </div>
     <button type="submit" class="btn btn-primary">Import <?= $importableCount ?> member(s)</button>
     <a href="import.php" class="btn btn-outline-secondary">Cancel</a>

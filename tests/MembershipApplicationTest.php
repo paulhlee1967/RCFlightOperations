@@ -405,4 +405,11 @@ final class MembershipApplicationTest extends TestCase
         $this->assertSame('', $normalized['phone']);
         $this->assertArrayNotHasKey('extra', $normalized);
     }
+
+    public function testParseExpirationAcceptsMdyAndYmd(): void
+    {
+        $this->assertSame('2026-12-31', membership_application_parse_expiration_ymd('12/31/2026'));
+        $this->assertSame('2026-12-31', membership_application_parse_expiration_ymd('2026-12-31'));
+        $this->assertNull(membership_application_parse_expiration_ymd('not-a-date'));
+    }
 }

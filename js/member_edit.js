@@ -106,8 +106,9 @@
 
                     if (window._updateAmaStatus) window._updateAmaStatus();
                 } else {
+                    var down = data && (data.status === 'unreachable' || data.status === 'service_error');
                     statusEl.textContent = (data && data.message) ? data.message : 'Could not verify.';
-                    statusEl.className   = 'small text-danger';
+                    statusEl.className   = down ? 'small text-warning' : 'small text-danger';
                 }
             })
             .catch(function (err) {

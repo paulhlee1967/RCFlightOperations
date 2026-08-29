@@ -30,3 +30,49 @@ jobs:
 
       - name: Run PHPUnit
         run: composer test
+
+  phpunit-mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mariadb:11
+        env:
+          MYSQL_ROOT_PASSWORD: test
+          MYSQL_DATABASE: flightops_test
+          MYSQL_ROOT_HOST: '%'
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptest --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          coverage: none
+          extensions: pdo_mysql
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Import schema
+        env:
+          MYSQL_PWD: test
+        run: mysql -h 127.0.0.1 -u root flightops_test < schema_full.sql
+
+      - name: Run MySQL integration tests
+        env:
+          TEST_DB_HOST: 127.0.0.1
+          TEST_DB_PORT: 3306
+          TEST_DB_NAME: flightops_test
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test
+        run: composer test:integration

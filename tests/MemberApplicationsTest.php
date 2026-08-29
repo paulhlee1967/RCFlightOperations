@@ -170,7 +170,7 @@ final class MemberApplicationsTest extends TestCase
             'payment_transaction_id'   => 'pi_test',
         ]);
         $this->assertTrue($paid['paid_online']);
-        $this->assertTrue($paid['suggest_complementary']);
+        $this->assertFalse($paid['suggest_complementary']);
 
         $waived = application_online_payment_context([
             'payment_status' => 'waived',
@@ -179,5 +179,171 @@ final class MemberApplicationsTest extends TestCase
         ]);
         $this->assertTrue($waived['waived']);
         $this->assertTrue($waived['suggest_complementary']);
+    }
+
+    public function test_ledger_amounts_for_stripe_on_time_renewal(): void
+    {
+        $app = [
+            'payment_status'         => 'succeeded',
+            'payment_total'          => 134.19,
+            'payment_initiation'     => 0,
+            'payment_processing_fee' => 4.19,
+            'payment_transaction_id' => 'pi_test',
+            'payment_gateway'        => 'Stripe',
+        ];
+        $ledger = application_ledger_amounts($app, null, 'on_time');
+        $this->assertTrue($ledger['should_record']);
+        $this->assertSame(0, $ledger['comp']);
+        $this->assertSame('stripe', $ledger['source']);
+        $this->assertSame(130.0, $ledger['amount_dues']);
+        $this->assertSame(0.0, $ledger['amount_initiation']);
+        $this->assertSame(0.0, $ledger['amount_late_fee']);
+        $this->assertSame(4.19, $ledger['amount_processing_fee']);
+    }
+
+    public function test_ledger_amounts_for_stripe_new_member(): void
+    {
+        $app = [
+            'payment_status'         => 'succeeded',
+            'payment_total'          => 134.19,
+            'payment_initiation'     => 50.0,
+            'payment_processing_fee' => 4.19,
+        ];
+        $ledger = application_ledger_amounts($app, null, 'new');
+        $this->assertTrue($ledger['should_record']);
+        $this->assertSame(80.0, $ledger['amount_dues']);
+        $this->assertSame(50.0, $ledger['amount_initiation']);
+        $this->assertSame(0.0, $ledger['amount_late_fee']);
+        $this->assertSame(4.19, $ledger['amount_processing_fee']);
+    }
+
+    public function test_ledger_amounts_for_late_puts_initiation_in_late_fee(): void
+    {
+        $app = [
+            'payment_status'         => 'succeeded',
+            'payment_total'          => 214.19,
+            'payment_initiation'     => 50.0,
+            'payment_processing_fee' => 4.19,
+        ];
+        $ledger = application_ledger_amounts($app, null, 'late');
+        $this->assertSame(160.0, $ledger['amount_dues']);
+        $this->assertSame(0.0, $ledger['amount_initiation']);
+        $this->assertSame(50.0, $ledger['amount_late_fee']);
+    }
+
+    public function test_ledger_amounts_for_waived_comp(): void
+    {
+        $app = [
+            'payment_status' => 'waived',
+            'payment_total'  => 0.0,
+            'notes'          => 'Complimentary invite #12 (free membership)',
+        ];
+        $ledger = application_ledger_amounts($app, null, 'on_time');
+        $this->assertTrue($ledger['should_record']);
+        $this->assertSame(1, $ledger['comp']);
+        $this->assertSame('waived', $ledger['source']);
+        $this->assertSame(0.0, $ledger['amount_dues']);
+    }
+
+    public function test_ledger_amounts_skips_unpaid_cash_applications(): void
+    {
+        $app = [
+            'payment_status' => '',
+            'payment_total'  => 0.0,
+        ];
+        $ledger = application_ledger_amounts($app);
+        $this->assertFalse($ledger['should_record']);
+        $this->assertSame('staff', $ledger['source']);
+    }
+
+    public function test_season_label_follows_prebook_windows(): void
+    {
+        $windows = [
+            'prebook_month' => 11,
+            'prebook_day'   => 1,
+            'prorate_start' => 7,
+            'prorate_end'   => 10,
+        ];
+        $this->assertSame('Renewal season (Nov 1–Dec)', application_season_label('renewal_window', $windows));
+        $this->assertSame('Regular new (Jan–Jun)', application_season_label('regular_new', $windows));
+        $this->assertStringContainsString('Jul', application_season_label('prorated_new', $windows));
+    }
+
+    public function test_approve_checklist_blocks_only_pending_payment(): void
+    {
+        $items = application_approve_checklist([
+            'status' => 'pending_payment',
+            'payment_status' => '',
+            'payment_total' => 0,
+            'trust_attestation' => 1,
+            'file_badge_photo_url' => 'uploads/applications/1.jpg',
+            'ama_expiration' => '2099-12-31',
+        ]);
+        $byKey = [];
+        foreach ($items as $item) {
+            $byKey[$item['key']] = $item;
+        }
+        $this->assertTrue($byKey['payment']['blocks']);
+        $this->assertFalse($byKey['trust']['blocks']);
+        $this->assertTrue($byKey['trust']['ok']);
+        $this->assertTrue($byKey['photo']['ok']);
+        $this->assertTrue($byKey['ama']['ok']);
+    }
+
+    public function test_approve_checklist_flags_missing_trust_without_blocking(): void
+    {
+        $items = application_approve_checklist([
+            'status' => 'pending',
+            'payment_status' => 'succeeded',
+            'payment_total' => 160,
+            'trust_attestation' => 0,
+            'file_badge_photo_url' => '',
+            'ama_expiration' => '2000-01-01',
+        ]);
+        $byKey = [];
+        foreach ($items as $item) {
+            $byKey[$item['key']] = $item;
+        }
+        $this->assertFalse($byKey['trust']['ok']);
+        $this->assertFalse($byKey['trust']['blocks']);
+        $this->assertFalse($byKey['photo']['ok']);
+        $this->assertFalse($byKey['ama']['ok']);
+        $this->assertFalse($byKey['payment']['blocks']);
+    }
+
+    public function test_parse_match_override(): void
+    {
+        $this->assertSame(['member_id' => 12, 'create_new' => false], application_parse_match_override('12'));
+        $this->assertSame(['member_id' => null, 'create_new' => true], application_parse_match_override('new'));
+        $this->assertSame(['member_id' => null, 'create_new' => false], application_parse_match_override(''));
+        $this->assertSame(['member_id' => null, 'create_new' => false], application_parse_match_override('abc'));
+    }
+
+    public function test_approve_needs_member_choice_for_ambiguous(): void
+    {
+        $app = ['match_confidence' => 'ambiguous'];
+        $this->assertTrue(application_approve_needs_member_choice($app, null, false));
+        $this->assertFalse(application_approve_needs_member_choice($app, 44, false));
+        $this->assertFalse(application_approve_needs_member_choice($app, null, true));
+        $this->assertFalse(application_approve_needs_member_choice(['match_confidence' => 'exact'], null, false));
+    }
+
+    public function test_approve_gap_confirm_message(): void
+    {
+        $this->assertNull(application_approve_gap_confirm_message([
+            ['ok' => true, 'blocks' => false, 'label' => 'TRUST'],
+            ['ok' => true, 'blocks' => false, 'label' => 'Badge photo'],
+        ]));
+        $msg = application_approve_gap_confirm_message([
+            ['ok' => false, 'blocks' => true, 'label' => 'Payment'],
+            ['ok' => false, 'blocks' => false, 'label' => 'TRUST'],
+            ['ok' => false, 'blocks' => false, 'label' => 'Badge photo'],
+        ], true);
+        $this->assertNotNull($msg);
+        $this->assertStringContainsString('TRUST', $msg);
+        $this->assertStringContainsString('Badge photo', $msg);
+        $this->assertStringContainsString('payment shortfall', $msg);
+        $this->assertStringNotContainsString('Payment,', $msg);
+        $this->assertStringContainsString('Approve anyway', $msg);
     }
 }

@@ -138,6 +138,52 @@ function renewal_prebook_start_day(PDO $pdo): int {
     return $default;
 }
 
+function month_short_name(int $month): string
+{
+    $names = [1 => 'Jan', 2 => 'Feb', 3 => 'Mar', 4 => 'Apr', 5 => 'May', 6 => 'Jun', 7 => 'Jul', 8 => 'Aug', 9 => 'Sep', 10 => 'Oct', 11 => 'Nov', 12 => 'Dec'];
+
+    return $names[$month] ?? '';
+}
+
+/**
+ * Configurable windows used for application-season and on-time renewal labels.
+ *
+ * @return array{prebook_month:int, prebook_day:int, prorate_start:int, prorate_end:int}
+ */
+function renewal_season_windows(?PDO $pdo = null): array
+{
+    $windows = [
+        'prebook_month' => 10,
+        'prebook_day'   => 15,
+        'prorate_start' => 7,
+        'prorate_end'   => 10,
+    ];
+    if ($pdo === null) {
+        return $windows;
+    }
+    $windows['prebook_month'] = renewal_prebook_start_month($pdo);
+    $windows['prebook_day'] = renewal_prebook_start_day($pdo);
+    if (function_exists('duesRules')) {
+        foreach (duesRules($pdo) as $rule) {
+            $windows['prorate_start'] = (int) ($rule['prorate_start_month'] ?? $windows['prorate_start']);
+            $windows['prorate_end'] = (int) ($rule['prorate_end_month'] ?? $windows['prorate_end']);
+            break;
+        }
+    }
+
+    return $windows;
+}
+
+/** e.g. "Oct 15–Dec 31" */
+function renewal_on_time_window_label(?PDO $pdo = null, ?array $windows = null): string
+{
+    $w = $windows ?? renewal_season_windows($pdo);
+    $month = month_short_name((int) $w['prebook_month']);
+    $day = (int) $w['prebook_day'];
+
+    return $month . ' ' . $day . '–Dec 31';
+}
+
 /**
  * First membership year for which the club has complete, trustworthy data.
  * Reports flag years before this as reconstructed/approximate. Default 2027.
