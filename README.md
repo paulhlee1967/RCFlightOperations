@@ -15,7 +15,7 @@ Open-source (**MIT**) membership management for AMA-affiliated RC flying clubs. 
 - **Badge designer & printing** — Multiple CR80 templates, Fabric.js canvas editor, live member preview, undo/redo, personalized print at renewal
 - **Reports** — Membership, retention, revenue, compliance, and more — on screen, CSV, branded PDF, or email
 - **Incident log** — Optional dated safety/field incident records
-- **Administration** — Users & roles (administrator, membership manager, club staff, report viewer), club configuration, complimentary invites, audit log
+- **Administration** — Users & roles (administrator, membership manager, club staff, report viewer), club configuration, complimentary invites, campaign discount codes, audit log
 
 End-user help lives in **[docs/](docs/)** (also linked from the app as **Help & Documentation**).
 

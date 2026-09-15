@@ -46,11 +46,12 @@ final class MembershipApplicationTest extends TestCase
         $this->assertSame('prorated_new', membership_application_new_member_season(new DateTimeImmutable('2026-08-01'), $pdo));
     }
 
-    public function testCouponWaivesPayment(): void
+    public function testUnknownCouponDoesNotWaivePayment(): void
     {
         $pdo = $this->createMock(PDO::class);
         $quote = membership_application_quote($pdo, 'new', 1, 'PAULTEST', new DateTimeImmutable('2026-08-01'));
-        $this->assertTrue($quote['waive_payment']);
+        $this->assertFalse($quote['waive_payment']);
+        $this->assertFalse($quote['discount_applied']);
         $this->assertSame(0.0, $quote['total']);
     }
 

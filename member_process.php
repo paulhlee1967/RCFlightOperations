@@ -670,7 +670,8 @@ if ($fromWizard) {
                 <?php if ($sourceApplicationContext['paid_online']): ?>
                 — applicant paid
                 <strong><?= h(formatMoney((float) $sourceApplication['payment_total'])) ?></strong>
-                via <?= h($sourceApplicationContext['gateway'] !== '' ? $sourceApplicationContext['gateway'] : 'Stripe') ?>.
+                via <?= h($sourceApplicationContext['gateway'] !== '' ? $sourceApplicationContext['gateway'] : 'Stripe') ?><?php if (!empty($sourceApplicationContext['discount_applied']) && $appPayment['special_code'] !== null): ?>
+                with discount <code><?= h($appPayment['special_code']) ?></code><?php endif; ?>.
                 <?php if ($sourceApplicationContext['stripe_id'] !== ''): ?>
                 Transaction: <code class="small"><?= h($sourceApplicationContext['stripe_id']) ?></code>
                 <?php endif; ?>
@@ -687,6 +688,10 @@ if ($fromWizard) {
                 <?php if ($appPayment['initiation'] !== null): ?>
                 <dt class="col-sm-4">Initiation</dt>
                 <dd class="col-sm-8"><?= h(formatMoney($appPayment['initiation'])) ?></dd>
+                <?php endif; ?>
+                <?php if (!empty($appPayment['discount_applied']) && $appPayment['discount_amount'] !== null): ?>
+                <dt class="col-sm-4">Discount</dt>
+                <dd class="col-sm-8">−<?= h(formatMoney($appPayment['discount_amount'])) ?><?php if ($appPayment['special_code'] !== null): ?> (<code><?= h($appPayment['special_code']) ?></code>)<?php endif; ?></dd>
                 <?php endif; ?>
                 <?php if ($appPayment['processing'] !== null): ?>
                 <dt class="col-sm-4">Processing fee</dt>

@@ -97,6 +97,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **membership_application.php** | Public `apply.php` flow: AMA gate, club-record prefill, renewal eligibility, dues quote, Stripe payment, file uploads, optional email opt-in checkboxes, complimentary invite redemption, confirmation tokens, Sender preference sync on submit. |
 | **member_applications.php** | Staff review queue: list filters, payment breakdown, approve/reject into member records, copy TRUST attestation, post Stripe/waived payments to the ledger, email opt-in copy to `members`, Sender sync on approve, notifications. |
 | **membership_comp_invites.php** | Complimentary invite CRUD, matching (email/AMA), redeem on apply submit, apply flags to member on approve. |
+| **membership_discount_codes.php** | Reusable campaign discount codes: lookup, quote math (percent/amount, dues/initiation/both), staff create/disable. |
 | **member_sender_status.php** | Read-only Sender.net campaign/transactional status panel for the member contact tab. |
 | **app_signing_secret.php** | Loads `app_secret` from `system_config` or `config.php` for signed URLs. |
 
@@ -133,6 +134,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **apply.php** / **apply_confirm.php** | Public membership application: AMA gate, club-record prefill, Stripe quote/pay, email opt-in, uploads, confirmation. |
 | **membership.php** / **membership_link.php** / **membership_profile.php** | Member self-service: request magic link, redeem token, edit allowlisted profile fields (AMA verify, TRUST attestation, uploads, email prefs). |
 | **comp_invites.php** | Staff complimentary membership invites (create, cancel, filter open/redeemed). |
+| **discount_codes.php** | Staff campaign discount codes (create, disable/enable, expiration). |
 | **api_stripe_webhook.php** | Stripe `payment_intent.succeeded` webhook; finalizes paid applications. |
 | **export.php** / **export_options.php** | CSV export (full, short, email-only); filters by year/renewal status. **`export.php` is POST + CSRF only** (forms in the UI and `export_options.php`). |
 | **api_verify_ama.php** | AJAX endpoint: verifies AMA number against AMA lookup via `includes/ama_verify.php`; returns JSON. |
@@ -226,7 +228,7 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 | Add or change a report | `includes/run_report.php`, `reports.php`, `report_email.php`, `includes/report_pdf.php` |
 | Change badge layout / data | `badge_design.php`, `includes/badge_design_api.php`, `includes/badge_design_helpers.php`, `includes/badge_member_data.php`, `badge_print.php`, `includes/badge_print_helpers.php`, `js/badge_fabric.js`, `js/badge_design.js`, `js/badge_print.js`, `badge_templates` table |
 | Change member list filters / UI | `members.php`, `includes/members_list_query.php`, `includes/members_list_helpers.php`, `js/members_list.js` |
-| Change online application review | `applications.php`, `apply.php`, `includes/member_applications.php`, `includes/membership_application.php`, `comp_invites.php`, [docs/applications.html](docs/applications.html) |
+| Change online application review | `applications.php`, `apply.php`, `includes/member_applications.php`, `includes/membership_application.php`, `comp_invites.php`, `discount_codes.php`, [docs/applications.html](docs/applications.html) |
 | Change dues or proration logic | `dues_rules` table, `member_process.php`, `config_site.php`, `includes/dues_helpers.php` |
 | Change email content | `templates/email/`, `includes/email_templates.php` |
 | Change SMTP / installation behaviour | `installation.php`, `system_config`, `config.php` → `email` / `sender` / `canonical_host` / `public_base_url`, `includes/mail.php`, `includes/sender_net.php`, `unsubscribe.php` |

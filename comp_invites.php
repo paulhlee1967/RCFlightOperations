@@ -93,6 +93,7 @@ require_once __DIR__ . '/includes/header.php';
         </p>
     </div>
     <div class="d-flex align-items-center gap-2 flex-wrap">
+        <a href="discount_codes.php" class="btn btn-outline-primary btn-sm">Discount codes</a>
         <a href="applications.php" class="btn btn-outline-primary btn-sm">← Applications</a>
     </div>
 </div>

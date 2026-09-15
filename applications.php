@@ -245,6 +245,7 @@ require_once __DIR__ . '/includes/page_header.php';
 ob_start();
 ?>
         <a href="comp_invites.php" class="btn btn-outline-primary btn-sm">Comp invites</a>
+        <a href="discount_codes.php" class="btn btn-outline-primary btn-sm">Discount codes</a>
         <?php $pendingCount = application_pending_count($pdo); ?>
         <?php if ($pendingCount > 0): ?>
         <span class="badge text-bg-warning"><?= (int) $pendingCount ?> pending</span>
@@ -649,6 +650,15 @@ render_page_header([
                     <?php if ($payment['initiation'] !== null): ?>
                     <dt class="col-sm-4">Initiation</dt>
                     <dd class="col-sm-8"><?= h(formatMoney($payment['initiation'])) ?></dd>
+                    <?php endif; ?>
+                    <?php if (!empty($payment['discount_applied']) && $payment['discount_amount'] !== null): ?>
+                    <dt class="col-sm-4">Discount</dt>
+                    <dd class="col-sm-8 text-success">
+                        −<?= h(formatMoney($payment['discount_amount'])) ?>
+                        <?php if ($payment['special_code'] !== null): ?>
+                        (<code><?= h($payment['special_code']) ?></code><?= $payment['discount_applies_to'] !== null ? ', ' . h($payment['discount_applies_to']) : '' ?>)
+                        <?php endif; ?>
+                    </dd>
                     <?php endif; ?>
                     <?php if ($payment['processing'] !== null): ?>
                     <dt class="col-sm-4">Processing fee</dt>

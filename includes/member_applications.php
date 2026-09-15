@@ -56,21 +56,53 @@ function application_payment_breakdown(array $application, ?PDO $pdo = null): ar
     $notesText = !empty($application['notes']) ? (string) $application['notes'] : '';
     $complimentaryLabel = application_payment_complimentary_label($notesText !== '' ? $notesText : null);
     $specialCode = '';
+    $discountAmount = null;
+    $discountAppliesTo = null;
     if ($notesText !== '') {
-        if (preg_match('/Coupon code:\s*(.+)$/m', $notesText, $m)) {
+        if (preg_match('/Discount code:\s*([A-Z0-9-]+)(?:\s*\(([^)]+)\))?/i', $notesText, $m)) {
+            $specialCode = strtoupper(trim($m[1]));
+            if (!empty($m[2]) && preg_match('/(\$?[\d,.]+)\s+off\s+(.+)/i', $m[2], $dm)) {
+                $discountAmount = application_parse_money($dm[1]);
+                $discountAppliesTo = trim($dm[2]);
+            }
+        } elseif (preg_match('/Coupon code:\s*(.+)$/m', $notesText, $m)) {
             $specialCode = trim($m[1]);
         } elseif (preg_match('/Special code:\s*(.+)$/m', $notesText, $m)) {
             $specialCode = trim($m[1]);
         }
     }
 
-    $parts = array_values(array_filter([$membershipDues, $initiation, $processing], static fn ($v) => $v !== null));
-    $subtotal = count($parts) >= 2 ? round(array_sum($parts), 2) : (count($parts) === 1 ? $parts[0] : null);
+    $storedQuote = application_stored_quote($application);
+    $initiationList = $initiation;
+    if ($storedQuote !== null) {
+        if (isset($storedQuote['dues_list'])) {
+            $membershipDues = round((float) $storedQuote['dues_list'], 2);
+        }
+        if (isset($storedQuote['initiation_list'])) {
+            $initiationList = round((float) $storedQuote['initiation_list'], 2);
+        }
+        if (!empty($storedQuote['discount_applied'])) {
+            $discountAmount = round((float) ($storedQuote['discount_amount'] ?? 0), 2);
+            $discountAppliesTo = (string) ($storedQuote['discount_applies_to'] ?? $discountAppliesTo);
+            if ($specialCode === '' && !empty($storedQuote['coupon'])) {
+                $specialCode = (string) $storedQuote['coupon'];
+            }
+        }
+    }
+
+    $displayInitiation = $initiationList ?? $initiation;
+    $clubLines = array_values(array_filter([$membershipDues, $displayInitiation], static fn ($v) => $v !== null));
+    $clubSubtotal = $clubLines !== [] ? round(array_sum($clubLines), 2) : null;
+    if ($clubSubtotal !== null && $discountAmount !== null && $discountAmount > 0) {
+        $clubSubtotal = round(max(0, $clubSubtotal - $discountAmount), 2);
+    }
+    $parts = array_values(array_filter([$clubSubtotal, $processing], static fn ($v) => $v !== null));
+    $subtotal = count($parts) >= 2 ? round(array_sum($parts), 2) : (count($parts) === 1 ? $parts[0] : ($clubSubtotal ?? null));
     $paymentStatus = (string) ($application['payment_status'] ?? '');
-    $couponApplied = $complimentaryLabel !== null || ($specialCode !== '' && (
-        $paymentStatus === 'waived'
-        || ($subtotal !== null && $totalPaid !== null && $totalPaid < $subtotal)
-    ));
+    $couponApplied = $complimentaryLabel !== null || ($specialCode !== '' && $paymentStatus === 'waived');
+    $hasDiscountNote = (bool) preg_match('/Discount code:/i', $notesText);
+    $discountApplied = $specialCode !== '' && !$couponApplied && $totalPaid !== null && $totalPaid > 0
+        && (($discountAmount !== null && $discountAmount > 0) || $hasDiscountNote);
 
     return [
         'membership_dues'     => $membershipDues,
@@ -80,6 +112,9 @@ function application_payment_breakdown(array $application, ?PDO $pdo = null): ar
         'total_paid'          => $totalPaid,
         'special_code'        => $specialCode !== '' ? $specialCode : null,
         'coupon_applied'      => $couponApplied,
+        'discount_applied'    => $discountApplied,
+        'discount_amount'     => $discountAmount,
+        'discount_applies_to' => $discountAppliesTo !== null && $discountAppliesTo !== '' ? $discountAppliesTo : null,
         'complimentary_label' => $complimentaryLabel,
     ];
 }
@@ -92,19 +127,24 @@ function application_resolve_membership_type_slot(array $application, ?PDO $pdo 
 }
 
 /**
- * Build a payment summary, preferring raw webhook payload keys when present.
+ * Quote snapshot stored on native applications (raw_payload.quote).
  *
- * @return array{
- *   membership_dues: ?float,
- *   initiation: ?float,
- *   processing: ?float,
- *   subtotal: ?float,
- *   total_paid: ?float,
- *   special_code: ?string,
- *   coupon_applied: bool,
- *   complimentary_label: ?string
- * }
+ * @return array<string, mixed>|null
  */
+function application_stored_quote(array $application): ?array
+{
+    $raw = $application['raw_payload'] ?? null;
+    if (!is_string($raw) || $raw === '') {
+        return null;
+    }
+    $decoded = json_decode($raw, true);
+    if (!is_array($decoded) || !isset($decoded['quote']) || !is_array($decoded['quote'])) {
+        return null;
+    }
+
+    return $decoded['quote'];
+}
+
 function application_payment_complimentary_label(?string $notes): ?string
 {
     if ($notes === null || trim($notes) === '') {
@@ -267,7 +307,9 @@ function application_payment_underpaid_check(PDO $pdo, array $application, array
         $warnings[] = 'No initiation fee was collected on the website. New and late members normally pay an initiation fee.';
     }
 
-    if ($expectedSubtotal !== null && $totalPaid !== null && !($payment['coupon_applied'] ?? false)) {
+    if ($expectedSubtotal !== null && $totalPaid !== null
+        && !($payment['coupon_applied'] ?? false)
+        && !($payment['discount_applied'] ?? false)) {
         if ($totalPaid + 0.009 < $expectedSubtotal) {
             $underpaid = true;
             $shortfall = round($expectedSubtotal - $totalPaid, 2);
@@ -510,6 +552,7 @@ function application_online_payment_context(array $application, ?PDO $pdo = null
         'payment'               => $payment,
         'paid_online'           => $paidOnline,
         'waived'                => $waived,
+        'discount_applied'      => !empty($payment['discount_applied']),
         'suggest_complementary' => $waived,
         'stripe_id'             => trim((string) ($application['payment_transaction_id'] ?? '')),
         'gateway'               => trim((string) ($application['payment_gateway'] ?? '')),

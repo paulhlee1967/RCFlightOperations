@@ -193,6 +193,7 @@ $expectedTables = [
     'incidents', 'incident_photos', 'audit_log', 'login_attempts',
     'password_reset_tokens', 'password_reset_ip_events', 'member_fulfillments',
     'member_membership_years', 'member_applications', 'membership_comp_invites',
+    'membership_discount_codes',
     'member_application_emails', 'member_application_info_requests',
     'board_packet_deliveries', 'member_magic_links', 'system_config', 'operator_messages',
     'rate_limit_events',

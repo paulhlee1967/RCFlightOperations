@@ -207,6 +207,12 @@ $hasClubLogo = !empty($theme['logo_path'])
                                 <div class="col-5 text-end"><?= htmlspecialchars(formatMoney($payment['initiation'])) ?></div>
                             </div>
                             <?php endif; ?>
+                            <?php if (!empty($payment['discount_applied']) && $payment['discount_amount'] !== null): ?>
+                            <div class="row text-success">
+                                <div class="col-7 fee-label">Discount<?php if ($payment['special_code'] !== null): ?> (<code><?= htmlspecialchars($payment['special_code']) ?></code>)<?php endif; ?></div>
+                                <div class="col-5 text-end">−<?= htmlspecialchars(formatMoney($payment['discount_amount'])) ?></div>
+                            </div>
+                            <?php endif; ?>
                             <?php if ($payment['processing'] !== null): ?>
                             <div class="row">
                                 <div class="col-7 fee-label">Processing fee</div>

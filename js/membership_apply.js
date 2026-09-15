@@ -106,10 +106,26 @@
                 return;
             }
             const q = json.quote;
-            document.getElementById('fee-dues').textContent = money(q.dues);
-            document.getElementById('fee-initiation').textContent = money(q.initiation);
+            const duesList = q.dues_list != null ? q.dues_list : q.dues;
+            const initiationList = q.initiation_list != null ? q.initiation_list : q.initiation;
+            document.getElementById('fee-dues').textContent = money(duesList);
+            document.getElementById('fee-initiation').textContent = money(initiationList);
             document.getElementById('fee-processing').textContent = money(q.processing_fee);
             document.getElementById('fee-total').textContent = money(q.total);
+            const discountRow = document.getElementById('fee-discount-row');
+            const discountEl = document.getElementById('fee-discount');
+            const discountLabel = document.getElementById('fee-discount-label');
+            if (discountRow && discountEl) {
+                if (q.discount_applied && q.discount_amount > 0) {
+                    discountEl.textContent = '−' + money(q.discount_amount);
+                    if (discountLabel) {
+                        discountLabel.textContent = q.coupon ? ('Discount (' + q.coupon + ')') : 'Discount';
+                    }
+                    discountRow.classList.remove('d-none');
+                } else {
+                    discountRow.classList.add('d-none');
+                }
+            }
             const compEl = document.getElementById('fee-complimentary');
             if (compEl) {
                 if (q.complimentary_message) {
@@ -118,6 +134,18 @@
                 } else {
                     compEl.textContent = '';
                     compEl.classList.add('d-none');
+                }
+            }
+            const discountMsg = document.getElementById('fee-discount-msg');
+            if (discountMsg) {
+                discountMsg.classList.remove('alert-success', 'alert-warning');
+                if (q.discount_message && !q.waive_payment) {
+                    discountMsg.textContent = q.discount_message;
+                    discountMsg.classList.add(q.discount_error ? 'alert-warning' : 'alert-success');
+                    discountMsg.classList.remove('d-none');
+                } else {
+                    discountMsg.textContent = '';
+                    discountMsg.classList.add('d-none');
                 }
             }
             feeSummary.classList.remove('d-none');

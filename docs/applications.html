@@ -46,6 +46,7 @@
     <a href="#badge-photo">Badge photo</a>
     <a href="#setup">Website setup</a>
     <a href="#comp-invites">Complimentary invites</a>
+    <a href="#discount-codes">Discount codes</a>
     <hr class="sidebar-divider">
     <div class="sidebar-title">Other Docs</div>
     <a href="index.html">← Docs home</a>
@@ -183,7 +184,8 @@
       <li><strong>Membership dues</strong> — calculated from membership type and renewal season</li>
       <li><strong>Initiation</strong> and <strong>Processing fee</strong> (Stripe)</li>
       <li><strong>Subtotal</strong> — when all line items are present</li>
-      <li><strong>Coupon / complimentary</strong> — from notes or waived payment status</li>
+      <li><strong>Coupon / complimentary</strong> — waived payment (comp invite or member flag)</li>
+      <li><strong>Discount</strong> — reusable campaign code that reduced dues and/or initiation; applicant still paid via Stripe</li>
       <li><strong>Total paid</strong> — Stripe charge when payment was required</li>
     </ul>
     <p>
@@ -289,6 +291,24 @@
       matches an open invite on <code>apply.php</code>, payment is waived and the invite is
       marked redeemed on successful submit. Life/free flags already on a club member record can
       also waive payment without a separate invite.
+    </p>
+
+    <h2 id="discount-codes">Campaign discount codes</h2>
+    <p>
+      From <strong>Applications → Discount codes</strong>, staff create reusable codes anyone can
+      type on <code>apply.php</code>. Each code is percent or dollar off, applied to membership dues,
+      initiation, or both, and can expire on a date you choose. Codes do not match a person and
+      are not single-use.
+    </p>
+    <p>
+      The quote subtracts the discount from the club amount, then recalculates the Stripe processing
+      fee on what is left. Approving posts the discounted dues/initiation (and the fee) to the
+      ledger — this is still a paid membership, not complementary. A code that would take the
+      total to $0 is rejected; use a complimentary invite for a free membership.
+    </p>
+    <p>
+      Disable a code to stop new uses immediately. Complimentary flags and invites always win:
+      if the applicant is already $0, a discount code is ignored.
     </p>
 
   </main>

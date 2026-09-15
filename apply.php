@@ -116,7 +116,7 @@ require_once __DIR__ . '/includes/csp_nonce.php';
         </div>
 
         <?php if (!$stripeConfigured): ?>
-        <div class="alert alert-warning">Online payment is not configured yet. Complimentary members and valid coupon codes may still apply without payment.</div>
+        <div class="alert alert-warning">Online payment is not configured yet. Complimentary members may still apply without payment.</div>
         <?php endif; ?>
 
         <?php if ($complimentaryMember): ?>
@@ -351,14 +351,16 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label">Coupon code (if you have one)</label>
-                        <input type="text" name="coupon_code" id="coupon_code" class="form-control" autocomplete="off">
+                        <label class="form-label">Discount code (if you have one)</label>
+                        <input type="text" name="coupon_code" id="coupon_code" class="form-control text-uppercase" autocomplete="off">
                     </div>
 
                     <div id="fee-summary" class="border rounded p-3 bg-light d-none">
                         <div id="fee-complimentary" class="alert alert-success py-2 small d-none mb-2"></div>
+                        <div id="fee-discount-msg" class="alert py-2 small d-none mb-2"></div>
                         <div class="d-flex justify-content-between"><span>Membership dues</span><span id="fee-dues">—</span></div>
                         <div class="d-flex justify-content-between"><span>Initiation fee</span><span id="fee-initiation">—</span></div>
+                        <div id="fee-discount-row" class="d-flex justify-content-between text-success d-none"><span id="fee-discount-label">Discount</span><span id="fee-discount">—</span></div>
                         <div class="d-flex justify-content-between"><span>Processing fee</span><span id="fee-processing">—</span></div>
                         <hr class="my-2">
                         <div class="d-flex justify-content-between fw-bold"><span>Total</span><span id="fee-total">—</span></div>
@@ -500,7 +502,7 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                         <?php if ($stripeConfigured): ?>
                         Card details appear here after you click <strong>Submit application</strong> below (your form is validated first).
                         <?php else: ?>
-                        Online payment is not configured yet — add Stripe keys under Installation, or use a valid coupon code.
+                        Online payment is not configured yet — add Stripe keys under Installation.
                         <?php endif; ?>
                     </p>
                     <div id="payment-element" class="d-none"></div>

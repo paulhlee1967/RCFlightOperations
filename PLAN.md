@@ -10,13 +10,13 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` (fresh-inst
 - **Members:** CRUD with Contact (phone, mailing address, photo, emergency contact), Compliance (AMA/FAA, verify AMA), Membership (type slot, renewal year, gate key, life/free/inactive/suspended), Payment history, Sender.net email preference status when configured.
 - **New member wizard:** Guided signup (contact → compliance → membership → first payment → print & mail).
 - **Record signup/renewal:** On-time, late, or new prorated; configurable dues; complimentary option; optional free membership / life member flag. Staff ledger is for cash/check; Stripe (or waived) online applications post to the ledger on approve.
-- **Online applications:** Public form at `/apply.php` (AMA gate, club-record prefill, Stripe, email opt-in, complimentary invites); staff review in **Applications** with status emails.
+- **Online applications:** Public form at `/apply.php` (AMA gate, club-record prefill, Stripe, email opt-in, complimentary invites, campaign discount codes); staff review in **Applications** with status emails.
 - **Member self-service:** Passwordless `/membership` magic-link profile for contact, AMA/FAA, uploads, and email prefs.
 - **Badge design & print:** CR80 card designer (Fabric.js): front (background, text fields, photo) and back (HTML). Multiple named designs; print front and/or back as separate jobs.
 - **Reports:** Built-in membership, retention, revenue, compliance, and related reports — on screen, CSV, branded PDF, or email. Monthly **board packet** (HTML/PDF) via Installation settings or cron.
 - **Incidents:** Safety / field incident log with optional photo attachments.
 - **Import/export:** CSV import for members; filter-aware CSV/PDF export.
-- **Admin:** Users (roles: administrator, membership manager, club staff, report viewer), club config, complimentary invites, audit log, **Installation** (SMTP, Stripe, Sender, applications, board packet, maintenance, health).
+- **Admin:** Users (roles: administrator, membership manager, club staff, report viewer), club config, complimentary invites, campaign discount codes, audit log, **Installation** (SMTP, Stripe, Sender, applications, board packet, maintenance, health).
 
 ---
 
@@ -26,7 +26,7 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` (fresh-inst
 - **users** – App logins: email, password_hash, name, role, active.
 - **members** – Identity, contact, membership fields, AMA/FAA, flags, email opt-in columns.
 - **payments** / **member_fulfillments** / **member_membership_years** – Ledger, per-year fulfillment, frozen year roster for reporting.
-- **member_applications** / **membership_comp_invites** – Public apply queue and complimentary invites.
+- **member_applications** / **membership_comp_invites** / **membership_discount_codes** – Public apply queue, complimentary invites, and reusable campaign discount codes.
 - **member_magic_links** – One-time tokens for member self-service.
 - **badge_templates** – JSON canvas designs.
 - **incidents** / **incident_photos** – Incident log and attachments.

@@ -86,6 +86,7 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_faa_card_path.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_badge_designs.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_applications.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_membership_comp_invites.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_membership_discount_codes.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_email_opt_in.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_application_emails.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_board_packet.sql
@@ -105,6 +106,7 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_rate_limit_events.sql
 | `migrate_badge_designs.sql` | Adds `badge_templates.name` / `is_default` (and legacy board columns later dropped by `schema_full.sql`) |
 | `migrate_member_applications.sql` | Creates `member_applications` queue table |
 | `migrate_membership_comp_invites.sql` | Creates `membership_comp_invites` for complimentary apply invites |
+| `migrate_membership_discount_codes.sql` | Creates `membership_discount_codes` for reusable campaign discounts on apply.php |
 | `migrate_email_opt_in.sql` | Adds `email_opt_in_club_events` and `email_opt_in_expiry_reminders` to `member_applications` and `members` |
 | `migrate_application_emails.sql` | Adds applicant email delivery tracking and staff information-request history |
 | `migrate_board_packet.sql` | Creates `board_packet_deliveries` log table and board packet `system_config` keys |

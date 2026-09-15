@@ -45,7 +45,7 @@ $expectedTables = [
     'payments', 'dues_rules', 'badge_templates',
     'incidents', 'incident_photos',
     'member_fulfillments', 'member_membership_years',
-    'member_applications', 'membership_comp_invites',
+    'member_applications', 'membership_comp_invites', 'membership_discount_codes',
     'member_application_emails', 'member_application_info_requests',
     'board_packet_deliveries',
     'member_magic_links',
@@ -99,6 +99,10 @@ $expectedColumns = [
     'membership_comp_invites' => [
         'id', 'email', 'ama_number', 'membership_type', 'notes', 'created_by',
         'created_at', 'expires_at', 'redeemed_at', 'redeemed_application_id', 'cancelled_at',
+    ],
+    'membership_discount_codes' => [
+        'id', 'code', 'discount_type', 'amount', 'applies_to', 'notes', 'active',
+        'created_by', 'created_at', 'expires_at', 'disabled_at',
     ],
     'member_application_emails' => [
         'id', 'application_id', 'email_type', 'idempotency_key', 'recipient', 'subject',

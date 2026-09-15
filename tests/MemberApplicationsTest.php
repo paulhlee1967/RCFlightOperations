@@ -25,6 +25,7 @@ final class MemberApplicationsTest extends TestCase
             'payment_processing_fee'   => 4.19,
             'membership_type_slot'     => 1,
             'suggested_renewal_type'   => 'new',
+            'payment_status'           => 'waived',
             'notes'                    => 'Coupon code: PAULTEST',
         ];
         $payment = application_payment_breakdown($application);
@@ -33,6 +34,24 @@ final class MemberApplicationsTest extends TestCase
         $this->assertSame(0.0, $payment['total_paid']);
         $this->assertSame('PAULTEST', $payment['special_code']);
         $this->assertTrue($payment['coupon_applied']);
+        $this->assertFalse($payment['discount_applied']);
+    }
+
+    public function test_payment_breakdown_for_paid_discount(): void
+    {
+        $application = [
+            'payment_total'          => 164.19,
+            'payment_initiation'     => 50.0,
+            'payment_processing_fee' => 4.19,
+            'payment_status'         => 'succeeded',
+            'notes'                  => 'Discount code: EARLY50 ($50.00 off membership dues)',
+        ];
+        $payment = application_payment_breakdown($application);
+        $this->assertTrue($payment['discount_applied']);
+        $this->assertFalse($payment['coupon_applied']);
+        $this->assertSame('EARLY50', $payment['special_code']);
+        $this->assertSame(50.0, $payment['discount_amount']);
+        $this->assertSame('membership dues', $payment['discount_applies_to']);
     }
 
     public function test_payment_breakdown_for_comp_invite_note(): void
@@ -179,6 +198,17 @@ final class MemberApplicationsTest extends TestCase
         ]);
         $this->assertTrue($waived['waived']);
         $this->assertTrue($waived['suggest_complementary']);
+        $this->assertFalse($waived['discount_applied']);
+
+        $discounted = application_online_payment_context([
+            'payment_status' => 'succeeded',
+            'payment_total'  => 164.19,
+            'notes'          => 'Discount code: EARLY50 ($50.00 off membership dues)',
+        ]);
+        $this->assertTrue($discounted['paid_online']);
+        $this->assertFalse($discounted['waived']);
+        $this->assertFalse($discounted['suggest_complementary']);
+        $this->assertTrue($discounted['discount_applied']);
     }
 
     public function test_ledger_amounts_for_stripe_on_time_renewal(): void

@@ -13,6 +13,7 @@ require_once __DIR__ . '/helpers.php';
 require_once __DIR__ . '/member_import_helpers.php';
 require_once __DIR__ . '/ama_verify.php';
 require_once __DIR__ . '/sender_net.php';
+require_once __DIR__ . '/membership_discount_codes.php';
 
 /** Stripe pass-through: 2.9% + $0.30 per transaction. */
 const MEMBERSHIP_STRIPE_PERCENT = 0.029;
@@ -753,44 +754,16 @@ function membership_application_ama_assert_verified(array $clean): ?string
     return null;
 }
 
-/**
- * Coupon codes that waive online payment.
- *
- * @return array<string, array{waive_payment:bool,label?:string}>
- */
-function membership_application_coupon_catalog(): array
-{
-    return [
-        'TWRCLR593'   => ['waive_payment' => true],
-        'CABIN100854' => ['waive_payment' => true],
-        'GATEZERO377' => ['waive_payment' => true],
-        'PAULTEST'    => ['waive_payment' => true],
-    ];
-}
-
 function membership_application_normalize_coupon(?string $code): string
 {
-    return strtoupper(trim((string) $code));
-}
-
-/**
- * @return array{waive_payment:bool,label:?string}|null
- */
-function membership_application_lookup_coupon(?string $code): ?array
-{
-    $code = membership_application_normalize_coupon($code);
-    if ($code === '') {
-        return null;
-    }
-    $catalog = membership_application_coupon_catalog();
-
-    return $catalog[$code] ?? null;
+    return membership_discount_normalize_code($code);
 }
 
 /**
  * Whether the applicant qualifies for complimentary (zero-dollar) online payment.
  *
- * Priority: club member flag, then staff comp invite, then legacy coupon code.
+ * Priority: club member flag, then staff comp invite. Campaign discount codes
+ * never waive payment — they are applied separately on the quote.
  *
  * @return array{
  *   waive_payment: bool,
@@ -810,6 +783,7 @@ function membership_application_complimentary_status(
     ?DateTimeInterface $now = null
 ): array {
     require_once __DIR__ . '/membership_comp_invites.php';
+    unset($couponCode);
 
     $base = [
         'waive_payment'  => false,
@@ -853,15 +827,6 @@ function membership_application_complimentary_status(
         $base['message'] = 'Complimentary membership invite on file (' . $typeLabel . ') — no online payment required.';
 
         return $base;
-    }
-
-    $coupon = membership_application_lookup_coupon($couponCode);
-    $couponNormalized = membership_application_normalize_coupon($couponCode);
-    if ($coupon !== null && !empty($coupon['waive_payment'])) {
-        $base['waive_payment'] = true;
-        $base['reason'] = 'coupon';
-        $base['coupon'] = $couponNormalized !== '' ? $couponNormalized : null;
-        $base['message'] = 'Coupon applied — no online payment required.';
     }
 
     return $base;
@@ -1040,6 +1005,13 @@ function membership_application_context(PDO $pdo, ?DateTimeInterface $now = null
  *   total: float,
  *   coupon: ?string,
  *   coupon_applied: bool,
+ *   dues_list: float,
+ *   initiation_list: float,
+ *   discount_applied: bool,
+ *   discount_amount: float,
+ *   discount_applies_to: ?string,
+ *   discount_message: ?string,
+ *   discount_error: bool,
  *   waive_payment: bool,
  *   complimentary_reason: ?string,
  *   complimentary_message: ?string,
@@ -1068,9 +1040,10 @@ function membership_application_quote(
     $season = $kind === 'renewal' ? 'renewal_window' : membership_application_new_member_season($now, $pdo);
     $renewalType = membership_application_dues_renewal_type($kind, $season);
     $calc = calculateDues($pdo, $slot, $renewalType);
-    $dues = round($calc['dues'], 2);
-    $initiation = round($calc['init'], 2);
-    $subtotal = round($dues + $initiation, 2);
+    $duesList = round($calc['dues'], 2);
+    $initiationList = round($calc['init'], 2);
+    $dues = $duesList;
+    $initiation = $initiationList;
 
     $amaNumber = (string) ($applicant['ama_number'] ?? '');
     $email = (string) ($applicant['email'] ?? '');
@@ -1083,9 +1056,40 @@ function membership_application_quote(
 
     $complimentary = membership_application_complimentary_status($pdo, $amaNumber, $email, $couponCode, $now);
     $waive = $complimentary['waive_payment'];
+    $couponNormalized = membership_application_normalize_coupon($couponCode);
+
+    $discountApplied = false;
+    $discountAmount = 0.0;
+    $discountAppliesTo = null;
+    $discountMessage = null;
+    $discountError = false;
+    $appliedCode = null;
+
+    if (!$waive && $couponNormalized !== '') {
+        $row = membership_discount_code_find_active($pdo, $couponNormalized, $now);
+        if ($row === null) {
+            $discountError = true;
+            $discountMessage = 'That discount code is not valid or has expired.';
+        } else {
+            $applied = membership_discount_code_apply($dues, $initiation, $row);
+            if ($applied['ok']) {
+                $dues = $applied['dues'];
+                $initiation = $applied['initiation'];
+                $discountApplied = true;
+                $discountAmount = $applied['discount_amount'];
+                $discountAppliesTo = $applied['applies_to'];
+                $discountMessage = $applied['message'];
+                $appliedCode = $applied['code'];
+            } else {
+                $discountError = true;
+                $discountMessage = $applied['error'] ?? 'This code does not apply to this membership quote.';
+            }
+        }
+    }
+
+    $subtotal = round($dues + $initiation, 2);
     $processing = $waive ? 0.0 : membership_application_stripe_processing_fee($subtotal);
     $total = $waive ? 0.0 : round($subtotal + $processing, 2);
-    $couponNormalized = membership_application_normalize_coupon($couponCode);
 
     return [
         'kind'                   => $kind,
@@ -1093,11 +1097,18 @@ function membership_application_quote(
         'slot'                   => $slot,
         'dues'                   => $dues,
         'initiation'             => $initiation,
+        'dues_list'              => $duesList,
+        'initiation_list'        => $initiationList,
         'processing_fee'         => $processing,
         'subtotal'               => $subtotal,
         'total'                  => $total,
-        'coupon'                 => $complimentary['coupon'] ?? ($couponNormalized !== '' ? $couponNormalized : null),
-        'coupon_applied'         => $waive && ($complimentary['reason'] ?? '') === 'coupon',
+        'coupon'                 => $appliedCode,
+        'coupon_applied'         => false,
+        'discount_applied'       => $discountApplied,
+        'discount_amount'        => $discountAmount,
+        'discount_applies_to'    => $discountAppliesTo,
+        'discount_message'       => $discountMessage,
+        'discount_error'         => $discountError,
         'waive_payment'          => $waive,
         'complimentary_reason'   => $complimentary['reason'],
         'complimentary_message'  => $complimentary['message'],
@@ -1695,8 +1706,11 @@ function membership_application_submit(PDO $pdo, array $post, array $files, ?Dat
     if ($clean['middle_name'] !== '') {
         $notes[] = 'Middle name: ' . $clean['middle_name'];
     }
-    if ($quote['coupon'] !== null && ($quote['complimentary_reason'] ?? '') === 'coupon') {
-        $notes[] = 'Coupon code: ' . $quote['coupon'];
+    if (!empty($quote['discount_applied']) && !empty($quote['coupon'])) {
+        $applies = membership_discount_normalize_applies_to($quote['discount_applies_to'] ?? 'both');
+        $appliesLabel = strtolower(membership_discount_applies_to_labels()[$applies] ?? 'quoted fees');
+        $notes[] = 'Discount code: ' . $quote['coupon']
+            . ' (' . formatMoney((float) $quote['discount_amount']) . ' off ' . $appliesLabel . ')';
     }
     if (($quote['complimentary_reason'] ?? '') === 'member_flag') {
         $detail = trim((string) ($quote['complimentary_detail'] ?? 'complimentary member'));
