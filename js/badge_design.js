@@ -57,6 +57,8 @@ function applyHistoryJSON(jsonStr) {
         canvas.requestRenderAll();
         scheduleDesignerViewSync();
         setPropsPanelVisible(false);
+    }).catch(function () {
+        historyPaused = false;
     });
 }
 
@@ -319,6 +321,7 @@ function addTextField(field, placeholder) {
     text.set(dataFieldProp, field);
     canvas.add(text);
     canvas.setActiveObject(text);
+    snapshotActiveObject();
     canvas.requestRenderAll();
 }
 
@@ -395,6 +398,7 @@ function addPhotoField() {
     grp.set(dataFieldProp, 'photo');
     canvas.add(grp);
     canvas.setActiveObject(grp);
+    snapshotActiveObject();
     canvas.requestRenderAll();
 }
 
@@ -407,17 +411,81 @@ document.getElementById('add-field-select').addEventListener('change', function 
         addTextField(value, opt.dataset.placeholder);
     }
     this.selectedIndex = 0; // reset back to the "Add a field…" prompt
+    this.blur();
 });
 
-document.getElementById('deleteObj').addEventListener('click', function () {
-    var active = canvas.getActiveObjects();
-    if (active.length) {
-        canvas.discardActiveObject();
-        active.forEach(function (obj) { canvas.remove(obj); });
-        canvas.requestRenderAll();
+/* Keep the last selected field. Clicking outside the card (including Delete)
+   makes Fabric drop the canvas selection before a click handler can run. */
+var lastActiveObject = null;
+
+function snapshotActiveObject() {
+    lastActiveObject = canvas.getActiveObject() || lastActiveObject;
+}
+
+function isActiveSelection(obj) {
+    return !!(obj && typeof obj.getObjects === 'function' && ('multiSelectionStacking' in obj || obj.type === 'activeselection' || obj.type === 'activeSelection'));
+}
+
+function collectDeletableObjects() {
+    var obj = canvas.getActiveObject() || lastActiveObject;
+    if (!obj) return [];
+    if (isActiveSelection(obj)) {
+        return obj.getObjects().slice();
     }
+    return [obj];
+}
+
+function deleteSelectedObjects() {
+    var targets = collectDeletableObjects();
+    if (!targets.length) return false;
+
+    var editing = canvas.getActiveObject() || lastActiveObject;
+    if (editing && editing.isEditing && typeof editing.exitEditing === 'function') {
+        editing.exitEditing();
+    }
+
+    if (previewMode) {
+        var placeholders = [];
+        targets.forEach(function (obj) {
+            if (obj[dataFieldProp] === 'photo_preview') {
+                canvas.getObjects().forEach(function (p) {
+                    if (p[dataFieldProp] === 'photo') placeholders.push(p);
+                });
+            }
+        });
+        exitPreview();
+        if (previewSelect) previewSelect.value = '';
+        if (previewStatus) previewStatus.textContent = '';
+        targets = targets.concat(placeholders).filter(function (obj) {
+            return obj && obj[dataFieldProp] !== 'photo_preview';
+        });
+        if (!targets.length) return false;
+    }
+
+    try { canvas.discardActiveObject(); } catch (errDiscard) {}
+    canvas.remove.apply(canvas, targets);
+    lastActiveObject = null;
+    canvas.requestRenderAll();
     setPropsPanelVisible(false);
-});
+    return true;
+}
+
+document.addEventListener('pointerdown', function (e) {
+    var el = e.target;
+    if (el && el.nodeType !== 1) el = el.parentElement;
+    if (!el || !el.closest || !el.closest('.js-delete-selected-obj')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    deleteSelectedObjects();
+}, true);
+document.addEventListener('click', function (e) {
+    var el = e.target;
+    if (el && el.nodeType !== 1) el = el.parentElement;
+    if (!el || !el.closest || !el.closest('.js-delete-selected-obj')) return;
+    e.preventDefault();
+    e.stopPropagation();
+    deleteSelectedObjects();
+}, true);
 
 canvas.on('object:modified', scheduleHistorySnapshot);
 canvas.on('object:added', scheduleHistorySnapshot);
@@ -438,16 +506,21 @@ document.getElementById('redo-canvas').addEventListener('click', function () {
 });
 
 document.addEventListener('keydown', function (e) {
-    if (previewMode || historyPaused) return;
     var el = document.activeElement;
-    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+    var editing = canvas.getActiveObject();
+    if (editing && editing.isEditing) return;
     var mod = e.ctrlKey || e.metaKey;
     if (mod && e.key === 'z' && !e.shiftKey) {
+        if (previewMode || historyPaused) return;
         e.preventDefault();
         document.getElementById('undo-canvas').click();
     } else if (mod && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        if (previewMode || historyPaused) return;
         e.preventDefault();
         document.getElementById('redo-canvas').click();
+    } else if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) {
+        if (deleteSelectedObjects()) e.preventDefault();
     }
 }, true);
 
@@ -464,15 +537,29 @@ var alignBtns     = document.querySelectorAll('#prop-align button');
 
 /** Populate the properties panel from the currently selected object. */
 function syncPropsPanel(obj) {
-    if (!obj || (FabricGroupClass && obj instanceof FabricGroupClass)) {
+    if (!obj) {
         setPropsPanelVisible(false);
         return;
     }
     setPropsPanelVisible(true);
     var field = obj[dataFieldProp] || '';
-
     var fi = BADGE_DATA_FIELDS[field];
-    propsLabel.textContent = (fi && fi.label) ? fi.label : (field || '');
+    var isText = typeof isBadgeTextObject === 'function' && isBadgeTextObject(obj);
+    var isPhoto = field === 'photo' || field === 'photo_preview'
+        || (FabricGroupClass && obj instanceof FabricGroupClass);
+
+    var textControls = document.getElementById('props-text-controls');
+    var photoHint = document.getElementById('props-photo-hint');
+    if (textControls) textControls.classList.toggle('d-none', !isText);
+    if (photoHint) photoHint.classList.toggle('d-none', !isPhoto || isText);
+
+    if (field === 'photo' || field === 'photo_preview') {
+        propsLabel.textContent = 'Member photo';
+    } else {
+        propsLabel.textContent = (fi && fi.label) ? fi.label : (field || 'Item');
+    }
+
+    if (!isText) return;
 
     propFontFamily.value     = obj.fontFamily || DEFAULT_BADGE_FONT;
     propFontSize.value       = obj.fontSize || 14;
@@ -489,9 +576,23 @@ function syncPropsPanel(obj) {
     document.getElementById('prop-width').value = obj._fixedWidth || 0;
 }
 
-canvas.on('selection:created',  function (e) { syncPropsPanel(e.selected && e.selected[0]); });
-canvas.on('selection:updated',  function (e) { syncPropsPanel(e.selected && e.selected[0]); });
-canvas.on('selection:cleared',  function ()  { setPropsPanelVisible(false); });
+canvas.on('selection:created',  function (e) {
+    snapshotActiveObject();
+    syncPropsPanel(canvas.getActiveObject() || (e.selected && e.selected[0]));
+});
+canvas.on('selection:updated',  function (e) {
+    snapshotActiveObject();
+    syncPropsPanel(canvas.getActiveObject() || (e.selected && e.selected[0]));
+});
+canvas.on('mouse:down', function (opt) {
+    if (opt && opt.target) snapshotActiveObject();
+});
+canvas.on('selection:cleared',  function ()  {
+    setTimeout(function () {
+        if (canvas.getActiveObject()) return;
+        setPropsPanelVisible(false);
+    }, 0);
+});
 
 /* Apply property changes back to the selected object */
 function applyPropChange(fn) {
@@ -1039,22 +1140,23 @@ function applyDesignData(data) {
 
     canvas.loadFromJSON(data.canvas).then(function () {
         restoreDataFields(canvas, data.canvas);
+        historyPaused = false;
+        resetHistoryFromCanvas();
         if (bgUrl) {
             var opts = bgUrl.indexOf('data:') !== 0 ? { crossOrigin: 'anonymous' } : {};
             loadFabricImage(bgUrl, opts, function (img) {
                 if (img) setBackgroundToCover(img);
                 canvas.requestRenderAll();
                 scheduleDesignerViewSync();
-                historyPaused = false;
-                resetHistoryFromCanvas();
             });
         } else {
             canvas.backgroundImage = null;
             canvas.requestRenderAll();
             scheduleDesignerViewSync();
-            historyPaused = false;
-            resetHistoryFromCanvas();
         }
+    }).catch(function () {
+        historyPaused = false;
+        resetHistoryFromCanvas();
     });
 }
 

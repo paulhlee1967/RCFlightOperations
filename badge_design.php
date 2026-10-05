@@ -178,7 +178,7 @@ $dataFields = [
                     <option value="__photo__">🖼 Member photo</option>
                 </select>
                 <hr class="my-2">
-                <button type="button" class="btn btn-outline-danger btn-sm w-100" id="deleteObj">
+                <button type="button" class="btn btn-outline-danger btn-sm w-100 js-delete-selected-obj" id="deleteObj">
                     🗑 Delete selected
                 </button>
                 <div class="btn-group btn-group-sm w-100 mt-1" role="group" aria-label="Undo redo">
@@ -188,6 +188,7 @@ $dataFields = [
                 </div>
 
                 <div class="sidebar-section d-none" data-section="props" id="props-panel">
+                <div id="props-text-controls">
                 <div class="mb-2">
                     <label class="form-label small mb-1" for="prop-fontfamily">Font</label>
                     <select id="prop-fontfamily" class="form-select form-select-sm">
@@ -230,7 +231,7 @@ $dataFields = [
                     </div>
                     <div class="form-text">Text is anchored at its top-left corner. For center/right within a box, set a fixed width wider than the text.</div>
                 </div>
-                <div class="mb-0">
+                <div class="mb-2">
                     <label class="form-label small mb-1" for="prop-width">
                         Fixed width <span class="text-muted">(px, 0&nbsp;=&nbsp;auto)</span>
                     </label>
@@ -238,6 +239,11 @@ $dataFields = [
                            min="0" max="800" step="1" value="0"
                            title="Set a fixed width so text alignment has room to work">
                 </div>
+                </div>
+                <p class="small text-muted mb-2 d-none" id="props-photo-hint">Drag to reposition or resize the photo box.</p>
+                <button type="button" class="btn btn-outline-danger btn-sm w-100 js-delete-selected-obj" title="Delete selected (Delete or Backspace)">
+                    🗑 Delete selected
+                </button>
                 </div>
 
                 <div class="sidebar-section d-none" data-section="preview" id="preview-panel">
@@ -263,9 +269,12 @@ $dataFields = [
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
                 <div class="d-flex align-items-center gap-2 flex-wrap">
                     <span class="badge bg-secondary">Front</span>
-                    <span class="small text-muted">CR80 — drag fields to position, click to select &amp; edit properties</span>
+                    <span class="small text-muted">CR80 — drag fields to position, click to select, Delete or Backspace to remove</span>
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <button type="button" class="btn btn-outline-danger btn-sm js-delete-selected-obj" title="Remove the selected field (Delete or Backspace)">
+                        🗑 Delete field
+                    </button>
                     <span class="small text-muted text-nowrap mb-0" id="canvas-zoom-label">View</span>
                     <div class="btn-group btn-group-sm" role="group" aria-labelledby="canvas-zoom-label" id="canvas-zoom-btns">
                         <input type="radio" class="btn-check canvas-zoom-radio" name="canvasZoomFront" id="canvasZoomFit" value="fit" autocomplete="off">
@@ -402,7 +411,7 @@ $dataFields = [
 require_once __DIR__ . '/includes/vendor_assets.php';
 ?>
 <script src="<?= htmlspecialchars(flightops_fabric_js_url()) ?>"></script>
-<script src="js/badge_fabric.js"></script>
+<script src="js/badge_fabric.js?v=<?= htmlspecialchars(FLIGHT_OPS_VERSION) ?>.<?= (int) filemtime(__DIR__ . '/js/badge_fabric.js') ?>"></script>
 <script<?= csp_nonce_attr() ?>>
 window.FLIGHTOPS_BADGE_DESIGN = <?= json_encode([
     'dataFields' => $dataFields,
@@ -412,6 +421,6 @@ window.FLIGHTOPS_BADGE_DESIGN = <?= json_encode([
     'cardHeightPortrait' => $cardHeightPortrait,
 ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="js/badge_design.js"></script>
+<script src="js/badge_design.js?v=<?= htmlspecialchars(FLIGHT_OPS_VERSION) ?>.<?= (int) filemtime(__DIR__ . '/js/badge_design.js') ?>"></script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
