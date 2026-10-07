@@ -29,6 +29,9 @@ $notRenewedFilter = notYetRenewedReportFilter($pdo, 'm', $renewalYear);
 $stmt = $pdo->prepare("SELECT COUNT(*) AS cnt FROM members m WHERE {$notRenewedFilter['where']}");
 $stmt->execute($notRenewedFilter['params']);
 $notRenewed = (int) $stmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+$signedUpForRenewalYear = $renewalYear > $currentYear
+    ? countCurrentMembers($pdo, $renewalYear)
+    : 0;
 
 // ── Stat: unprinted badges ───────────────────────────────────────────────────
 $currentWhere = currentMemberWhereSql('m', $currentYear);
@@ -100,8 +103,10 @@ require_once __DIR__ . '/includes/header.php';
 
 <?php if ($renewalYear > (int) date('Y')): ?>
 <div class="alert alert-info alert-dismissible fade show small mb-4" role="alert">
-    <strong>Renewal season:</strong> Members who have already paid for <?= (int) $renewalYear ?> may show that year as their renewal year.
-    The <strong>Current members</strong> count above is for the <strong>calendar year <?= (int) date('Y') ?></strong> &mdash; that is expected and does not mean their payment was lost.
+    <strong>Renewal season:</strong> A signup or renewal for <?= (int) $renewalYear ?> includes the rest of <?= (int) date('Y') ?> and all of <?= (int) $renewalYear ?>. Those members stay current.
+    <?php if (canViewReports()): ?>
+    <a href="reports.php?report=signed_up_for_year&amp;year=<?= (int) $renewalYear ?>">Who has signed up for <?= (int) $renewalYear ?></a>
+    <?php endif; ?>
     <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
 </div>
 <?php endif; ?>
@@ -147,6 +152,26 @@ require_once __DIR__ . '/includes/header.php';
         <?php if (canViewReports()): ?></a><?php else: ?></div><?php endif; ?>
     </div>
 
+    <?php if ($renewalYear > $currentYear): ?>
+    <!-- Signed up for the working renewal year -->
+    <div class="col-6 col-sm-4 col-xl">
+        <?php if (canViewReports()): ?>
+        <a href="reports.php?report=signed_up_for_year&amp;year=<?= (int) $renewalYear ?>" class="card stat-card text-decoration-none h-100">
+        <?php else: ?><div class="card stat-card h-100"><?php endif; ?>
+            <div class="card-body p-3">
+                <div class="stat-icon text-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0m-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                    </svg>
+                </div>
+                <div class="stat-value text-success"><?= $signedUpForRenewalYear ?></div>
+                <div class="stat-label">Signed up</div>
+                <div class="stat-sub text-muted">for <?= (int) $renewalYear ?></div>
+            </div>
+        <?php if (canViewReports()): ?></a><?php else: ?></div><?php endif; ?>
+    </div>
+    <?php endif; ?>
+
     <!-- Unprinted badges -->
     <div class="col-6 col-sm-4 col-xl">
         <?php if (canViewMembers()): ?>
@@ -161,7 +186,7 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 <div class="stat-value <?= $unprintedBadges > 0 ? 'text-body' : 'text-success' ?>"><?= $unprintedBadges ?></div>
                 <div class="stat-label">Badges unprinted</div>
-                <div class="stat-sub text-muted"><?= $currentYear ?> renewals</div>
+                <div class="stat-sub text-muted">current members</div>
             </div>
         <?php if (canViewMembers()): ?></a><?php else: ?></div><?php endif; ?>
     </div>

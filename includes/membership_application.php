@@ -228,6 +228,14 @@ function membership_application_renewal_eligibility(
         return $base;
     }
 
+    $onFile = (int) ($member['membership_renewal_year'] ?? 0);
+    if ($onFile >= $renewalYear) {
+        $base['member_id'] = (int) $member['id'];
+        $base['message'] = 'Our records show your membership already runs through ' . $renewalYear . '.';
+
+        return $base;
+    }
+
     $priorYear = $renewalYear - 1;
     $renewedIds = renewedMemberIdsForYear($pdo, $priorYear);
     if (!memberIsCurrent($member, $priorYear, $renewedIds)) {

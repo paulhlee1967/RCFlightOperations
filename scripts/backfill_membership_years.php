@@ -14,7 +14,7 @@
  *   - Years with no payment/fulfillment rows get 0 members (reports fall back until data exists).
  *
  * Per-year rules:
- *   - Current calendar year: live "current member" rules (renewal year + payment/life/free).
+ *   - Current calendar year: live current-member rules (renewal year is this year or later, not inactive or suspended).
  *   - Prior years: distinct members with a payment or fulfillment for that year.
  */
 

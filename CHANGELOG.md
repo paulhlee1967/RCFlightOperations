@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Renewal-season reports** — **Signed up for year** lists everyone whose membership runs through the selected year (defaults to next year during the pre-book window) and can email that group. **Renewal progress** summarizes returning renewals, new signups, not yet renewed, and the renewal rate. The dashboard shows a **Signed up** card for next year during renewal season.
 - **Campaign discount codes** — Staff-managed reusable codes on [`discount_codes.php`](discount_codes.php) (percent or dollar off dues, initiation, or both, with optional expiration). Applied on `/apply.php` before Stripe; complimentary invites remain the $0 path. Hardcoded full-waiver coupon codes were removed. Migration: [`scripts/migrate_membership_discount_codes.sql`](scripts/migrate_membership_discount_codes.sql).
 - **Stripe (and waived) payments post to the ledger on approve** — Approving a paid online application writes dues, initiation or late fee, and Stripe processing fee into `payments`, sets the renewal year, and marks fulfillment processed. Staff go to print badge / mailer instead of re-entering the amount. Complimentary/coupon waivers write a $0 complementary row. Cash/check walk-ins are unchanged. Migration: [`scripts/migrate_member_trust_ledger.sql`](scripts/migrate_member_trust_ledger.sql).
 - **TRUST attestation on member records** — Compliance tab, member view, new-member wizard, membership portal, process-renewal warnings, missing-data report, and members quick-view. Copied from the application on approve. Existing approved applications are backfilled by the same migration. FAA number/expiration/card stay in the database only.
@@ -19,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Membership by year and Retention & churn include the open renewal year** — During renewal season those reports show next year (signups so far), not only the calendar year. On the open year, Lapsed means not yet renewed.
+- **Current members include next-year signups** — During renewal season a signup or renewal is recorded as next year and still includes the rest of this calendar year. Those members stay current on the members list, dashboard, compliance, and current-member reports instead of showing as inactive.
 - **Shared app CSS** — Theme tokens stay in `includes/header.php`; the rest lives in cacheable [`assets/css/app.css`](assets/css/app.css) (simpler CSP `style-src-elem 'self'`). Report sidebar / dashboard cards explicitly cancel Bootstrap 5.3’s default link underline.
 - **Application season labels** — Follow the configurable pre-book month/day and dues prorate window instead of hardcoded Oct–Dec.
 - **Revenue by year** — Columns are Dues / Initiation / Late fees / **Club net** / **Stripe processing** / **Charged to members** / Refunds. Club net excludes the Stripe pass-through fee.

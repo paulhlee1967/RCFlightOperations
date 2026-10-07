@@ -299,7 +299,7 @@ render_page_header([
     <?php endif; ?>
     <?php if ($statusFilter === 'current'): ?>
     <p class="text-muted small mt-1 mb-0">
-        Showing current (paid-up) members for <?= (int) $currentYear ?>.
+        Showing current members for <?= (int) $currentYear ?><?php if (defaultRenewalYear($pdo) > $currentYear): ?>, including anyone already signed up through <?= (int) defaultRenewalYear($pdo) ?><?php endif; ?>.
     </p>
     <?php endif; ?>
     <?php if ($flagFilters !== []): ?>
@@ -497,10 +497,10 @@ render_page_header([
                 $renewalYear = (int) ($m['membership_renewal_year'] ?? 0);
                 $hasPhoto    = !empty($m['photo_path']);
 
-                // Badge printed this renewal year?
+                // Badge printed for a membership that covers this calendar year.
                 $badgePrinted = false;
-                if (!empty($m['badge_printed_at']) && $renewalYear === $currentYear) {
-                    $badgePrinted = (int) date('Y', strtotime($m['badge_printed_at'])) >= $currentYear;
+                if (!empty($m['badge_printed_at']) && $renewalYear >= $currentYear) {
+                    $badgePrinted = (int) date('Y', strtotime((string) $m['badge_printed_at'])) >= $currentYear;
                 }
             ?>
             <tr class="member-row<?= $isInactive ? ' member-inactive' : '' ?><?= $isSuspended ? ' member-suspended' : '' ?>">

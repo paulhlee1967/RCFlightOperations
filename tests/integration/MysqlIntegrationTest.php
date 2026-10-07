@@ -55,17 +55,28 @@ final class MysqlIntegrationTest extends TestCase
         $pdo->exec('DELETE FROM members');
         $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
 
+        $year = membershipStatusYear();
         $ins = $pdo->prepare('INSERT INTO members (first_name, last_name, membership_renewal_year, inactive, suspended) VALUES (?,?,?,?,?)');
-        $ins->execute(['Current', 'Pilot', 2026, 0, 0]);
+        $ins->execute(['Current', 'Pilot', $year, 0, 0]);
         $currentId = (int) $pdo->lastInsertId();
-        $ins->execute(['Inactive', 'Pilot', 2026, 1, 0]);
-        $ins->execute(['Old', 'Year', 2025, 0, 0]);
+        $ins->execute(['Early', 'Renewal', $year + 1, 0, 0]);
+        $earlyId = (int) $pdo->lastInsertId();
+        $ins->execute(['Inactive', 'Pilot', $year, 1, 0]);
+        $ins->execute(['Old', 'Year', $year - 1, 0, 0]);
 
-        $sql = 'SELECT id FROM members m WHERE ' . currentMemberWhereSql('m', 2026);
+        $sql = 'SELECT id FROM members m WHERE ' . currentMemberWhereSql('m', $year);
         $stmt = $pdo->prepare($sql);
-        $stmt->execute(currentMemberWhereParams(2026));
+        $stmt->execute(currentMemberWhereParams($year));
         $ids = array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
-        $this->assertSame([$currentId], $ids);
+        sort($ids);
+        $expected = [$currentId, $earlyId];
+        sort($expected);
+        $this->assertSame($expected, $ids);
+
+        $next = $pdo->prepare('SELECT id FROM members m WHERE ' . currentMemberWhereSql('m', $year + 1));
+        $next->execute(currentMemberWhereParams($year + 1));
+        $nextIds = array_map('intval', $next->fetchAll(PDO::FETCH_COLUMN));
+        $this->assertSame([$earlyId], $nextIds);
     }
 
     public function testApprovedStripeApplicationWritesLedger(): void

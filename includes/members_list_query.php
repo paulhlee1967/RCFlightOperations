@@ -141,13 +141,6 @@ function members_list_parse_request(array $get): array
         $fulfillmentFilter = '';
     }
 
-    // Open fulfillments follow the working renewal year (may be next calendar year
-    // during pre-book). status=current is calendar-year — combining the two empties
-    // the list when early renewals have bumped membership_renewal_year ahead.
-    if ($fulfillmentFilter === 'pending' && $statusFilter === 'current') {
-        $statusFilter = 'all';
-    }
-
     $fulfillmentYear = null;
     if ($fulfillmentFilter === 'pending' && isset($get['year']) && is_numeric($get['year'])) {
         $y = (int) $get['year'];

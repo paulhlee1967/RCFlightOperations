@@ -8,14 +8,19 @@ final class MembershipStatusSqlTest extends TestCase
 {
     public function testCurrentMemberWhereSqlUsesAliasAndYearWithoutPaymentChecks(): void
     {
-        $sql = currentMemberWhereSql('m', 2026);
+        $calendar = membershipStatusYear();
+        $sql = currentMemberWhereSql('m', $calendar);
 
-        $this->assertStringContainsString('m.membership_renewal_year = ?', $sql);
+        $this->assertStringContainsString('m.membership_renewal_year >= ?', $sql);
         $this->assertStringContainsString('m.inactive = 0', $sql);
         $this->assertStringContainsString('m.suspended = 0', $sql);
         $this->assertStringNotContainsString('payments', $sql);
         $this->assertStringNotContainsString('member_fulfillments', $sql);
         $this->assertStringNotContainsString('life_member', $sql);
+
+        $past = currentMemberWhereSql('m', $calendar - 1);
+        $this->assertStringContainsString('m.membership_renewal_year = ?', $past);
+        $this->assertStringNotContainsString('>=', $past);
     }
 
     public function testCurrentMemberWhereParamsUsesYearOnce(): void
@@ -54,6 +59,46 @@ final class MembershipStatusSqlTest extends TestCase
             'suspended' => 0,
             'life_member' => 1,
         ], 2026));
+    }
+
+    public function testEarlyRenewalCoversTheRestOfTheCalendarYear(): void
+    {
+        $calendar = membershipStatusYear();
+
+        $this->assertTrue(memberIsCurrent([
+            'membership_renewal_year' => $calendar + 1,
+            'inactive' => 0,
+            'suspended' => 0,
+        ], $calendar));
+
+        $this->assertTrue(memberIsCurrent([
+            'membership_renewal_year' => $calendar + 1,
+            'inactive' => 0,
+            'suspended' => 0,
+        ], $calendar + 1));
+
+        $this->assertFalse(memberIsCurrent([
+            'membership_renewal_year' => $calendar,
+            'inactive' => 0,
+            'suspended' => 0,
+        ], $calendar + 1));
+
+        $this->assertFalse(memberIsCurrent([
+            'membership_renewal_year' => $calendar + 1,
+            'inactive' => 1,
+            'suspended' => 0,
+        ], $calendar));
+    }
+
+    public function testNoHistoryBeforeYearSqlBindsThreeYears(): void
+    {
+        $sql = memberNoHistoryBeforeYearSql('m');
+
+        $this->assertSame(3, substr_count($sql, '?'));
+        $this->assertStringContainsString('p.member_id = m.id', $sql);
+        $this->assertStringContainsString('f.member_id = m.id', $sql);
+        $this->assertStringContainsString('y.member_id = m.id', $sql);
+        $this->assertSame([2027, 2027, 2027], memberNoHistoryBeforeYearParams(2027));
     }
 
     public function testFulfillmentPendingWhereSqlQualifiesMemberIdWhenUnaliased(): void

@@ -177,7 +177,7 @@ final class MembersListQueryTest extends TestCase
         $this->assertNull($f['fulfillmentYear']);
     }
 
-    public function testParseRequestCoercesCurrentStatusWhenFulfillmentPending(): void
+    public function testParseRequestKeepsCurrentStatusWhenFulfillmentPending(): void
     {
         $f = members_list_parse_request([
             'status'      => 'current',
@@ -185,7 +185,7 @@ final class MembersListQueryTest extends TestCase
             'year'        => '2027',
         ]);
 
-        $this->assertSame('all', $f['statusFilter']);
+        $this->assertSame('current', $f['statusFilter']);
         $this->assertSame('pending', $f['fulfillmentFilter']);
         $this->assertSame(2027, $f['fulfillmentYear']);
     }

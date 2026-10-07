@@ -4,9 +4,13 @@
  *
  * Shared definition of "current" vs "inactive" members for a membership year.
  *
- * A member is current for year Y when:
- *   - membership_renewal_year = Y (signed up / renewed for that year)
- *   - not manually flagged inactive or suspended
+ * A member is current for year Y when they are not manually flagged inactive
+ * or suspended, and membership_renewal_year covers Y:
+ *   - Y is this calendar year or later: renewal year >= Y. A signup or renewal
+ *     during the pre-book window is recorded as next year and still includes
+ *     the rest of this calendar year, so those members stay current.
+ *   - Y is a past year: renewal year = Y (the field is overwritten on later
+ *     renewals; historical rosters use member_membership_years instead).
  *
  * Life / complimentary membership and payment records do not override the
  * inactive flag — life members can be inactive like anyone else.
@@ -120,16 +124,28 @@ function memberSqlPrefix(string $alias): string
 }
 
 /**
+ * How membership_renewal_year is compared to $year.
+ *
+ * This year and later use >= so a next-year signup (rest of this year plus all
+ * of next year) still counts as current. Past years stay an exact match.
+ */
+function membershipRenewalYearCoversOperator(int $year): string
+{
+    return $year >= membershipStatusYear() ? '>=' : '=';
+}
+
+/**
  * SQL fragment: member alias qualifies as current for $year.
  * Use with currentMemberWhereParams(). Pass alias '' for unaliased `FROM members` queries.
  */
 function currentMemberWhereSql(string $alias = 'm', ?int $year = null): string
 {
     $year = $year ?? membershipStatusYear();
-    $c      = memberSqlPrefix($alias);
+    $c    = memberSqlPrefix($alias);
+    $op   = membershipRenewalYearCoversOperator($year);
 
     return "(
-        {$c}membership_renewal_year = ?
+        {$c}membership_renewal_year {$op} ?
         AND ({$c}inactive = 0 OR {$c}inactive IS NULL)
         AND ({$c}suspended = 0 OR {$c}suspended IS NULL)
     )";
@@ -182,7 +198,12 @@ function memberIsCurrent(array $member, ?int $year = null, ?array $renewedIds = 
         return false;
     }
 
-    return (int) ($member['membership_renewal_year'] ?? 0) === $year;
+    $onFile = (int) ($member['membership_renewal_year'] ?? 0);
+    if ($year >= membershipStatusYear()) {
+        return $onFile >= $year;
+    }
+
+    return $onFile === $year;
 }
 
 /**
@@ -546,15 +567,18 @@ function countRecordedMembersForYear(PDO $pdo, int $year): int
 }
 
 /**
- * Official member count for a year: snapshot table when present, else fallback.
+ * Official member count for a year.
+ *
+ * This calendar year and later use live rules (a next-year signup still covers
+ * this year). Earlier years use the frozen roster when one exists.
  */
 function countMembersForMembershipYear(PDO $pdo, int $year): int
 {
+    if ($year >= membershipStatusYear()) {
+        return countCurrentMembers($pdo, $year);
+    }
     if (membershipYearHasSnapshot($pdo, $year)) {
         return countRecordedMembersForYear($pdo, $year);
-    }
-    if ($year === membershipStatusYear()) {
-        return countCurrentMembers($pdo, $year);
     }
 
     return countMembersWithMembershipForYear($pdo, $year);
@@ -569,18 +593,17 @@ function membershipYearReportFilter(PDO $pdo, string $alias, int $year): array
 {
     ensureMembershipYearsTable($pdo);
     $p   = memberSqlPrefix($alias);
-    $id  = $alias === '' ? 'members.id' : "{$alias}.id";
 
+    if ($year >= membershipStatusYear()) {
+        return [
+            'where'  => currentMemberWhereSql($alias, $year),
+            'params' => currentMemberWhereParams($year),
+        ];
+    }
     if (membershipYearHasSnapshot($pdo, $year)) {
         return [
             'where'  => "{$p}id IN (SELECT member_id FROM member_membership_years WHERE year = ?)",
             'params' => [$year],
-        ];
-    }
-    if ($year === membershipStatusYear()) {
-        return [
-            'where'  => currentMemberWhereSql($alias, $year),
-            'params' => currentMemberWhereParams($year),
         ];
     }
 
@@ -588,6 +611,31 @@ function membershipYearReportFilter(PDO $pdo, string $alias, int $year): array
         'where'  => "{$p}id IN (SELECT member_id FROM (" . renewedMemberIdsSql() . ") t)",
         'params' => [$year, $year],
     ];
+}
+
+/**
+ * SQL: member has no payment, processed fulfillment, or roster row before $year.
+ * Bind the year three times via memberNoHistoryBeforeYearParams().
+ */
+function memberNoHistoryBeforeYearSql(string $alias = 'm'): string
+{
+    $id = $alias === '' ? 'members.id' : $alias . '.id';
+
+    return "NOT EXISTS (SELECT 1 FROM payments p WHERE p.member_id = {$id} AND p.year < ?)
+        AND NOT EXISTS (
+            SELECT 1 FROM member_fulfillments f
+            WHERE f.member_id = {$id} AND f.year < ? AND f.processed_at IS NOT NULL
+        )
+        AND NOT EXISTS (
+            SELECT 1 FROM member_membership_years y
+            WHERE y.member_id = {$id} AND y.year < ?
+        )";
+}
+
+/** @return array{0:int,1:int,2:int} */
+function memberNoHistoryBeforeYearParams(int $year): array
+{
+    return [$year, $year, $year];
 }
 
 /**

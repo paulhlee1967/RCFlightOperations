@@ -37,7 +37,7 @@ function reportRegistry(): array
         // ── Current roster & day-to-day operations ────────────────────────
         'current_members' => [
             'label'       => 'Current members',
-            'description' => 'All current members with renewal year, AMA credentials, and gate key — handy for field verification.',
+            'description' => 'All current members (this year or later on file) with renewal year, AMA credentials, and gate key — handy for field verification.',
             'year'        => false,
         ],
         'complimentary_members' => [
@@ -62,6 +62,17 @@ function reportRegistry(): array
             'year'        => true,
             'cohort'      => true,
         ],
+        'signed_up_for_year' => [
+            'label'       => 'Signed up for year',
+            'description' => 'Members whose membership runs through the selected year — renewals and new signups.',
+            'year'        => true,
+            'cohort'      => true,
+        ],
+        'renewal_progress' => [
+            'label'       => 'Renewal progress',
+            'description' => 'Returning renewals, new signups, and who has not renewed yet for the selected year.',
+            'year'        => true,
+        ],
         'data_completeness' => [
             'label'       => 'Missing member data',
             'description' => 'Current members with incomplete contact, emergency, AMA, TRUST, or membership fields.',
@@ -78,12 +89,12 @@ function reportRegistry(): array
         // ── Membership trends & composition ───────────────────────────────
         'membership_by_year' => [
             'label'       => 'Membership by year',
-            'description' => 'Current members per calendar year, with year-over-year change.',
+            'description' => 'Members per year, with year-over-year change. During renewal season this includes next year (signups so far).',
             'year'        => false,
         ],
         'retention_churn' => [
             'label'       => 'Retention & churn',
-            'description' => 'Retained, new, and lapsed members year over year.',
+            'description' => 'Retained, new, and lapsed members year over year. During renewal season this includes next year, still in progress.',
             'year'        => false,
         ],
         'membership_type_mix' => [
@@ -152,6 +163,29 @@ function reportCohortRecipients(PDO $pdo, string $slug, int $year): array
 
     if ($slug === 'not_yet_renewed') {
         $filter = notYetRenewedReportFilter($pdo, 'm', $year);
+        $sql = "SELECT m.id, m.first_name, m.last_name, m.email
+                FROM members m
+                WHERE {$filter['where']}
+                  AND m.email IS NOT NULL AND TRIM(m.email) != ''
+                ORDER BY m.last_name, m.first_name";
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($filter['params']);
+
+        $out = [];
+        while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $out[] = [
+                'id'         => (int) $r['id'],
+                'first_name' => (string) $r['first_name'],
+                'last_name'  => (string) $r['last_name'],
+                'email'      => (string) $r['email'],
+            ];
+        }
+
+        return $out;
+    }
+
+    if ($slug === 'signed_up_for_year') {
+        $filter = membershipYearReportFilter($pdo, 'm', $year);
         $sql = "SELECT m.id, m.first_name, m.last_name, m.email
                 FROM members m
                 WHERE {$filter['where']}
@@ -284,13 +318,13 @@ function reportMaxSelectableYear(PDO $pdo): int
 /**
  * Default target year for a year-based report.
  *
- * - not_yet_renewed: the working renewal year (rolls to next year on the
- *   configured pre-book date), so the report tracks the renewals staff are actually collecting.
+ * - not_yet_renewed, signed_up_for_year, renewal_progress: the working renewal
+ *   year (rolls to next year on the configured pre-book date).
  * - everything else: the current calendar year.
  */
 function reportDefaultYear(PDO $pdo, string $slug): int
 {
-    if ($slug === 'not_yet_renewed') {
+    if (in_array($slug, ['not_yet_renewed', 'signed_up_for_year', 'renewal_progress'], true)) {
         return defaultRenewalYear($pdo);
     }
 
@@ -344,8 +378,8 @@ function reportAppendAccuracyNote(PDO $pdo, string $slug, int $year, array $repo
             }
         }
     } else {
-        // Single-year reports. "Not yet renewed" leans on the prior year's roster.
-        $minYear = $slug === 'not_yet_renewed' ? $year - 1 : $year;
+        // Single-year reports. Renewal follow-up leans on the prior year's roster.
+        $minYear = in_array($slug, ['not_yet_renewed', 'renewal_progress'], true) ? $year - 1 : $year;
     }
 
     if ($minYear === null || $minYear >= $threshold) {
@@ -375,6 +409,8 @@ function runReport(PDO $pdo, string $slug, array $params = []): array
         'retention_churn'     => reportRetentionChurn($pdo),
         'membership_type_mix' => reportMembershipTypeMix($pdo, $year),
         'not_yet_renewed'     => reportNotYetRenewed($pdo, $year),
+        'signed_up_for_year'  => reportSignedUpForYear($pdo, $year),
+        'renewal_progress'    => reportRenewalProgress($pdo, $year),
         'revenue_by_year'     => reportRevenueByYear($pdo),
         'current_members'     => reportCurrentMembers($pdo),
         'complimentary_members' => reportComplimentaryMembers($pdo),
@@ -491,16 +527,16 @@ function reportTypeLabels(PDO $pdo): array
 function reportMemberIdsForYear(PDO $pdo, int $year): array
 {
     ensureMembershipYearsTable($pdo);
-    if (membershipYearHasSnapshot($pdo, $year)) {
-        $stmt = $pdo->prepare('SELECT member_id FROM member_membership_years WHERE year = ?');
-        $stmt->execute([$year]);
-
-        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
-    }
-    if ($year === membershipStatusYear()) {
+    if ($year >= membershipStatusYear()) {
         $where = currentMemberWhereSql('m', $year);
         $stmt  = $pdo->prepare("SELECT m.id FROM members m WHERE {$where}");
         $stmt->execute(currentMemberWhereParams($year));
+
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+    if (membershipYearHasSnapshot($pdo, $year)) {
+        $stmt = $pdo->prepare('SELECT member_id FROM member_membership_years WHERE year = ?');
+        $stmt->execute([$year]);
 
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
@@ -509,25 +545,36 @@ function reportMemberIdsForYear(PDO $pdo, int $year): array
 }
 
 /**
- * Membership counts per calendar year (most recent first) with YoY change.
+ * Last year to show on year-over-year membership reports.
+ * During the renewal pre-book window this is next year.
+ */
+function reportTrendEndYear(PDO $pdo): int
+{
+    return reportMaxSelectableYear($pdo);
+}
+
+/**
+ * Membership counts per year (most recent first) with YoY change.
+ * Includes the working renewal year when it is ahead of the calendar year.
  *
  * @return array<string, mixed>
  */
 function reportMembershipByYear(PDO $pdo): array
 {
     $meta    = reportRegistry()['membership_by_year'];
-    $current = membershipStatusYear();
+    $end     = reportTrendEndYear($pdo);
     $start   = reportEarliestYear($pdo);
+    $calendar = membershipStatusYear();
 
     // Count per year ascending so we can compute change vs the prior year,
     // then present most-recent-first.
     $counts = [];
-    for ($y = $start; $y <= $current; $y++) {
+    for ($y = $start; $y <= $end; $y++) {
         $counts[$y] = countMembersForMembershipYear($pdo, $y);
     }
 
     $rows = [];
-    for ($y = $current; $y >= $start; $y--) {
+    for ($y = $end; $y >= $start; $y--) {
         $prior  = $counts[$y - 1] ?? null;
         $change = $prior === null ? null : ($counts[$y] - $prior);
         $rows[] = [
@@ -535,6 +582,11 @@ function reportMembershipByYear(PDO $pdo): array
             'members' => $counts[$y],
             'change'  => $change,
         ];
+    }
+
+    $note = 'Past years use the frozen membership roster. The current year uses live rules: renewal year is this year or later, so a next-year signup still counts.';
+    if ($end > $calendar) {
+        $note .= ' ' . $end . ' is still open — that row is who has signed up through ' . $end . ' so far, not a finished roster.';
     }
 
     return [
@@ -548,7 +600,7 @@ function reportMembershipByYear(PDO $pdo): array
         ],
         'rows'   => $rows,
         'totals' => null,
-        'note'   => 'Past years use the frozen membership roster; the current year uses live current-member rules.',
+        'note'   => $note,
     ];
 }
 
@@ -734,25 +786,66 @@ function reportFormatCell(mixed $value, string $format, bool $forCsv): string
 }
 
 /**
+ * Member IDs for a retention comparison.
+ *
+ * For an open renewal year ahead of the calendar, the prior roster excludes
+ * brand-new signups. Those members are recorded as next year and also cover
+ * the rest of this year, but they were not members the year before.
+ *
+ * @return int[]
+ */
+function reportRetentionMemberIds(PDO $pdo, int $year, bool $asPriorOfOpenRenewalYear): array
+{
+    if (!$asPriorOfOpenRenewalYear) {
+        return reportMemberIdsForYear($pdo, $year);
+    }
+
+    ensureMembershipYearsTable($pdo);
+    $openYear    = $year + 1;
+    $currentWhere = currentMemberWhereSql('m', $year);
+    $futureWhere  = currentMemberWhereSql('m', $openYear);
+    $noHistory    = memberNoHistoryBeforeYearSql('m');
+    $sql = "SELECT m.id FROM members m
+            WHERE {$currentWhere}
+              AND NOT ({$futureWhere} AND {$noHistory})";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge(
+        currentMemberWhereParams($year),
+        currentMemberWhereParams($openYear),
+        memberNoHistoryBeforeYearParams($openYear)
+    ));
+
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/**
  * Retained / new / lapsed members year over year, with retention rate.
+ * Includes the working renewal year when it is ahead of the calendar year.
  *
  * @return array<string, mixed>
  */
 function reportRetentionChurn(PDO $pdo): array
 {
-    $meta    = reportRegistry()['retention_churn'];
-    $current = membershipStatusYear();
-    $start   = reportEarliestYear($pdo);
+    $meta     = reportRegistry()['retention_churn'];
+    $end      = reportTrendEndYear($pdo);
+    $start    = reportEarliestYear($pdo);
+    $calendar = membershipStatusYear();
 
-    // Build a fast lookup (member_id => true) per year.
+    // One lookup per year for "who counts this year". The prior side of an
+    // open renewal year is built separately so a brand-new next-year signup
+    // is New, not Retained.
     $sets = [];
-    for ($y = $start; $y <= $current; $y++) {
+    for ($y = $start; $y <= $end; $y++) {
         $sets[$y] = array_fill_keys(reportMemberIdsForYear($pdo, $y), true);
     }
 
     $rows = [];
-    for ($y = $current; $y >= $start + 1; $y--) {
-        $prior = $sets[$y - 1] ?? [];
+    for ($y = $end; $y >= $start + 1; $y--) {
+        if ($y > $calendar) {
+            $prior = array_fill_keys(reportRetentionMemberIds($pdo, $y - 1, true), true);
+        } else {
+            $prior = $sets[$y - 1] ?? [];
+        }
         $cur   = $sets[$y] ?? [];
         $priorCount = count($prior);
 
@@ -776,6 +869,11 @@ function reportRetentionChurn(PDO $pdo): array
         ];
     }
 
+    $note = 'Retained = in both years; New = in the year but not the prior; Lapsed = in the prior year but not this one. Rate = retained ÷ prior-year members.';
+    if ($end > $calendar) {
+        $note .= ' ' . $end . ' is still open: Lapsed on that row means not yet renewed, and New means a signup with no earlier club history.';
+    }
+
     return [
         'slug'        => 'retention_churn',
         'title'       => $meta['label'],
@@ -790,7 +888,7 @@ function reportRetentionChurn(PDO $pdo): array
         ],
         'rows'   => $rows,
         'totals' => null,
-        'note'   => 'Retained = in both years; New = in the year but not the prior; Lapsed = in the prior year but not this one. Rate = retained ÷ prior-year members.',
+        'note'   => $note,
     ];
 }
 
@@ -895,7 +993,156 @@ function reportNotYetRenewed(PDO $pdo, int $year): array
         ],
         'rows'   => $rows,
         'totals' => null,
-        'note'   => 'Members who counted for ' . ($year - 1) . ' but have no payment/fulfillment (or life/free status) for ' . $year . '.',
+        'note'   => 'Members who counted for ' . ($year - 1) . ' but are not signed up through ' . $year . '.',
+    ];
+}
+
+/**
+ * Label for member_fulfillments.renewal_type.
+ */
+function reportSignupKindLabel(?string $type): string
+{
+    return match ($type) {
+        'new'            => 'New member',
+        'on_time'        => 'On-time renewal',
+        'late'           => 'New / late',
+        'complementary'  => 'Complimentary',
+        default          => 'On file',
+    };
+}
+
+/**
+ * Members whose membership runs through the selected year.
+ *
+ * For this calendar year and later that is renewal year >= the selected year
+ * (a next-year signup covers the rest of this year). Earlier years use the
+ * frozen roster.
+ *
+ * @return array<string, mixed>
+ */
+function reportSignedUpForYear(PDO $pdo, int $year): array
+{
+    $meta   = reportRegistry()['signed_up_for_year'];
+    $labels = reportTypeLabels($pdo);
+    $filter = membershipYearReportFilter($pdo, 'm', $year);
+
+    $sql = "SELECT m.last_name, m.first_name, m.membership_type_slot AS slot, m.email,
+                   m.membership_renewal_year AS renewal_year, f.renewal_type
+            FROM members m
+            LEFT JOIN member_fulfillments f
+              ON f.member_id = m.id AND f.year = ? AND f.processed_at IS NOT NULL
+            WHERE {$filter['where']}
+            ORDER BY m.last_name, m.first_name";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute(array_merge([$year], $filter['params']));
+
+    $rows = [];
+    while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $slot = $r['slot'] === null ? 0 : (int) $r['slot'];
+        $rows[] = [
+            'last_name'    => $r['last_name'],
+            'first_name'   => $r['first_name'],
+            'type'         => $slot === 0 ? '' : ($labels[$slot] ?? ('Type ' . $slot)),
+            'email'        => $r['email'],
+            'renewal_year' => $r['renewal_year'],
+            'signup_kind'  => reportSignupKindLabel(isset($r['renewal_type']) ? (string) $r['renewal_type'] : null),
+        ];
+    }
+
+    $note = $year >= membershipStatusYear()
+        ? 'Membership runs through ' . $year . ' or later, and the member is not inactive or suspended. '
+            . 'A signup or renewal for next year includes the rest of this calendar year, so those members stay current.'
+        : 'This past year uses the frozen membership roster.';
+
+    return [
+        'slug'        => 'signed_up_for_year',
+        'title'       => $meta['label'] . ' — ' . $year,
+        'description' => $meta['description'],
+        'columns'     => [
+            ['key' => 'last_name',    'label' => 'Last name',        'format' => 'text', 'align' => 'start'],
+            ['key' => 'first_name',   'label' => 'First name',       'format' => 'text', 'align' => 'start'],
+            ['key' => 'type',         'label' => 'Type',             'format' => 'text', 'align' => 'start'],
+            ['key' => 'email',        'label' => 'Email',            'format' => 'text', 'align' => 'start'],
+            ['key' => 'renewal_year', 'label' => 'Renewal yr on file', 'format' => 'year', 'align' => 'end'],
+            ['key' => 'signup_kind',  'label' => 'Signup',           'format' => 'text', 'align' => 'start'],
+        ],
+        'rows'   => $rows,
+        'totals' => null,
+        'note'   => $note . ' ' . count($rows) . ' member' . (count($rows) === 1 ? '' : 's') . '.',
+    ];
+}
+
+/**
+ * Renewal-season scoreboard: returning renewals, new signups, and not yet renewed.
+ *
+ * @return array<string, mixed>
+ */
+function reportRenewalProgress(PDO $pdo, int $year): array
+{
+    $meta     = reportRegistry()['renewal_progress'];
+    $prevYear = $year - 1;
+    $signed   = membershipYearReportFilter($pdo, 'm', $year);
+
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM members m WHERE {$signed['where']}");
+    $stmt->execute($signed['params']);
+    $total = (int) $stmt->fetchColumn();
+
+    $newWhere = $signed['where'] . ' AND ' . memberNoHistoryBeforeYearSql('m');
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM members m WHERE {$newWhere}");
+    $stmt->execute(array_merge($signed['params'], memberNoHistoryBeforeYearParams($year)));
+    $newCount = (int) $stmt->fetchColumn();
+    $returning = max(0, $total - $newCount);
+
+    $notFilter = notYetRenewedReportFilter($pdo, 'm', $year);
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM members m WHERE {$notFilter['where']}");
+    $stmt->execute($notFilter['params']);
+    $notYet = (int) $stmt->fetchColumn();
+
+    $prior = countMembersForMembershipYear($pdo, $prevYear);
+    $rateBase = $returning + $notYet;
+    $rate = $rateBase > 0 ? round(($returning / $rateBase) * 100, 1) : null;
+
+    $fmt = static fn (int $n): string => number_format($n);
+
+    return [
+        'slug'        => 'renewal_progress',
+        'title'       => $meta['label'] . ' — ' . $year,
+        'description' => $meta['description'],
+        'columns'     => [
+            ['key' => 'metric', 'label' => 'Metric', 'format' => 'text', 'align' => 'start'],
+            ['key' => 'value',  'label' => 'Value',  'format' => 'text', 'align' => 'end'],
+        ],
+        'rows' => [
+            [
+                'metric' => 'Prior-year roster (' . $prevYear . ')',
+                'value'  => $fmt($prior),
+            ],
+            [
+                'metric' => 'Returning renewals for ' . $year,
+                'value'  => $fmt($returning),
+            ],
+            [
+                'metric' => 'Not yet renewed',
+                'value'  => $fmt($notYet),
+            ],
+            [
+                'metric' => 'New signups for ' . $year,
+                'value'  => $fmt($newCount),
+            ],
+            [
+                'metric' => 'Total signed up for ' . $year,
+                'value'  => $fmt($total),
+            ],
+            [
+                'metric' => 'Renewal rate',
+                'value'  => $rate !== null ? number_format($rate, 1) . '%' : '—',
+            ],
+        ],
+        'totals' => null,
+        'note'   => 'Total signed up is returning renewals plus new signups. '
+            . 'Returning means they had club history before ' . $year . '; new signups did not. '
+            . 'Renewal rate is returning renewals divided by returning plus not yet renewed. '
+            . 'A signup for next year includes the rest of this calendar year.',
     ];
 }
 
@@ -950,7 +1197,8 @@ function reportCurrentMembers(PDO $pdo): array
         ],
         'rows'   => $rows,
         'totals' => null,
-        'note'   => 'Current members for ' . $current . '. ' . $num . ' member' . ($num === 1 ? '' : 's') . '. Expires is the membership renewal year on file.',
+        'note'   => 'Current members for ' . $current . ': renewal year is ' . $current . ' or later, and not inactive or suspended. '
+            . $num . ' member' . ($num === 1 ? '' : 's') . '. Expires is the membership renewal year on file.',
     ];
 }
 
