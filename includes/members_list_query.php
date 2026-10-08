@@ -172,7 +172,7 @@ function members_list_export_select_sql(): string
     return 'id, title, first_name, last_name, email, phone, birthday, notes, date_joined,
             membership_type_slot, membership_renewal_year, inactive, suspended, life_member,
             free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member,
-            faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship,
+            emergency_contact_name, emergency_contact_relationship,
             emergency_contact_phone, address_street, address_street2, address_city, address_state,
             address_postal_code';
 }

@@ -37,8 +37,8 @@ function reportRegistry(): array
         // ── Current roster & day-to-day operations ────────────────────────
         'current_members' => [
             'label'       => 'Current members',
-            'description' => 'All current members (this year or later on file) with renewal year, AMA credentials, and gate key — handy for field verification.',
-            'year'        => false,
+            'description' => 'Members current for a selected year, with email, phone, and AMA credentials.',
+            'year'        => true,
         ],
         'complimentary_members' => [
             'label'       => 'Free & life members',
@@ -412,7 +412,7 @@ function runReport(PDO $pdo, string $slug, array $params = []): array
         'signed_up_for_year'  => reportSignedUpForYear($pdo, $year),
         'renewal_progress'    => reportRenewalProgress($pdo, $year),
         'revenue_by_year'     => reportRevenueByYear($pdo),
-        'current_members'     => reportCurrentMembers($pdo),
+        'current_members'     => reportCurrentMembers($pdo, $year),
         'complimentary_members' => reportComplimentaryMembers($pdo),
         'compliance'          => reportCompliance($pdo),
         'birthdays'           => reportBirthdays($pdo),
@@ -744,7 +744,7 @@ function reportColumnClass(array $col): string
     if ($fmt === 'date' || $fmt === 'year') {
         return 'col-date';
     }
-    if (in_array($key, ['ama_number', 'faa_number', 'gate_key_number', 'expires'], true)) {
+    if (in_array($key, ['ama_number', 'gate_key_number', 'expires'], true)) {
         return 'col-id';
     }
     if (in_array($key, ['last_name', 'first_name'], true)) {
@@ -1147,58 +1147,59 @@ function reportRenewalProgress(PDO $pdo, int $year): array
 }
 
 /**
- * All current members with renewal year, AMA credentials, and gate key for field verification.
+ * Members current for $year, with name, email, phone, and AMA credentials.
  *
  * @return array<string, mixed>
  */
-function reportCurrentMembers(PDO $pdo): array
+function reportCurrentMembers(PDO $pdo, int $year): array
 {
-    $meta    = reportRegistry()['current_members'];
-    $current = membershipStatusYear();
-    $where   = currentMemberWhereSql('m', $current);
+    $meta  = reportRegistry()['current_members'];
+    $where = currentMemberWhereSql('m', $year);
 
-    $sql = "SELECT m.last_name, m.first_name, m.membership_renewal_year,
-                   m.ama_number, m.ama_expiration,
-                   m.gate_key_number
+    $sql = "SELECT m.last_name, m.first_name, m.email, m.phone,
+                   m.ama_number, m.ama_expiration
             FROM members m
             WHERE {$where}
             ORDER BY m.last_name, m.first_name";
     $stmt = $pdo->prepare($sql);
-    $stmt->execute(currentMemberWhereParams($current));
+    $stmt->execute(currentMemberWhereParams($year));
 
     $rows = [];
     $num  = 0;
     while ($r = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $num++;
-        $renewalYear = $r['membership_renewal_year'] ?? null;
         $rows[] = [
-            'number'          => $num,
-            'last_name'       => $r['last_name'],
-            'first_name'      => $r['first_name'],
-            'expires'         => $renewalYear !== null && $renewalYear !== '' ? (int) $renewalYear : null,
-            'ama_number'      => $r['ama_number'],
-            'ama_expiration'  => $r['ama_expiration'] ?: null,
-            'gate_key_number' => $r['gate_key_number'],
+            'number'         => $num,
+            'last_name'      => $r['last_name'],
+            'first_name'     => $r['first_name'],
+            'email'          => $r['email'],
+            'phone'          => $r['phone'],
+            'ama_number'     => $r['ama_number'],
+            'ama_expiration' => $r['ama_expiration'] ?: null,
         ];
     }
 
+    $countLabel = $num . ' member' . ($num === 1 ? '' : 's');
+    $yearRule = $year >= membershipStatusYear()
+        ? 'renewal year is ' . $year . ' or later'
+        : 'renewal year is ' . $year;
+
     return [
         'slug'        => 'current_members',
-        'title'       => $meta['label'] . ' — ' . $current,
+        'title'       => $meta['label'] . ' — ' . $year . ' (' . $countLabel . ')',
         'description' => $meta['description'],
         'columns'     => [
-            ['key' => 'number',          'label' => 'Number',         'format' => 'int',  'align' => 'end'],
-            ['key' => 'last_name',       'label' => 'Last name',      'format' => 'text', 'align' => 'start'],
-            ['key' => 'first_name',      'label' => 'First name',     'format' => 'text', 'align' => 'start'],
-            ['key' => 'expires',         'label' => 'Expires',        'format' => 'year', 'align' => 'end'],
-            ['key' => 'ama_number',      'label' => 'AMA #',          'format' => 'text', 'align' => 'start'],
-            ['key' => 'ama_expiration',  'label' => 'AMA Expiry',     'format' => 'date', 'align' => 'end'],
-            ['key' => 'gate_key_number', 'label' => 'Gate key #',     'format' => 'text', 'align' => 'start'],
+            ['key' => 'number',         'label' => 'Number',     'format' => 'int',  'align' => 'end'],
+            ['key' => 'last_name',      'label' => 'Last name',  'format' => 'text', 'align' => 'start'],
+            ['key' => 'first_name',     'label' => 'First name', 'format' => 'text', 'align' => 'start'],
+            ['key' => 'email',          'label' => 'Email',      'format' => 'text', 'align' => 'start'],
+            ['key' => 'phone',          'label' => 'Phone',      'format' => 'text', 'align' => 'start'],
+            ['key' => 'ama_number',     'label' => 'AMA #',      'format' => 'text', 'align' => 'start'],
+            ['key' => 'ama_expiration', 'label' => 'AMA Expiry', 'format' => 'date', 'align' => 'end'],
         ],
         'rows'   => $rows,
         'totals' => null,
-        'note'   => 'Current members for ' . $current . ': renewal year is ' . $current . ' or later, and not inactive or suspended. '
-            . $num . ' member' . ($num === 1 ? '' : 's') . '. Expires is the membership renewal year on file.',
+        'note'   => 'Current members for ' . $year . ': ' . $yearRule . ', and not inactive or suspended.',
     ];
 }
 

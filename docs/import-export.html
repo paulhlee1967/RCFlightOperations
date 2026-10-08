@@ -116,8 +116,6 @@
           <tr><td>gate_key_number</td><td>No</td><td></td></tr>
           <tr><td>ama_number</td><td>No</td><td></td></tr>
           <tr><td>AMA Expiry</td><td>No</td><td>YYYY-MM-DD preferred</td></tr>
-          <tr><td>FAA Number</td><td>No</td><td></td></tr>
-          <tr><td>FAA Expiry</td><td>No</td><td></td></tr>
           <tr><td>Phone</td><td>No</td><td>Primary phone; legacy <code>phone_mobile</code> / <code>phone_work</code> columns are still accepted on import</td></tr>
           <tr><td>Address fields</td><td>No</td><td><code>street</code>, <code>street2</code>, <code>city</code>, <code>state</code>, <code>postal_code</code>; legacy Address 2 column names are coalesced if the primary is empty</td></tr>
           <tr><td>payment_year, payment_date, amount_dues, amount_initiation</td><td>No</td><td>Adds one payment record per row if present</td></tr>
@@ -163,8 +161,8 @@
     <!-- ── Export ── -->
     <h2 id="export">CSV Export</h2>
     <p>
-      From the <strong>Members</strong> list, open <strong>Export CSV</strong>. The Full, Short,
-      and Email options export <strong>exactly the members matching your current filters</strong>
+      From the <strong>Members</strong> list, open <strong>Export CSV</strong>. The Full and Short
+      options export <strong>exactly the members matching your current filters</strong>
       (membership chips, flags, type, search, and any badge/fulfillment filters), with the matching
       count shown on each menu item.
     </p>
@@ -187,18 +185,8 @@
           </tr>
           <tr>
             <td><strong>Short</strong></td>
-            <td>First/Last name, Email, AMA number &amp; expiry, FAA number &amp; expiry, Gate key</td>
-            <td>AMA charter renewal filings, field safety records</td>
-          </tr>
-          <tr>
-            <td><strong>Email only</strong></td>
-            <td>Last name, First name, Email</td>
-            <td>
-              Newsletter or campaign tools (e.g. Sender.net). <strong>Includes members with a non-empty email</strong>
-              — manage unsubscribes in your mailing platform, not in RC Flight Operations.
-              Scheduled AMA reminders (<code>send_reminders.php</code>) honor <strong>transactional</strong> opt-out in Sender.net when
-              configured under <strong>Administration → Installation</strong> (newsletter unsubscribes are separate).
-            </td>
+            <td>First/Last name, Email, Phone, AMA number &amp; expiry</td>
+            <td>Contact lists and AMA expiry checks</td>
           </tr>
         </tbody>
       </table>

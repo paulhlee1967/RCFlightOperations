@@ -113,4 +113,50 @@ final class MembershipDiscountCodesTest extends TestCase
         $this->assertSame('$50.00 off membership dues', membership_discount_code_summary($this->code('amount', 50.0, 'dues')));
         $this->assertSame('25% off dues and initiation', membership_discount_code_summary($this->code('percent', 25.0, 'both', 'SAVE25')));
     }
+
+    public function testNormalizeInputSetsEndOfExpirationDay(): void
+    {
+        $result = membership_discount_code_normalize_input([
+            'code'          => ' early-50! ',
+            'discount_type' => 'amount',
+            'amount'        => '25',
+            'applies_to'    => 'dues',
+            'expires_at'    => '2027-03-01',
+            'notes'         => '  flyer  ',
+        ]);
+        $this->assertTrue($result['ok']);
+        $this->assertSame('EARLY-50', $result['code']);
+        $this->assertSame(25.0, $result['amount']);
+        $this->assertSame('dues', $result['applies_to']);
+        $this->assertSame('2027-03-01 23:59:59', $result['expires_at']);
+        $this->assertSame('flyer', $result['notes']);
+    }
+
+    public function testNormalizeInputAllowsOpenEndedExpiration(): void
+    {
+        $result = membership_discount_code_normalize_input([
+            'code'       => 'OPEN50',
+            'amount'     => 10,
+            'expires_at' => '   ',
+        ]);
+        $this->assertTrue($result['ok']);
+        $this->assertNull($result['expires_at']);
+        $this->assertNull($result['notes']);
+    }
+
+    public function testNormalizeInputRejectsShortCodeAndFullWaiver(): void
+    {
+        $short = membership_discount_code_normalize_input([
+            'code'   => 'ab',
+            'amount' => 10,
+        ]);
+        $this->assertFalse($short['ok']);
+
+        $waiver = membership_discount_code_normalize_input([
+            'code'          => 'FREE100',
+            'discount_type' => 'percent',
+            'amount'        => 100,
+        ]);
+        $this->assertFalse($waiver['ok']);
+    }
 }

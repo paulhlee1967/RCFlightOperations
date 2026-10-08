@@ -72,7 +72,7 @@ if ($memberId <= 0) {
 $stmt = $pdo->prepare('
     SELECT m.id, m.first_name, m.last_name, m.email,
            m.membership_type_slot, m.membership_renewal_year,
-           m.date_joined, m.ama_number, m.faa_number,
+           m.date_joined, m.ama_number,
            m.life_member, m.free_membership,
            m.address_street AS street, m.address_street2 AS street2,
            m.address_city AS city, m.address_state AS state, m.address_postal_code AS postal_code

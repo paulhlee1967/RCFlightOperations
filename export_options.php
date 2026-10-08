@@ -37,8 +37,7 @@ require_once __DIR__ . '/includes/header.php';
             <label class="form-label">Format</label>
             <select name="format" class="form-select">
                 <option value="full">Full (all fields, import round-trip)</option>
-                <option value="short">Short (name, email, AMA, FAA, gate key)</option>
-                <option value="email">Email only (Last, First, Email)</option>
+                <option value="short">Short (name, email, phone, AMA number and expiry)</option>
             </select>
         </div>
         <div class="mb-3">
@@ -64,8 +63,8 @@ require_once __DIR__ . '/includes/header.php';
 </form>
 
 <p class="small text-muted">
-    <strong>Full</strong>: FirstName, LastName, Email, address, phones, AMA/FAA, etc. (same as import).<br>
-    <strong>Short</strong>: FirstName, LastName, Email, AMA_NO, AMA_EXP, FAA_NO, FAA_EXP, GateKey.<br>
+    <strong>Full</strong>: FirstName, LastName, Email, address, phone, AMA, etc. (same as import).<br>
+    <strong>Short</strong>: FirstName, LastName, Email, Phone, AMA Number, AMA Expiry.<br>
     <strong>Not renewed</strong>: Members who had last year&rsquo;s renewal but no payment for the selected year.
 </p>
 

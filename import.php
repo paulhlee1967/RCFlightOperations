@@ -42,8 +42,6 @@ $importFields = [
     'ama_number' => ['label' => 'AMA number', 'required' => false],
     'ama_expiration' => ['label' => 'AMA Expiry', 'required' => false],
     'ama_life_member' => ['label' => 'AMA Life Member', 'required' => false],
-    'faa_number' => ['label' => 'FAA Number', 'required' => false],
-    'faa_expiration' => ['label' => 'FAA Expiry', 'required' => false],
     'emergency_contact_name' => ['label' => 'Emergency contact name', 'required' => false],
     'emergency_contact_relationship' => ['label' => 'Emergency contact relationship', 'required' => false],
     'emergency_contact_phone' => ['label' => 'Emergency contact phone', 'required' => false],
@@ -197,8 +195,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $step = 'upload';
         } else {
             $insertMember = $pdo->prepare('
-                INSERT INTO members (title, first_name, last_name, email, phone, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, faa_number, faa_expiration, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, address_street, address_street2, address_city, address_state, address_postal_code)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                INSERT INTO members (title, first_name, last_name, email, phone, birthday, notes, date_joined, membership_type_slot, membership_renewal_year, inactive, suspended, life_member, free_membership, gate_key_number, ama_number, ama_expiration, ama_life_member, emergency_contact_name, emergency_contact_relationship, emergency_contact_phone, address_street, address_street2, address_city, address_state, address_postal_code)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ');
             $insertPayment = $pdo->prepare('INSERT INTO payments (member_id, paid_at, year, amount_dues, amount_initiation, amount_late_fee, comp) VALUES (?,?,?,?,?,?,?)');
             // Match tiers delegated to includes/member_match.php
@@ -234,14 +232,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $birthday = $birthdayRaw !== '' ? parseDateForDb($birthdayRaw) : null;
                 $amaExpRaw = isset($mapping['ama_expiration']) ? trim((string) ($row[$mapping['ama_expiration']] ?? '')) : '';
                 $amaExp = $amaExpRaw !== '' ? parseDateForDb($amaExpRaw) : null;
-                $faaExpRaw = isset($mapping['faa_expiration']) ? trim((string) ($row[$mapping['faa_expiration']] ?? '')) : '';
-                $faaExp = $faaExpRaw !== '' ? parseDateForDb($faaExpRaw) : null;
                 try {
                     $titleVal = isset($mapping['title']) ? trim((string) ($row[$mapping['title']] ?? '')) : '';
                     $notesVal = isset($mapping['notes']) ? trim((string) ($row[$mapping['notes']] ?? '')) : '';
                     $gateVal = isset($mapping['gate_key_number']) ? trim((string) ($row[$mapping['gate_key_number']] ?? '')) : '';
                     $amaNumVal = isset($mapping['ama_number']) ? trim((string) ($row[$mapping['ama_number']] ?? '')) : '';
-                    $faaNumVal = isset($mapping['faa_number']) ? trim((string) ($row[$mapping['faa_number']] ?? '')) : '';
                     if ($amaNumVal !== '') {
                         require_once __DIR__ . '/includes/ama_verify.php';
                         $amaNumVal = ama_verify_normalize_number($amaNumVal);
@@ -294,8 +289,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (isset($mapping['ama_number'])) { $sets[] = 'ama_number = ?'; $vals[] = ($amaNumVal !== '' ? $amaNumVal : null); }
                             if (isset($mapping['ama_expiration'])) { $sets[] = 'ama_expiration = ?'; $vals[] = $amaExp; }
                             if (isset($mapping['ama_life_member'])) { $sets[] = 'ama_life_member = ?'; $vals[] = $amaLifeVal; }
-                            if (isset($mapping['faa_number'])) { $sets[] = 'faa_number = ?'; $vals[] = ($faaNumVal !== '' ? $faaNumVal : null); }
-                            if (isset($mapping['faa_expiration'])) { $sets[] = 'faa_expiration = ?'; $vals[] = $faaExp; }
                             if (isset($mapping['emergency_contact_name'])) { $sets[] = 'emergency_contact_name = ?'; $vals[] = trim((string) ($row[$mapping['emergency_contact_name']] ?? '')) ?: null; }
                             if (isset($mapping['emergency_contact_relationship'])) { $sets[] = 'emergency_contact_relationship = ?'; $vals[] = trim((string) ($row[$mapping['emergency_contact_relationship']] ?? '')) ?: null; }
                             if (isset($mapping['emergency_contact_phone'])) { $sets[] = 'emergency_contact_phone = ?'; $vals[] = trim((string) ($row[$mapping['emergency_contact_phone']] ?? '')) ?: null; }
@@ -354,8 +347,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $amaNumVal !== '' ? $amaNumVal : null,
                             $amaExp,
                             $amaLifeVal,
-                            $faaNumVal !== '' ? $faaNumVal : null,
-                            $faaExp,
                             $emergencyNameVal !== '' ? $emergencyNameVal : null,
                             $emergencyRelVal !== '' ? $emergencyRelVal : null,
                             $emergencyPhoneVal !== '' ? $emergencyPhoneVal : null,
@@ -438,8 +429,8 @@ if (isset($_GET['download']) && $_GET['download'] === 'sample') {
     header('Content-Disposition: attachment; filename="import_members_sample.csv"');
     $out = fopen('php://output', 'w');
     fprintf($out, "\xEF\xBB\xBF");
-    $sampleHeaders = ['first_name', 'last_name', 'email', 'title', 'birthday', 'notes', 'date_joined', 'membership_type_slot', 'membership_renewal_year', 'Member Inactive', 'Member Suspended', 'Life Member', 'Free Membership', 'AMA Life Member', 'gate_key_number', 'ama_number', 'AMA Expiry', 'FAA Number', 'FAA Expiry', 'Emergency contact name', 'Emergency contact relationship', 'Emergency contact phone', 'Phone', 'street', 'street2', 'city', 'state', 'postal_code', 'payment_year', 'payment_date', 'amount_dues', 'amount_initiation'];
-    $sampleRow = ['Jane', 'Doe', 'jane@example.com', 'Ms', '1990-05-15', 'Sample note', '2020-03-15', 'Adult', '2025', '0', '0', '0', '0', '0', 'G-01', '123456', '2026-12-31', '123456789', '2026-06-30', 'John Doe', 'Spouse', '555-987-6543', '555-123-4567', '123 Main St', 'Apt 4', 'Anytown', 'CA', '90210', '2025', '2025-01-10', '50.00', '25.00'];
+    $sampleHeaders = ['first_name', 'last_name', 'email', 'title', 'birthday', 'notes', 'date_joined', 'membership_type_slot', 'membership_renewal_year', 'Member Inactive', 'Member Suspended', 'Life Member', 'Free Membership', 'AMA Life Member', 'gate_key_number', 'ama_number', 'AMA Expiry', 'Emergency contact name', 'Emergency contact relationship', 'Emergency contact phone', 'Phone', 'street', 'street2', 'city', 'state', 'postal_code', 'payment_year', 'payment_date', 'amount_dues', 'amount_initiation'];
+    $sampleRow = ['Jane', 'Doe', 'jane@example.com', 'Ms', '1990-05-15', 'Sample note', '2020-03-15', 'Adult', '2025', '0', '0', '0', '0', '0', 'G-01', '123456', '2026-12-31', 'John Doe', 'Spouse', '555-987-6543', '555-123-4567', '123 Main St', 'Apt 4', 'Anytown', 'CA', '90210', '2025', '2025-01-10', '50.00', '25.00'];
     fputcsv($out, $sampleHeaders, ',', '"', '\\');
     fputcsv($out, $sampleRow, ',', '"', '\\');
     fclose($out);

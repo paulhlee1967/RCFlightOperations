@@ -63,7 +63,7 @@ function memberCompletenessSelectSql(string $alias = 'm'): string
 {
     return "{$alias}.id, {$alias}.last_name, {$alias}.first_name, {$alias}.email, {$alias}.phone,
             {$alias}.ama_number, {$alias}.ama_expiration, {$alias}.ama_life_member,
-            {$alias}.trust_attestation, {$alias}.faa_number, {$alias}.membership_type_slot,
+            {$alias}.trust_attestation, {$alias}.membership_type_slot,
             {$alias}.emergency_contact_name, {$alias}.emergency_contact_phone,
             {$alias}.address_street, {$alias}.address_city";
 }

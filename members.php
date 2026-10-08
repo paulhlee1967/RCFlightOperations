@@ -107,7 +107,6 @@ ob_start();
                 $exportFormats = [
                     'full'  => 'Full list',
                     'short' => 'Short list',
-                    'email' => 'Email list',
                 ];
                 foreach ($exportFormats as $exportFormat => $exportLabel):
                 ?>

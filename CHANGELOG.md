@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- **Discount codes can be edited** — Expired and disabled campaign codes (and active ones) can be updated from Discount codes: code text, amount, what it applies to, notes, and expiration. A new expiration date brings an expired code back; a disabled code stays off until it is enabled.
+- **Member CSV export** — Short list is name, email, phone, AMA number, and AMA expiry. The email-only list is gone. Full export, the import sample, and CSV import no longer include FAA number or expiry.
+- **Current members report** — Columns match the short export (name, email, phone, AMA number, AMA expiry). Gate key is no longer listed. The header includes the member count, and a year filter selects which roster to show.
 - **Membership by year and Retention & churn include the open renewal year** — During renewal season those reports show next year (signups so far), not only the calendar year. On the open year, Lapsed means not yet renewed.
 - **Current members include next-year signups** — During renewal season a signup or renewal is recorded as next year and still includes the rest of this calendar year. Those members stay current on the members list, dashboard, compliance, and current-member reports instead of showing as inactive.
 - **Shared app CSS** — Theme tokens stay in `includes/header.php`; the rest lives in cacheable [`assets/css/app.css`](assets/css/app.css) (simpler CSP `style-src-elem 'self'`). Report sidebar / dashboard cards explicitly cancel Bootstrap 5.3’s default link underline.

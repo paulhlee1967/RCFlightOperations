@@ -251,11 +251,34 @@ function membership_discount_code_apply(float $dues, float $initiation, array $r
 }
 
 /**
- * @return array{ok:bool, id:?int, error:?string}
+ * Normalize staff input for create and update.
+ *
+ * @param array<string, mixed> $data
+ * @return array{
+ *   ok: bool,
+ *   error: ?string,
+ *   code: string,
+ *   discount_type: string,
+ *   amount: float,
+ *   applies_to: string,
+ *   notes: ?string,
+ *   expires_at: ?string
+ * }
  */
-function membership_discount_code_create(PDO $pdo, array $data, int $createdBy): array
+function membership_discount_code_normalize_input(array $data): array
 {
-    membership_discount_codes_ensure_schema($pdo);
+    $fail = static function (string $error): array {
+        return [
+            'ok'            => false,
+            'error'         => $error,
+            'code'          => '',
+            'discount_type' => 'amount',
+            'amount'        => 0.0,
+            'applies_to'    => 'both',
+            'notes'         => null,
+            'expires_at'    => null,
+        ];
+    };
 
     $code = membership_discount_normalize_code($data['code'] ?? '');
     $type = membership_discount_normalize_type($data['discount_type'] ?? 'amount');
@@ -265,27 +288,66 @@ function membership_discount_code_create(PDO $pdo, array $data, int $createdBy):
     $expiresAt = trim((string) ($data['expires_at'] ?? ''));
 
     if ($code === '' || strlen($code) < 3) {
-        return ['ok' => false, 'id' => null, 'error' => 'Enter a code of at least 3 letters or numbers.'];
+        return $fail('Enter a code of at least 3 letters or numbers.');
     }
     if ($amount <= 0) {
-        return ['ok' => false, 'id' => null, 'error' => 'Enter a discount greater than zero.'];
+        return $fail('Enter a discount greater than zero.');
     }
     if ($type === 'percent' && $amount >= 100) {
-        return ['ok' => false, 'id' => null, 'error' => 'Percent-off codes must be less than 100%. Use a complimentary invite for a free membership.'];
+        return $fail('Percent-off codes must be less than 100%. Use a complimentary invite for a free membership.');
     }
     if ($type === 'percent' && $amount > 99.99) {
         $amount = 99.99;
     }
     if ($type === 'amount' && $amount > 9999.99) {
-        return ['ok' => false, 'id' => null, 'error' => 'Dollar-off amount is too large.'];
+        return $fail('Dollar-off amount is too large.');
     }
     if ($expiresAt !== '' && strtotime($expiresAt) === false) {
-        return ['ok' => false, 'id' => null, 'error' => 'Enter a valid expiration date.'];
+        return $fail('Enter a valid expiration date.');
     }
     if ($expiresAt === '') {
         $expiresAt = null;
     } else {
         $expiresAt = date('Y-m-d 23:59:59', strtotime($expiresAt));
+    }
+
+    return [
+        'ok'            => true,
+        'error'         => null,
+        'code'          => $code,
+        'discount_type' => $type,
+        'amount'        => $amount,
+        'applies_to'    => $applies,
+        'notes'         => $notes !== '' ? $notes : null,
+        'expires_at'    => $expiresAt,
+    ];
+}
+
+/**
+ * @return array<string, mixed>|null
+ */
+function membership_discount_code_find(PDO $pdo, int $id): ?array
+{
+    if ($id < 1) {
+        return null;
+    }
+    membership_discount_codes_ensure_schema($pdo);
+    $stmt = $pdo->prepare('SELECT * FROM membership_discount_codes WHERE id = ? LIMIT 1');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    return $row ?: null;
+}
+
+/**
+ * @return array{ok:bool, id:?int, error:?string}
+ */
+function membership_discount_code_create(PDO $pdo, array $data, int $createdBy): array
+{
+    membership_discount_codes_ensure_schema($pdo);
+    $fields = membership_discount_code_normalize_input($data);
+    if (!$fields['ok']) {
+        return ['ok' => false, 'id' => null, 'error' => $fields['error']];
     }
 
     try {
@@ -294,13 +356,13 @@ function membership_discount_code_create(PDO $pdo, array $data, int $createdBy):
                 (code, discount_type, amount, applies_to, notes, created_by, expires_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         ')->execute([
-            $code,
-            $type,
-            $amount,
-            $applies,
-            $notes !== '' ? $notes : null,
+            $fields['code'],
+            $fields['discount_type'],
+            $fields['amount'],
+            $fields['applies_to'],
+            $fields['notes'],
             $createdBy > 0 ? $createdBy : null,
-            $expiresAt,
+            $fields['expires_at'],
         ]);
     } catch (PDOException $e) {
         if ((int) $e->getCode() === 23000 || str_contains($e->getMessage(), 'Duplicate')) {
@@ -310,6 +372,54 @@ function membership_discount_code_create(PDO $pdo, array $data, int $createdBy):
     }
 
     return ['ok' => true, 'id' => (int) $pdo->lastInsertId(), 'error' => null];
+}
+
+/**
+ * Update a code in place, including expired and disabled rows.
+ * Pass enable=true to turn a disabled code back on in the same save.
+ *
+ * @param array<string, mixed> $data
+ * @return array{ok:bool, error:?string}
+ */
+function membership_discount_code_update(PDO $pdo, int $id, array $data): array
+{
+    $existing = membership_discount_code_find($pdo, $id);
+    if ($existing === null) {
+        return ['ok' => false, 'error' => 'That discount code was not found.'];
+    }
+    $fields = membership_discount_code_normalize_input($data);
+    if (!$fields['ok']) {
+        return ['ok' => false, 'error' => $fields['error']];
+    }
+
+    $enable = !empty($data['enable']);
+    $sql = '
+        UPDATE membership_discount_codes
+        SET code = ?, discount_type = ?, amount = ?, applies_to = ?, notes = ?, expires_at = ?';
+    $params = [
+        $fields['code'],
+        $fields['discount_type'],
+        $fields['amount'],
+        $fields['applies_to'],
+        $fields['notes'],
+        $fields['expires_at'],
+    ];
+    if ($enable) {
+        $sql .= ', active = 1, disabled_at = NULL';
+    }
+    $sql .= ' WHERE id = ?';
+    $params[] = $id;
+
+    try {
+        $pdo->prepare($sql)->execute($params);
+    } catch (PDOException $e) {
+        if ((int) $e->getCode() === 23000 || str_contains($e->getMessage(), 'Duplicate')) {
+            return ['ok' => false, 'error' => 'That code already exists. Choose a different code.'];
+        }
+        throw $e;
+    }
+
+    return ['ok' => true, 'error' => null];
 }
 
 /**
