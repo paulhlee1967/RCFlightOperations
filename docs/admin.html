@@ -38,10 +38,10 @@
     <a href="#add-user">Adding a User</a>
     <a href="#roles-detail">Role Permissions Detail</a>
     <a href="#config">Club Configuration</a>
-    <a href="#general">General Settings</a>
-    <a href="#design">Design Settings</a>
-    <a href="#dues">Membership &amp; Dues</a>
-    <a href="#email">Email Configuration</a>
+    <a href="#club">Club</a>
+    <a href="#membership">Membership</a>
+    <a href="#system">System</a>
+    <a href="#email">Email</a>
     <a href="#sender-opt-out">Sender.net Opt-Out</a>
     <hr class="sidebar-divider">
     <div class="sidebar-title">Other Docs</div>
@@ -129,85 +129,84 @@
     <!-- ── Config ── -->
     <h2 id="config">Club Configuration</h2>
     <p>
-      Go to <strong>Administration → Configuration</strong>. Settings are organized into
-      three tabs: General, Design, and Membership &amp; Dues.
+      Go to <strong>Administration → Configuration</strong>. Two tabs:
+      <strong>Club</strong> (name, logo, colors, contacts) and
+      <strong>Membership</strong> (renewal season, record completeness, dues).
     </p>
     <p>
-      Separately, <strong>Administration → Installation</strong> covers app-wide host settings
-      organized in tabs (General, Applications, Email, Board packet, Tools &amp; status):
-      SMTP and Sender.net reminder opt-out (see <a href="#sender-opt-out">below</a>),
-      <strong>Renewal year default — pre-book starts</strong> (first month when “next calendar year” becomes the
-      default renewal year in <strong>Process Signup / Renewal</strong>; default October),
-      <strong>Reports — complete data starting year</strong>,
-      monthly board packet recipients, and
-      <strong>Membership application (Stripe)</strong> keys and signing secret for the public
-      <code>apply.php</code> form — see <a href="applications.html#setup">Applications — Public form setup</a>.
-      The pre-book month also drives the default <strong>Renewal year</strong> filter on
-      <a href="applications.html">Website Applications</a>.
+      <strong>Administration → System</strong> is the other settings page. It covers how the
+      server sends mail and takes payment, plus scheduled emails and health checks.
+      Tabs: Status, Email, Payments, and Scheduled mail.
     </p>
 
-    <!-- ── General ── -->
-    <h2 id="general">General Settings</h2>
+    <!-- ── Club ── -->
+    <h2 id="club">Club</h2>
+    <a id="general"></a>
+    <a id="design"></a>
     <div class="docs-table-wrap">
       <table class="docs-table">
         <thead><tr><th>Setting</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>Club name</td><td>Appears in the navbar and on the login page</td></tr>
-          <tr><td>Club slug</td><td>Short URL-friendly identifier — used internally; don't change after initial setup</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- ── Design ── -->
-    <h2 id="design">Design Settings</h2>
-    <div class="docs-table-wrap">
-      <table class="docs-table">
-        <thead><tr><th>Setting</th><th>Description</th></tr></thead>
-        <tbody>
-          <tr><td>Logo</td><td>Upload a PNG/JPEG — shown in the navbar next to the club name. Recommended: horizontal logo, max 300px wide, transparent background.</td></tr>
-          <tr><td>Favicon</td><td>Upload a small square icon (ideally 32×32 or 64×64 PNG) — appears in browser tabs.</td></tr>
-          <tr><td>Primary color</td><td>Main accent color: nav bar background, buttons, links. Use a hex code (e.g., <code>#6f7c3d</code>).</td></tr>
-          <tr><td>Primary dark color</td><td>Hover/active state of the primary color — usually 15–20% darker.</td></tr>
-          <tr><td>Background color</td><td>Page background — light gray (<code>#f5f5f5</code>) works well.</td></tr>
-          <tr><td>Muted color</td><td>Used for borders, dividers, and subtle separators.</td></tr>
-          <tr><td>Text color</td><td>Main body text — should have high contrast with the background.</td></tr>
+          <tr><td>Club name</td><td>Appears in the navbar, on the login page, and in emails</td></tr>
+          <tr><td>Logo</td><td>PNG, JPEG, or GIF — shown in the navbar next to the club name. Horizontal logos work best. Max 2 MB.</td></tr>
+          <tr><td>Favicon</td><td>Browser-tab icon. PNG, ICO, or JPEG. 32×32 or 64×64 px recommended.</td></tr>
+          <tr><td>Theme colors</td><td>Primary, primary dark, page background, muted/borders, and body text. Hex values such as <code>#6f7c3d</code>.</td></tr>
+          <tr><td>Support email</td><td>Club contact on applicant emails. Used when membership email is blank.</td></tr>
+          <tr><td>Membership email</td><td>Receives new-application notices and member profile-update alerts.</td></tr>
         </tbody>
       </table>
     </div>
     <div class="callout callout-tip">
       <span class="callout-icon"><i class="bi bi-lightbulb-fill"></i></span>
       <div class="callout-body">
-        Changes to design settings take effect immediately on save. The same colors appear in
-        the main app navbar, buttons, and — when you open Help while logged in — this
-        documentation site. Do a hard refresh (Ctrl+Shift+R / ⌘+Shift+R) if you don't see
-        new colors right away.
+        Color changes apply as soon as you save. The same colors appear in the navbar, buttons,
+        and — when you open Help while logged in — this documentation site. Do a hard refresh
+        (Ctrl+Shift+R / ⌘+Shift+R) if you don't see new colors right away.
       </div>
     </div>
 
-    <!-- ── Dues ── -->
-    <h2 id="dues">Membership &amp; Dues</h2>
+    <!-- ── Membership ── -->
+    <h2 id="membership">Membership</h2>
+    <a id="dues"></a>
     <p>
-      The Membership &amp; Dues tab lets you set rates per membership type. Each type (Adult, Youth,
-      Senior, Spouse) has independent settings:
+      The season settings apply to the whole club. Each membership type (Adult, Youth, Senior, Spouse,
+      or whatever you rename them) then has its own rates.
     </p>
     <div class="docs-table-wrap">
       <table class="docs-table">
         <thead><tr><th>Setting</th><th>Description</th></tr></thead>
         <tbody>
-          <tr><td>Annual dues</td><td>Full-year renewal amount in dollars</td></tr>
-          <tr><td>Initiation fee</td><td>One-time fee added to a new member's first payment (set to 0 if not applicable)</td></tr>
-          <tr><td>Late fee</td><td>Added when a renewal is recorded as "Late"</td></tr>
-          <tr><td>Prorate months</td><td>Members joining during the last N months of the year pay a prorated amount. Set to 0 to disable proration.</td></tr>
+          <tr><td>Renewal season starts</td><td>Month and day when signup, renewal, and application defaults switch to next calendar year (through December 31). Also sets the on-time renewal window and the weekly roster PDF year. Default: October 15.</td></tr>
+          <tr><td>First year with complete records</td><td>Reports warn that earlier years were rebuilt from payment history and may undercount. Default: 2027.</td></tr>
+          <tr><td>Annual dues</td><td>Full-year renewal amount</td></tr>
+          <tr><td>Prorated dues</td><td>Amount for new members who join during that type's prorate window</td></tr>
+          <tr><td>Initiation fee</td><td>One-time fee on a new member or late renewal. Set to 0 if you don't charge one.</td></tr>
+          <tr><td>Prorate window</td><td>Months when a new member is offered the prorated rate. Set per membership type.</td></tr>
         </tbody>
       </table>
     </div>
-    <p>See <a href="renewals.html#dues">Renewals — Configuring Dues</a> for more detail on how proration is calculated.</p>
+    <p>See <a href="renewals.html#dues">Renewals — Configuring Dues</a> for how proration is calculated.</p>
+
+    <!-- ── System ── -->
+    <h2 id="system">System</h2>
+    <p>Go to <strong>Administration → System</strong>.</p>
+    <div class="docs-table-wrap">
+      <table class="docs-table">
+        <thead><tr><th>Tab</th><th>What it holds</th></tr></thead>
+        <tbody>
+          <tr><td>Status</td><td>Maintenance-mode banner, database and upload health, AMA lookup check, and a message to every admin user</td></tr>
+          <tr><td>Email</td><td>SMTP, a test message, and Sender.net reminder opt-out (see <a href="#sender-opt-out">below</a>)</td></tr>
+          <tr><td>Payments</td><td>Stripe keys, webhook secret, and the application signing secret for <code>apply.php</code> — see <a href="applications.html#setup">Applications — Public form setup</a></td></tr>
+          <tr><td>Scheduled mail</td><td>Monthly board packet and the weekly Current Members PDF (see <a href="reports.html#weekly-roster">Reports</a>)</td></tr>
+        </tbody>
+      </table>
+    </div>
 
     <!-- ── Email ── -->
-    <h2 id="email">Email Configuration</h2>
+    <h2 id="email">Email</h2>
     <p>
-      Prefer <strong>Administration → Installation → Email</strong> in the app to test email and review SMTP-related options
-      when your build exposes them. Under the hood, outgoing mail is still driven by <code>config.php</code>
+      Use <strong>Administration → System → Email</strong> to set SMTP and send a test message.
+      Under the hood, outgoing mail can still fall back to <code>config.php</code>
       (SMTP or PHP <code>mail()</code>) on most installs. The app uses it for
       <strong>Email report</strong> (one formatted message to an address you choose), <strong>Email members</strong>
       (individual messages per member from selected reports), and other features that send mail.
@@ -234,7 +233,7 @@
     <h2 id="sender-opt-out">Sender.net Opt-Out (Scheduled Reminders)</h2>
     <p>
       If your club uses <strong>Sender.net</strong> for newsletters and member list management, configure
-      <strong>Administration → Installation → Email → Sender.net (reminder opt-out)</strong>:
+      <strong>Administration → System → Email → Sender.net (reminder opt-out)</strong>:
     </p>
     <ul>
       <li><strong>API access token</strong> — from Sender → Settings → API access tokens. Used to ensure subscribers exist (lowercase email), check <strong>transactional (reminder)</strong> status, assign the members group, and send reminders via Sender’s API.</li>

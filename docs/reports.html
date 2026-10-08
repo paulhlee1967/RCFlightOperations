@@ -46,6 +46,7 @@
     <a href="#email-snapshot">Email a Report</a>
     <a href="#email-members">Email Members (Cohort)</a>
     <a href="#board-packet">Monthly Board Packet</a>
+    <a href="#weekly-roster">Weekly Current Members PDF</a>
     <a href="#faq">FAQ</a>
     <hr class="sidebar-divider">
     <div class="sidebar-title">Other Docs</div>
@@ -220,6 +221,9 @@
   is not inactive or suspended, so a next-year signup during renewal season stays on
   this year's list. A past year is an exact renewal-year match. The header shows the
   year and the member count. Export to PDF or CSV to keep a printed copy.
+  A weekly email of this PDF can be turned on under
+  <a href="#weekly-roster">Weekly Current Members PDF</a>. That job uses the renewal
+  pre-book date for its year; the report page itself still opens on the calendar year.
 </p>
 <div class="docs-table-wrap">
   <table class="docs-table">
@@ -290,7 +294,7 @@
   <span class="callout-icon"><i class="bi bi-info-circle-fill"></i></span>
   <div class="callout-body">
     The pre-book start date is configurable under
-    <strong>Administration → Installation → Renewal year default</strong>. You can always
+    <strong>Administration → Configuration → Membership → Renewal season starts</strong>. You can always
     override the year manually with the dropdown.
   </div>
 </div>
@@ -311,8 +315,8 @@
   <span class="callout-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
   <div class="callout-body">
     <strong>Set your "complete data" year.</strong>
-    Under <strong>Administration → Installation → Reports — complete data starting
-    year</strong>, enter the first year your records are trustworthy (default
+    Under <strong>Administration → Configuration → Membership → First year with complete
+    records</strong>, enter the first year your records are trustworthy (default
     <strong>2027</strong>). Reports flag earlier years automatically; once a year is at or
     after this threshold, the notice disappears.
   </div>
@@ -409,11 +413,11 @@
 </ul>
 <p>
   Counts use the same membership rules as the dashboard and individual reports. Sections that touch
-  historical years may show the standard data-accuracy footnote when configured in Installation.
+  historical years may show the standard data-accuracy footnote when a complete-records year is set under Configuration.
 </p>
 <h3>Automatic email (cron)</h3>
 <p>
-  Administrators can enable automatic delivery under <strong>Administration → Installation → Board packet</strong>:
+  Administrators can enable automatic delivery under <strong>Administration → System → Scheduled mail</strong>:
   enable switch, send day (1–28), and explicit recipient addresses (validated on save; default disabled).
 </p>
 <p>Run the migration on existing sites before enabling:</p>
@@ -425,6 +429,32 @@
   <li><code>--test-email=you@example.com</code> — send to one test address; does not use the monthly send slot.</li>
   <li><code>--force</code> — bypass send-day and monthly idempotency (still requires enabled + recipients unless testing).</li>
 </ul>
+
+<!-- ── Weekly roster ── -->
+<h2 id="weekly-roster">Weekly Current Members PDF</h2>
+<p>
+  Administrators can email the <strong>Current members</strong> report as a branded PDF
+  once a week. Turn it on under <strong>Administration → System → Scheduled mail</strong>:
+  enable switch, weekday, and explicit recipient addresses (validated on save; default disabled).
+</p>
+<p>
+  The PDF year follows <strong>Renewal season starts</strong> under
+  Configuration → Membership (default October 15). On or after that date through December 31
+  the attachment is <em>next</em> year's roster: members who have already signed up for that
+  year. Before that date, and from January 1, it is the current calendar year. Changing the
+  pre-book date changes this email with it. The report page still opens on the calendar year;
+  you can pick next year there yourself during the window.
+</p>
+<p>Run the migration on existing sites before enabling:</p>
+<pre><code>mysql -u USER -p DBNAME &lt; scripts/migrate_current_members_digest.sql</code></pre>
+<p>Daily cron (sends once per week, on or after the configured weekday):</p>
+<pre><code>php /path/to/RCFlightOperations/scripts/send_current_members_digest.php</code></pre>
+<ul>
+  <li><code>--dry-run</code> — print the week, roster year, and member count without sending.</li>
+  <li><code>--test-email=you@example.com</code> — send one PDF to a test address; does not use the week's send slot.</li>
+  <li><code>--force</code> — bypass the weekday and weekly idempotency (still requires enabled + recipients unless testing).</li>
+</ul>
+<p>PDF generation uses Dompdf. If it is not installed, the send fails and the next cron run can retry.</p>
 
 <!-- ── FAQ ── -->
 <h2 id="faq">FAQ</h2>
@@ -454,7 +484,7 @@
 <h3>AMA reminder emails and unsubscribe</h3>
 <p>
   Scheduled expiry reminders (<code>scripts/send_reminders.php</code>) use Sender.net when configured:
-  API token and members group ID under <strong>Administration → Installation</strong>, lowercase email normalization,
+  API token and members group ID under <strong>Administration → System → Email</strong>, lowercase email normalization,
   and signed <strong>reminder-only</strong> unsubscribe links (<code>unsubscribe.php</code> on this site).
   Reminders are sent only to members with <code>email_opt_in_expiry_reminders</code> set (from
   <code>apply.php</code> on approve; existing members default to opted in after migration) and an active

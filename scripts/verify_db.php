@@ -48,6 +48,7 @@ $expectedTables = [
     'member_applications', 'membership_comp_invites', 'membership_discount_codes',
     'member_application_emails', 'member_application_info_requests',
     'board_packet_deliveries',
+    'current_members_digest_deliveries',
     'member_magic_links',
     'system_config', 'operator_messages',
     'audit_log', 'login_attempts', 'password_reset_tokens', 'password_reset_ip_events',
@@ -113,6 +114,9 @@ $expectedColumns = [
     ],
     'board_packet_deliveries' => [
         'id', 'month', 'recipients', 'status', 'error_message', 'sent_at', 'created_at', 'updated_at',
+    ],
+    'current_members_digest_deliveries' => [
+        'id', 'week', 'report_year', 'recipients', 'status', 'error_message', 'sent_at', 'created_at', 'updated_at',
     ],
     'member_magic_links' => [
         'id', 'member_id', 'token_hash', 'expires_at', 'used_at', 'requested_ip', 'created_at',

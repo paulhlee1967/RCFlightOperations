@@ -3,7 +3,7 @@
  * includes/app_signing_secret.php
  *
  * HMAC signing secret for public application confirmation links, reminder
- * unsubscribe URLs, and similar tokens. Configure in Administration → Installation
+ * unsubscribe URLs, and similar tokens. Configure in Administration → System → Payments
  * or config.php as app_secret.
  */
 

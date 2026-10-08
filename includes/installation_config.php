@@ -1,53 +1,62 @@
 <?php
 /**
- * Installation settings helpers: tabs, system_config load/save, mail config.
+ * System settings helpers: tabs, system_config load/save, mail config.
+ *
+ * Club-facing keys (contacts, renewal season, reports year) are edited on
+ * Configuration. This page owns mail transport, payments, scheduled mail, and status.
  */
 
 /**
- * Installation page tabs (id => label), display order.
+ * System page tabs (id => label), display order.
  *
  * @return array<string, string>
  */
 function installation_tabs(): array
 {
     return [
-        'general'      => 'General',
-        'applications' => 'Applications',
-        'email'        => 'Email',
-        'board_packet' => 'Board packet',
-        'tools'        => 'Tools & status',
+        'status'    => 'Status',
+        'email'     => 'Email',
+        'payments'  => 'Payments',
+        'scheduled' => 'Scheduled mail',
     ];
 }
 
 /**
- * Normalize a requested tab id to a known tab (default: general).
+ * Normalize a requested tab id to a known tab (default: status).
+ * Older bookmarks (general, tools, applications, board_packet, roster_digest) still open.
  */
 function installation_normalize_tab(string $tab): string
 {
     $tab = trim($tab);
+    $aliases = [
+        'general'       => 'status',
+        'tools'         => 'status',
+        'applications'  => 'payments',
+        'board_packet'  => 'scheduled',
+        'roster_digest' => 'scheduled',
+    ];
+    if (isset($aliases[$tab])) {
+        $tab = $aliases[$tab];
+    }
     $tabs = installation_tabs();
 
-    return array_key_exists($tab, $tabs) ? $tab : 'general';
+    return array_key_exists($tab, $tabs) ? $tab : 'status';
 }
 
 /**
- * system_config keys owned by an Installation settings tab.
+ * system_config keys owned by one System save action.
+ * Board packet and weekly roster stay separate so saving one does not clear the other.
+ * The visible "scheduled" tab has no keys of its own.
  *
  * @return list<string>
  */
-function installation_tab_config_keys(string $tab): array
+function installation_config_group_keys(string $group): array
 {
-    return match (installation_normalize_tab($tab)) {
-        'general' => [
-            'app_name',
-            'support_email',
-            'membership_email',
-            'renewal_prebook_start_month',
-            'renewal_prebook_start_day',
-            'reports_accurate_from_year',
+    return match ($group) {
+        'status' => [
             'maintenance_mode',
         ],
-        'applications' => [
+        'payments' => [
             'app_secret',
             'stripe_publishable_key',
             'stripe_secret_key',
@@ -70,13 +79,59 @@ function installation_tab_config_keys(string $tab): array
             'board_packet_send_day',
             'board_packet_recipients',
         ],
+        'roster_digest' => [
+            'current_members_digest_enabled',
+            'current_members_digest_weekday',
+            'current_members_digest_recipients',
+        ],
         default => [],
     };
 }
 
 /**
+ * Resolve a posted config value for a known system_config key.
+ */
+function installation_posted_config_value(string $key, array $post): string
+{
+    return match ($key) {
+        'smtp_port' => (string) max(1, min(65535, (int) ($post['smtp_port'] ?? 587))),
+        'maintenance_mode' => empty($post['maintenance_mode']) ? '0' : '1',
+        'stripe_test_mode' => empty($post['stripe_test_mode']) ? '0' : '1',
+        'board_packet_enabled' => empty($post['board_packet_enabled']) ? '0' : '1',
+        'board_packet_send_day' => (string) max(1, min(28, (int) ($post['board_packet_send_day'] ?? 1))),
+        'board_packet_recipients' => trim((string) ($post['board_packet_recipients'] ?? '')),
+        'current_members_digest_enabled' => empty($post['current_members_digest_enabled']) ? '0' : '1',
+        'current_members_digest_weekday' => (string) max(1, min(7, (int) ($post['current_members_digest_weekday'] ?? 1))),
+        'current_members_digest_recipients' => trim((string) ($post['current_members_digest_recipients'] ?? '')),
+        'renewal_prebook_start_month' => (string) max(1, min(12, (int) ($post['renewal_prebook_start_month'] ?? 10))),
+        'renewal_prebook_start_day' => (string) renewal_prebook_clamp_day(
+            (int) ($post['renewal_prebook_start_month'] ?? 10),
+            (int) ($post['renewal_prebook_start_day'] ?? 15)
+        ),
+        'reports_accurate_from_year' => (string) max(2000, min(2100, (int) ($post['reports_accurate_from_year'] ?? 2027))),
+        default => trim((string) ($post[$key] ?? '')),
+    };
+}
+
+/**
+ * Days in a calendar month. February allows 29 so a leap-day season start can be stored.
+ */
+function renewal_prebook_days_in_month(int $month): int
+{
+    $days = [1 => 31, 2 => 29, 3 => 31, 4 => 30, 5 => 31, 6 => 30, 7 => 31, 8 => 31, 9 => 30, 10 => 31, 11 => 30, 12 => 31];
+    $month = max(1, min(12, $month));
+
+    return $days[$month];
+}
+
+function renewal_prebook_clamp_day(int $month, int $day): int
+{
+    return max(1, min(renewal_prebook_days_in_month($month), $day));
+}
+
+/**
  * Load/save system_config keys and build mail config for installation / SMTP UI.
- * Used by installation.php (club admin).
+ * Used by system.php (club admin).
  */
 
 function installation_load_system_config(PDO $pdo): array {
@@ -315,6 +370,65 @@ function board_packet_recipients_raw(PDO $pdo): string
         return trim((string) ($row['config_value'] ?? ''));
     } catch (Throwable $e) {
         return '';
+    }
+}
+
+/** Whether the weekly Current Members PDF email is enabled. Default false. */
+function current_members_digest_enabled(PDO $pdo): bool
+{
+    try {
+        $stmt = $pdo->prepare('SELECT config_value FROM system_config WHERE config_key = ? LIMIT 1');
+        $stmt->execute(['current_members_digest_enabled']);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        return isset($row['config_value']) && $row['config_value'] === '1';
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+/**
+ * ISO weekday (1 = Monday … 7 = Sunday) for the weekly roster email. Default Monday.
+ */
+function current_members_digest_weekday(PDO $pdo): int
+{
+    $default = 1;
+    try {
+        $stmt = $pdo->prepare('SELECT config_value FROM system_config WHERE config_key = ? LIMIT 1');
+        $stmt->execute(['current_members_digest_weekday']);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row && isset($row['config_value']) && $row['config_value'] !== '') {
+            $day = (int) $row['config_value'];
+            if ($day >= 1 && $day <= 7) {
+                return $day;
+            }
+        }
+    } catch (Throwable $e) {
+    }
+
+    return $default;
+}
+
+/**
+ * Configured weekly roster recipients.
+ *
+ * @return array<int, string>
+ */
+function current_members_digest_recipients(PDO $pdo): array
+{
+    try {
+        $stmt = $pdo->prepare('SELECT config_value FROM system_config WHERE config_key = ? LIMIT 1');
+        $stmt->execute(['current_members_digest_recipients']);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        $raw = trim((string) ($row['config_value'] ?? ''));
+        if ($raw === '') {
+            return [];
+        }
+        require_once __DIR__ . '/report_email_html.php';
+
+        return report_email_parse_addresses($raw);
+    } catch (Throwable $e) {
+        return [];
     }
 }
 

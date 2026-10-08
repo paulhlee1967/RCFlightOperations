@@ -96,7 +96,7 @@ $wrapVars = emailWrapVarsFromTemplate($vars);
 $wrapVars['eyebrow'] = $vars['eyebrow'] ?? 'Member self-service';
 $wrapVars['footer_note'] = $vars['footer_note'] ?? (
     'Automated notice from ' . htmlspecialchars($club_name ?? 'RC Flight Operations')
-    . '. Recipient is the Membership email under Administration → Installation → General.'
+    . '. Recipient is the Membership email under Administration → Configuration → Club.'
 );
 
 $bodyHtml = emailWrap($content, $wrapVars, $pdo ?? null);

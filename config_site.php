@@ -2,9 +2,10 @@
 /**
  * config_site.php
  *
- * Club configuration: name, logo, favicon, theme colors, membership types, dues.
+ * Club configuration: name, logo, colors, contacts, renewal season, membership types, dues.
  *
- * Admin only. POST saves to `club` (branding, type labels) and `dues_rules`; file uploads go to uploads/branding/.
+ * Admin only. POST saves to `club` (branding, type labels), `dues_rules`, and a few
+ * `system_config` keys (contacts, renewal season, reports year). File uploads go to uploads/branding/.
  */
 
 require_once __DIR__ . '/includes/db.php';
@@ -25,6 +26,7 @@ if (!$club) {
 
 $saved = false;
 $error = '';
+$configRows = installation_load_system_config($pdo);
 
 // Load current slot labels, enabled flags, and dues rules for display
 $membershipTypeSlots  = membershipTypeSlots($pdo);
@@ -34,6 +36,21 @@ $duesRules            = duesRules($pdo);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_validate();
 
+    $supportEmail    = trim((string) ($_POST['support_email'] ?? ''));
+    $membershipEmail = trim((string) ($_POST['membership_email'] ?? ''));
+    if ($supportEmail !== '' && !filter_var($supportEmail, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Support email must be a valid address, or left blank.';
+    } elseif ($membershipEmail !== '' && !filter_var($membershipEmail, FILTER_VALIDATE_EMAIL)) {
+        $error = 'Membership email must be a valid address, or left blank.';
+    }
+
+    if ($error !== '') {
+        // Keep the typed addresses visible when validation fails.
+        $configRows['support_email'] = $supportEmail;
+        $configRows['membership_email'] = $membershipEmail;
+    }
+
+    if ($error === '') {
     // ── General / branding fields ─────────────────────────────────────────────
     $name             = trim($_POST['club_name']          ?? '');
     $colorPrimary     = trim($_POST['color_primary']      ?? '') ?: '#6f7c3d';
@@ -155,7 +172,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    $saved = true;
+    try {
+        foreach ([
+            'support_email',
+            'membership_email',
+            'renewal_prebook_start_month',
+            'renewal_prebook_start_day',
+            'reports_accurate_from_year',
+        ] as $configKey) {
+            installation_save_config_key($pdo, $configKey, installation_posted_config_value($configKey, $_POST));
+        }
+    } catch (Throwable $e) {
+        $error = 'Branding and dues were saved, but contacts and the renewal calendar could not be saved.';
+    }
 
     $stmt = $pdo->prepare('SELECT * FROM club WHERE id = ?');
     $stmt->execute([$clubId]);
@@ -163,6 +192,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $membershipTypeSlots  = membershipTypeSlots($pdo);
     $membershipTypeLabels = enabledMembershipTypeLabels($pdo);
     $duesRules            = duesRules($pdo);
+    $configRows           = installation_load_system_config($pdo);
+    if ($error === '') {
+        $saved = true;
+    }
+    }
 }
 
 $pageTitle = 'Configuration';
@@ -194,7 +228,7 @@ require_once __DIR__ . '/includes/header.php';
 
 render_page_header([
     'title'    => 'Configuration',
-    'subtitle' => 'Club branding and settings. Changes take effect immediately on save.',
+    'subtitle' => 'Club name, look, contacts, dues, and the renewal calendar. Changes apply as soon as you save.',
     'border'   => true,
     'actions'  => $configHeaderActions,
 ]);
@@ -216,16 +250,12 @@ render_page_header([
 
 <ul class="nav nav-tabs mb-4" id="configTabs" role="tablist">
     <li class="nav-item" role="presentation">
-        <button class="nav-link active" id="general-tab" data-bs-toggle="tab"
-                data-bs-target="#general" type="button" role="tab">General</button>
+        <button class="nav-link active" id="club-tab" data-bs-toggle="tab"
+                data-bs-target="#club" type="button" role="tab">Club</button>
     </li>
     <li class="nav-item" role="presentation">
-        <button class="nav-link" id="design-tab" data-bs-toggle="tab"
-                data-bs-target="#design" type="button" role="tab">Design</button>
-    </li>
-    <li class="nav-item" role="presentation">
-        <button class="nav-link" id="dues-tab" data-bs-toggle="tab"
-                data-bs-target="#dues" type="button" role="tab">Membership &amp; Dues</button>
+        <button class="nav-link" id="membership-tab" data-bs-toggle="tab"
+                data-bs-target="#membership" type="button" role="tab">Membership</button>
     </li>
 </ul>
 
@@ -234,7 +264,7 @@ render_page_header([
     <!-- ══════════════════════════════════════════════════════════════════
          GENERAL TAB
          ══════════════════════════════════════════════════════════════ -->
-    <div class="tab-pane fade show active" id="general" role="tabpanel">
+    <div class="tab-pane fade show active" id="club" role="tabpanel">
         <div class="card mb-4">
             <div class="card-header fw-semibold">Club</div>
             <div class="card-body">
@@ -285,12 +315,7 @@ render_page_header([
 
             </div>
         </div>
-    </div>
 
-    <!-- ══════════════════════════════════════════════════════════════════
-         DESIGN TAB
-         ══════════════════════════════════════════════════════════════ -->
-    <div class="tab-pane fade" id="design" role="tabpanel">
         <div class="card mb-4">
             <div class="card-header fw-semibold">Theme colors</div>
             <div class="card-body">
@@ -369,14 +394,85 @@ render_page_header([
                 </div>
             </div>
         </div>
+
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Contacts</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="support_email">Support email</label>
+                        <input type="email" class="form-control" id="support_email" name="support_email"
+                               value="<?= h($configRows['support_email'] ?? '') ?>">
+                        <div class="form-text">Club contact on applicant emails. Also used when membership email is blank.</div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="membership_email">Membership email</label>
+                        <input type="email" class="form-control" id="membership_email" name="membership_email"
+                               value="<?= h($configRows['membership_email'] ?? '') ?>">
+                        <div class="form-text">New applications and member profile updates are sent here. If blank, support email is used, then the first active administrator.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- ══════════════════════════════════════════════════════════════════
-         MEMBERSHIP & DUES TAB
-         One card per membership type. Each card has the name, enabled
-         toggle, and all rate fields together — no separate legacy block.
+         MEMBERSHIP TAB
+         Renewal season (club-wide) plus one card per membership type.
          ══════════════════════════════════════════════════════════════ -->
-    <div class="tab-pane fade" id="dues" role="tabpanel">
+    <div class="tab-pane fade" id="membership" role="tabpanel">
+        <?php
+        $monthNames = [1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April', 5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August', 9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December'];
+        $preMo = isset($configRows['renewal_prebook_start_month'])
+            ? max(1, min(12, (int) $configRows['renewal_prebook_start_month']))
+            : 10;
+        $preDay = renewal_prebook_clamp_day(
+            $preMo,
+            isset($configRows['renewal_prebook_start_day']) ? (int) $configRows['renewal_prebook_start_day'] : 15
+        );
+        $reportsYear = isset($configRows['reports_accurate_from_year'])
+            ? max(2000, min(2100, (int) $configRows['reports_accurate_from_year']))
+            : 2027;
+        $preDayMax = renewal_prebook_days_in_month($preMo);
+        ?>
+
+        <div class="card mb-4">
+            <div class="card-header fw-semibold">Renewal season</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="renewal_prebook_start_month">Renewal season starts</label>
+                        <div class="d-flex gap-2">
+                            <select class="form-select" id="renewal_prebook_start_month" name="renewal_prebook_start_month">
+                                <?php for ($m = 1; $m <= 12; $m++): ?>
+                                <option value="<?= $m ?>"<?= $preMo === $m ? ' selected' : '' ?>><?= h($monthNames[$m]) ?></option>
+                                <?php endfor; ?>
+                            </select>
+                            <select class="form-select w-auto" id="renewal_prebook_start_day" name="renewal_prebook_start_day" aria-label="Renewal season start day">
+                                <?php for ($d = 1; $d <= $preDayMax; $d++): ?>
+                                <option value="<?= $d ?>"<?= $preDay === $d ? ' selected' : '' ?>><?= $d ?></option>
+                                <?php endfor; ?>
+                            </select>
+                        </div>
+                        <div class="form-text">
+                            On this date, signup, renewal, and application defaults switch to <strong>next</strong> calendar year
+                            through December 31. Before it, they use the current year. This also sets the on-time renewal
+                            window below and the year on the weekly roster PDF. Default: October 15.
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="reports_accurate_from_year">First year with complete records</label>
+                        <input type="number" class="form-control" id="reports_accurate_from_year" name="reports_accurate_from_year"
+                               min="2000" max="2100" step="1"
+                               value="<?= h((string) $reportsYear) ?>">
+                        <div class="form-text">
+                            Reports add a warning for <strong>earlier</strong> years, whose counts are rebuilt from payment
+                            history and may undercount members or revenue. Default: 2027.
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="alert alert-info d-flex gap-2 align-items-start mb-4">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor"
@@ -554,7 +650,7 @@ render_page_header([
         <?php endfor; ?>
         </div><!-- /.row -->
 
-    </div><!-- /#dues tab-pane -->
+    </div><!-- /#membership tab-pane -->
 
 </div><!-- /.tab-content -->
 
@@ -572,7 +668,9 @@ var KEY = 'config_site_tab';
 var el  = document.getElementById('configTabs');
 if (!el) return;
 
+var aliases = { '#general': '#club', '#design': '#club', '#dues': '#membership' };
 var stored = sessionStorage.getItem(KEY);
+if (stored && aliases[stored]) stored = aliases[stored];
 if (stored) {
     var btn = document.querySelector('#configTabs button[data-bs-target="' + stored + '"]');
     if (btn) new bootstrap.Tab(btn).show();
@@ -582,6 +680,27 @@ el.addEventListener('shown.bs.tab', function (e) {
     var target = e.target.getAttribute('data-bs-target');
     if (target) sessionStorage.setItem(KEY, target);
 });
+
+var monthSel = document.getElementById('renewal_prebook_start_month');
+var daySel   = document.getElementById('renewal_prebook_start_day');
+if (monthSel && daySel) {
+    var daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+    function syncDays() {
+        var max = daysInMonth[(parseInt(monthSel.value, 10) || 1) - 1];
+        var want = parseInt(daySel.value, 10) || 1;
+        daySel.innerHTML = '';
+        for (var d = 1; d <= max; d++) {
+            var opt = document.createElement('option');
+            opt.value = String(d);
+            opt.textContent = String(d);
+            if (d === Math.min(want, max)) { opt.selected = true; }
+            daySel.appendChild(opt);
+        }
+    }
+
+    monthSel.addEventListener('change', syncDays);
+}
 
 })();
 

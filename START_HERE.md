@@ -129,9 +129,9 @@ You should be redirected to **Home** (dashboard). From there you can open Member
 
 ---
 
-## 9. Optional: Installation settings (SMTP, maintenance, health)
+## 9. Optional: System settings (SMTP, maintenance, health)
 
-After you log in as an **admin**, open **Administration → Installation** (`installation.php`) to configure outbound email (SMTP or fallback), Sender.net reminder opt-out (API token + members group ID), Stripe keys for `/apply.php`, maintenance mode, database health checks, test email, and broadcast messages to club admins. These settings are stored in the database (`system_config` and related tables), not in a separate “operator” login.
+After you log in as an **admin**, open **Administration → System** (`system.php`) to configure outbound email (SMTP or fallback), Sender.net reminder opt-out (API token + members group ID), Stripe keys for `/apply.php`, maintenance mode, database health checks, test email, and broadcast messages to club admins. Club name, contacts, dues, and the renewal calendar are under **Administration → Configuration**. These settings are stored in the database (`system_config`, `club`, and related tables), not in a separate “operator” login.
 
 If you use AMA expiry reminders via cron, also set **`canonical_host`** (or **`public_base_url`**) in `config.php` so reminder emails include working logo and unsubscribe links. See [DEPLOY.md](DEPLOY.md) and [LOCAL_DEV.md](LOCAL_DEV.md).
 
@@ -168,6 +168,6 @@ If you use AMA expiry reminders via cron, also set **`canonical_host`** (or **`p
 | `scripts/verify_db.php` | Check database matches schema (CLI) |
 | `scripts/verify_ama_health.php` | Probe AMA verify form (CLI health check) |
 | `scripts/fetch_vendor_assets.sh` | Download pinned Bootstrap / Fabric into `assets/vendor/` |
-| `installation.php` | Installation / SMTP / maintenance (admin only) |
+| `system.php` | System: mail, payments, scheduled email, maintenance (admin only) |
 | `LOCAL_DEV.md` | Local development on Mac |
 | `PLAN.md` | Architecture and plan |

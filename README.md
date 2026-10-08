@@ -24,7 +24,7 @@ End-user help lives in **[docs/](docs/)** (also linked from the app as **Help & 
 - **New to the project?** → [START_HERE.md](START_HERE.md) — database, config, first login
 - **Local development on a Mac?** → [LOCAL_DEV.md](LOCAL_DEV.md)
 - **Deploying to a server?** → [DEPLOY.md](DEPLOY.md) — checklist, cPanel data move, Nginx notes. Apache: `uploads/.htaccess` blocks PHP in uploads; **Nginx** needs an equivalent rule in the server config.
-- **Online applications** → `/apply.php` on your domain; configure Stripe and signing secret under **Administration → Installation** ([docs/applications.html](docs/applications.html))
+- **Online applications** → `/apply.php` on your domain; configure Stripe and signing secret under **Administration → System → Payments** ([docs/applications.html](docs/applications.html))
 - **Architecture and plan** → [PLAN.md](PLAN.md)
 - **How the app is built** → [TECHNICAL.md](TECHNICAL.md) — file layout, `includes/`, entry points, scripts
 

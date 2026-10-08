@@ -13,10 +13,10 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` (fresh-inst
 - **Online applications:** Public form at `/apply.php` (AMA gate, club-record prefill, Stripe, email opt-in, complimentary invites, campaign discount codes); staff review in **Applications** with status emails.
 - **Member self-service:** Passwordless `/membership` magic-link profile for contact, AMA/FAA, uploads, and email prefs.
 - **Badge design & print:** CR80 card designer (Fabric.js): front (background, text fields, photo) and back (HTML). Multiple named designs; print front and/or back as separate jobs.
-- **Reports:** Built-in membership, retention, revenue, compliance, and related reports — on screen, CSV, branded PDF, or email. Monthly **board packet** (HTML/PDF) via Installation settings or cron.
+- **Reports:** Built-in membership, retention, revenue, compliance, and related reports — on screen, CSV, branded PDF, or email. Monthly **board packet** (HTML/PDF) and a weekly **Current members** PDF via System → Scheduled mail or cron.
 - **Incidents:** Safety / field incident log with optional photo attachments.
 - **Import/export:** CSV import for members; filter-aware CSV/PDF export.
-- **Admin:** Users (roles: administrator, membership manager, club staff, report viewer), club config, complimentary invites, campaign discount codes, audit log, **Installation** (SMTP, Stripe, Sender, applications, board packet, maintenance, health).
+- **Admin:** Users (roles: administrator, membership manager, club staff, report viewer), club config, complimentary invites, campaign discount codes, audit log, **Installation** (SMTP, Stripe, Sender, applications, board packet, weekly roster PDF, maintenance, health).
 
 ---
 
@@ -31,6 +31,7 @@ LAMP app for club membership. **Source of truth:** `schema_full.sql` (fresh-inst
 - **badge_templates** – JSON canvas designs.
 - **incidents** / **incident_photos** – Incident log and attachments.
 - **board_packet_deliveries** – Board packet send log (plus related `system_config` keys).
+- **current_members_digest_deliveries** – Weekly Current Members PDF send log (plus related `system_config` keys).
 - **rate_limit_events** – IP rate-limit counters for public/API endpoints.
 
 ---

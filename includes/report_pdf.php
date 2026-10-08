@@ -191,25 +191,49 @@ function reportPdfHtml(array $report, array $club, ?int $year): string
 }
 
 /**
- * Stream a report as a PDF download. Caller must check reportPdfAvailable() first.
+ * Download filename for a report PDF.
+ */
+function reportPdfFilename(array $report, ?int $year = null, ?string $date = null): string
+{
+    $date = $date ?? date('Y-m-d');
+
+    return 'report_' . ($report['slug'] ?? 'report')
+        . ($year !== null ? '_' . $year : '')
+        . '_' . $date . '.pdf';
+}
+
+/**
+ * Raise the memory ceiling before Dompdf renders an embedded logo.
+ */
+function reportPdfPrepareMemory(): void
+{
+    $limit = (string) ini_get('memory_limit');
+    if ($limit === '-1') {
+        return;
+    }
+    $bytes = (int) $limit;
+    if (stripos($limit, 'g') !== false) {
+        $bytes *= 1024 * 1024 * 1024;
+    } elseif (stripos($limit, 'm') !== false) {
+        $bytes *= 1024 * 1024;
+    } elseif (stripos($limit, 'k') !== false) {
+        $bytes *= 1024;
+    }
+    if ($bytes < 512 * 1024 * 1024) {
+        @ini_set('memory_limit', '512M');
+    }
+}
+
+/**
+ * Render a report to a Dompdf instance (footer already drawn). Caller must
+ * check reportPdfAvailable() first.
  *
  * @param  array<string, mixed>  $report
- * @param  array<string, mixed>  $club    Branding row from the `club` table (or a subset).
+ * @param  array<string, mixed>  $club
  */
-function renderReportPdf(array $report, array $club, ?int $year = null): void
+function reportPdfRenderDompdf(array $report, array $club, ?int $year = null): \Dompdf\Dompdf
 {
-    // Rendering an embedded (often large) logo is memory-hungry; raise the
-    // ceiling so PDF export doesn't fatal on the default 128M limit.
-    $limit = (string) ini_get('memory_limit');
-    if ($limit !== '-1') {
-        $bytes = (int) $limit;
-        if (stripos($limit, 'g') !== false)      { $bytes *= 1024 * 1024 * 1024; }
-        elseif (stripos($limit, 'm') !== false)   { $bytes *= 1024 * 1024; }
-        elseif (stripos($limit, 'k') !== false)   { $bytes *= 1024; }
-        if ($bytes < 512 * 1024 * 1024) {
-            @ini_set('memory_limit', '512M');
-        }
-    }
+    reportPdfPrepareMemory();
 
     $options = new \Dompdf\Options();
     $options->set('isRemoteEnabled', false);
@@ -220,7 +244,6 @@ function renderReportPdf(array $report, array $club, ?int $year = null): void
     $dompdf->setPaper('letter', 'portrait');
     $dompdf->render();
 
-    // Branded footer with page numbers on every page.
     $canvas    = $dompdf->getCanvas();
     $clubName  = (string) ($club['name'] ?? '');
     $footLabel = ($clubName !== '' ? $clubName : 'RC Flight Operations');
@@ -233,9 +256,30 @@ function renderReportPdf(array $report, array $club, ?int $year = null): void
     $canvas->page_text(40, $h - 28, $footLabel, $font, 8, $rgb);
     $canvas->page_text($w - 120, $h - 28, 'Page {PAGE_NUM} of {PAGE_COUNT}', $font, 8, $rgb);
 
-    $filename = 'report_' . ($report['slug'] ?? 'report')
-        . ($year !== null ? '_' . $year : '')
-        . '_' . date('Y-m-d') . '.pdf';
+    return $dompdf;
+}
+
+/**
+ * Render a report PDF to a binary string. Caller must check reportPdfAvailable() first.
+ *
+ * @param  array<string, mixed>  $report
+ * @param  array<string, mixed>  $club
+ */
+function renderReportPdfBytes(array $report, array $club, ?int $year = null): string
+{
+    return reportPdfRenderDompdf($report, $club, $year)->output();
+}
+
+/**
+ * Stream a report as a PDF download. Caller must check reportPdfAvailable() first.
+ *
+ * @param  array<string, mixed>  $report
+ * @param  array<string, mixed>  $club    Branding row from the `club` table (or a subset).
+ */
+function renderReportPdf(array $report, array $club, ?int $year = null): void
+{
+    $dompdf   = reportPdfRenderDompdf($report, $club, $year);
+    $filename = reportPdfFilename($report, $year);
 
     if (ob_get_level()) {
         ob_end_clean();

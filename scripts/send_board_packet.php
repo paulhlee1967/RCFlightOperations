@@ -129,7 +129,7 @@ if ($isTest && !filter_var($testEmail, FILTER_VALIDATE_EMAIL)) {
 
 if (!$isTest) {
     if (!board_packet_enabled($pdo)) {
-        send_board_packet_out('Board packet automatic send is disabled (Installation settings).');
+        send_board_packet_out('Board packet automatic send is disabled (System → Scheduled mail).');
         flightops_log('INFO', 'send_board_packet: disabled', [], 'cron');
         exit(0);
     }

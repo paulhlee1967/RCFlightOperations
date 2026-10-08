@@ -205,7 +205,7 @@
       Staff see the applicant’s choices in the detail panel under <strong>Email preferences</strong>
       (or “No optional emails selected”). On <strong>Approve &amp; process</strong>, preferences are
       copied to the member record and synced to Sender.net when configured under
-      <strong>Administration → Installation</strong> (see
+      <strong>Administration → System → Email</strong> (see
       <a href="admin.html#sender-opt-out">Sender.net opt-out</a>).
     </p>
     <p>
@@ -217,8 +217,8 @@
     <h2 id="applicant-emails">Applicant emails</h2>
     <p>
       Branded status emails are sent automatically at key points in the application lifecycle.
-      Club name and contact details come from <strong>Configuration</strong> and
-      <strong>Administration → Installation</strong> — nothing is hardcoded to a specific club.
+      Club name and contact details come from <strong>Administration → Configuration</strong> —
+      nothing is hardcoded to a specific club.
     </p>
     <ul>
       <li><strong>Application received</strong> — sent when the submission is finalized (payment confirmed or waived). Duplicate sends are prevented atomically; if SMTP fails, the detail panel shows a failed status with a <strong>Retry received email</strong> button.</li>
@@ -279,7 +279,7 @@
     <h2 id="setup">Public form setup</h2>
     <p>
       Configure Stripe keys and the <strong>Application signing secret</strong> under
-      <strong>Administration → Installation</strong>. Link your club website to
+      <strong>Administration → System → Payments</strong>. Link your club website to
       <code>/apply.php</code> on this server. Stripe webhooks should target
       <code>api_stripe_webhook.php</code>.
     </p>

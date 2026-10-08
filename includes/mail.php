@@ -145,7 +145,8 @@ function mail_configure_smtp(PHPMailer $mail, array $emailConfig, bool $keepAliv
  * @param string      $bodyHtml     HTML body.
  * @param string|null $bodyText     Optional plain-text body (if null, strip_tags of HTML used for mail()).
  * @param array|null  $emailConfig Optional config (from getSystemMailConfig etc.). When null, uses $config['email'].
- * @param array|null  $options     Optional send options, e.g. list_unsubscribe_url for RFC 2369 header.
+ * @param array|null  $options     Optional send options: list_unsubscribe_url, attachments.
+ *                                 attachments is a list of {filename, content, mime?}.
  * @return bool True if sent successfully, false otherwise.
  */
 function send_mail(string $to, string $subject, string $bodyHtml, ?string $bodyText = null, ?array $emailConfig = null, ?array $options = null): bool
@@ -200,7 +201,7 @@ function send_mail_to_many(array $to, string $subject, string $bodyHtml, ?string
  * @param string      $bodyHtml    HTML body.
  * @param string|null $bodyText    Plain-text alternative (or null to derive from HTML).
  * @param array       $emailConfig Config array with from_address, from_name, smtp (host, port, username, password, encryption).
- * @param array|null  $options     Optional send options (list_unsubscribe_url).
+ * @param array|null  $options     Optional send options (list_unsubscribe_url, attachments).
  * @return bool True on success, false on PHPMailer exception.
  */
 function send_mail_via_smtp(string|array $to, string $subject, string $bodyHtml, ?string $bodyText, array $emailConfig, ?array $options = null): bool
@@ -216,6 +217,7 @@ function send_mail_via_smtp(string|array $to, string $subject, string $bodyHtml,
             $mail->clearAllRecipients();
             $mail->clearReplyTos();
             $mail->clearCustomHeaders();
+            $mail->clearAttachments();
         } else {
             $mail = new PHPMailer(true);
             mail_configure_smtp($mail, $emailConfig, false);
@@ -234,6 +236,14 @@ function send_mail_via_smtp(string|array $to, string $subject, string $bodyHtml,
         $mail->isHTML(true);
         $mail->Body    = $bodyHtml;
         $mail->AltBody = $bodyText !== null && $bodyText !== '' ? $bodyText : strip_tags($bodyHtml);
+        foreach (mail_normalize_attachments($options) as $file) {
+            $mail->addStringAttachment(
+                $file['content'],
+                $file['filename'],
+                PHPMailer::ENCODING_BASE64,
+                $file['mime']
+            );
+        }
 
         $mail->send();
 
@@ -275,14 +285,69 @@ function mail_last_error(string $msg): void {
  * @param string|null $bodyText    Plain text (or null to strip HTML).
  * @param string      $fromAddress From address.
  * @param string      $fromName    From display name.
- * @param array|null  $options     Optional send options (list_unsubscribe_url).
+ * @param array|null  $options     Optional send options (list_unsubscribe_url, attachments).
  * @return bool True if mail() returned true.
  */
 function send_mail_via_php(string|array $to, string $subject, string $bodyHtml, ?string $bodyText, string $fromAddress, string $fromName, ?array $options = null): bool
 {
     $recipients = is_array($to) ? $to : [trim($to)];
     $toHeader   = implode(', ', $recipients);
+    $mime       = mail_php_mime_message($fromAddress, $fromName, $subject, $bodyHtml, $bodyText, $options);
 
+    return @mail($toHeader, $mime['subject'], $mime['body'], $mime['headers']);
+}
+
+/**
+ * Normalize attachment options into filename / binary content / mime triples.
+ *
+ * @param  array<string, mixed>|null  $options
+ * @return list<array{filename:string, content:string, mime:string}>
+ */
+function mail_normalize_attachments(?array $options): array
+{
+    $raw = $options['attachments'] ?? [];
+    if (!is_array($raw)) {
+        return [];
+    }
+
+    $out = [];
+    foreach ($raw as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $content = $item['content'] ?? '';
+        if (!is_string($content) || $content === '') {
+            continue;
+        }
+        $filename = trim((string) ($item['filename'] ?? 'attachment.bin'));
+        $filename = str_replace(['\\', '/'], '_', $filename);
+        $filename = preg_replace('/[^A-Za-z0-9._-]+/', '_', $filename) ?? '';
+        $filename = ltrim($filename, '._');
+        if ($filename === '') {
+            $filename = 'attachment.bin';
+        }
+        $mime = trim((string) ($item['mime'] ?? 'application/octet-stream'));
+        if (!preg_match('#^[\w.+-]+/[\w.+-]+$#', $mime)) {
+            $mime = 'application/octet-stream';
+        }
+        $out[] = [
+            'filename' => $filename,
+            'content'  => $content,
+            'mime'     => $mime,
+        ];
+    }
+
+    return $out;
+}
+
+/**
+ * Build the PHP mail() subject, headers, and body (plain + HTML, optional attachments).
+ *
+ * @param  array<string, mixed>|null  $options  list_unsubscribe_url, attachments, boundary_seed (tests).
+ * @return array{subject:string, headers:string, body:string}
+ */
+function mail_php_mime_message(string $fromAddress, string $fromName, string $subject, string $bodyHtml, ?string $bodyText, ?array $options = null): array
+{
     $encodeHeader = static function (string $value): string {
         $value = trim($value);
         if ($value === '') {
@@ -291,30 +356,59 @@ function send_mail_via_php(string|array $to, string $subject, string $bodyHtml, 
         if (function_exists('mb_encode_mimeheader')) {
             return mb_encode_mimeheader($value, 'UTF-8', 'B', "\r\n");
         }
-        // Fallback: RFC 2047 base64 (single line).
+
         return '=?UTF-8?B?' . base64_encode($value) . '?=';
     };
 
     $encodedFromName = $fromName !== '' ? $encodeHeader($fromName) : '';
-    $encodedSubject  = $encodeHeader($subject);
-
     $fromHeader = 'From: ' . ($encodedFromName ? "\"{$encodedFromName}\" <{$fromAddress}>" : $fromAddress);
-    $boundary   = '----_' . md5(uniqid());
-    $headers    = [
-        $fromHeader,
-        'MIME-Version: 1.0',
-        'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
-    ];
+
+    $seed = trim((string) ($options['boundary_seed'] ?? ''));
+    $token = $seed !== '' ? md5($seed) : md5(uniqid('', true));
+    $altBoundary = '----alt_' . $token;
+    $attachments = mail_normalize_attachments($options);
+    $textPart = $bodyText !== null && $bodyText !== '' ? $bodyText : strip_tags($bodyHtml);
+
+    $alternative = "--{$altBoundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n{$textPart}\r\n"
+        . "--{$altBoundary}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n{$bodyHtml}\r\n"
+        . "--{$altBoundary}--";
+
+    if ($attachments === []) {
+        $headers = [
+            $fromHeader,
+            'MIME-Version: 1.0',
+            'Content-Type: multipart/alternative; boundary="' . $altBoundary . '"',
+        ];
+        $body = $alternative;
+    } else {
+        $mixedBoundary = '----mix_' . $token;
+        $headers = [
+            $fromHeader,
+            'MIME-Version: 1.0',
+            'Content-Type: multipart/mixed; boundary="' . $mixedBoundary . '"',
+        ];
+        $body = "--{$mixedBoundary}\r\n"
+            . 'Content-Type: multipart/alternative; boundary="' . $altBoundary . "\"\r\n\r\n"
+            . $alternative . "\r\n";
+        foreach ($attachments as $file) {
+            $encoded = chunk_split(base64_encode($file['content']));
+            $body .= "--{$mixedBoundary}\r\n"
+                . 'Content-Type: ' . $file['mime'] . '; name="' . $file['filename'] . "\"\r\n"
+                . "Content-Transfer-Encoding: base64\r\n"
+                . 'Content-Disposition: attachment; filename="' . $file['filename'] . "\"\r\n\r\n"
+                . $encoded . "\r\n";
+        }
+        $body .= "--{$mixedBoundary}--";
+    }
 
     $listUnsub = trim((string) ($options['list_unsubscribe_url'] ?? ''));
     if ($listUnsub !== '') {
         $headers[] = 'List-Unsubscribe: <' . $listUnsub . '>';
     }
 
-    $textPart = $bodyText !== null && $bodyText !== '' ? $bodyText : strip_tags($bodyHtml);
-    $body = "--{$boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n{$textPart}\r\n"
-        . "--{$boundary}\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n{$bodyHtml}\r\n"
-        . "--{$boundary}--";
-
-    return @mail($toHeader, $encodedSubject, $body, implode("\r\n", $headers));
+    return [
+        'subject' => $encodeHeader($subject),
+        'headers' => implode("\r\n", $headers),
+        'body'    => $body,
+    ];
 }

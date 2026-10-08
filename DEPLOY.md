@@ -60,7 +60,7 @@ Use this when the app is **already live** and you are pulling a code update (e.g
 
 ### 2. Optional maintenance window
 
-**Administration → Installation** → enable **Maintenance mode** so members do not hit half-upgraded pages while you run SQL.
+**Administration → System → Status** → enable **Maintenance mode** so members do not hit half-upgraded pages while you run SQL.
 
 ### 3. Deploy the new PHP files
 
@@ -90,6 +90,7 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_membership_discount_code
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_email_opt_in.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_application_emails.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_board_packet.sql
+mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_current_members_digest.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_incident_photos.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_portal.sql
 mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_member_trust_ledger.sql
@@ -110,6 +111,7 @@ mysql -u YOUR_DB_USER -p YOUR_DB_NAME < scripts/migrate_rate_limit_events.sql
 | `migrate_email_opt_in.sql` | Adds `email_opt_in_club_events` and `email_opt_in_expiry_reminders` to `member_applications` and `members` |
 | `migrate_application_emails.sql` | Adds applicant email delivery tracking and staff information-request history |
 | `migrate_board_packet.sql` | Creates `board_packet_deliveries` log table and board packet `system_config` keys |
+| `migrate_current_members_digest.sql` | Creates `current_members_digest_deliveries` and weekly Current Members PDF `system_config` keys |
 | `migrate_incident_photos.sql` | Creates `incident_photos` table for incident photo attachments |
 | `migrate_member_portal.sql` | Creates `member_magic_links` for passwordless member self-service profile links |
 | `migrate_member_trust_ledger.sql` | Adds TRUST on `members`, copies attestation from approved applications, and records Stripe/waived application payments on `payments` (`amount_processing_fee`, `application_id`) |
@@ -128,7 +130,7 @@ Expected output: `Database OK: all expected tables and columns present.`
 
 ### 6. Online applications (optional)
 
-1. **Administration → Installation → Membership application (Stripe)** — publishable/secret keys, Stripe webhook secret, and **Application signing secret**.
+1. **Administration → System → Payments** — publishable/secret keys, Stripe webhook secret, and **Application signing secret**.
 2. Point Stripe `payment_intent.succeeded` webhooks at `https://your-domain/api_stripe_webhook.php`.
 3. Link members to `https://your-domain/apply.php` from your club website.
 
@@ -146,7 +148,7 @@ Expected output: `Database OK: all expected tables and columns present.`
 After uploading files and importing the database:
 
 1. **Create `config.php`**  
-   Copy from `config.php.example`. Set `db` (host, name, user, password). Optionally set `email` as a fallback; finer SMTP control is often set in **Administration → Installation** in the app (see [TECHNICAL.md](TECHNICAL.md#configuration)).
+   Copy from `config.php.example`. Set `db` (host, name, user, password). Optionally set `email` as a fallback; finer SMTP control is often set in **Administration → System → Email** in the app (see [TECHNICAL.md](TECHNICAL.md#configuration)).
 
 2. **Set club admin password**  
    ```bash
@@ -201,17 +203,24 @@ After uploading files and importing the database:
    ```
    Use `--dry-run` to preview sends and opt-out skips. Use `--test-email=you@example.com` with optional `--test-limit=3` to sample templates. Use `--dump-sender-payload` to write the first Sender API body to `logs/sender_payload_dump.json` (token redacted).
 
-   **Sender.net (recommended):** In **Administration → Installation**, set the Sender API token and **members group ID**. Set `canonical_host` (or `public_base_url`) in `config.php` so reminder emails include working logo and unsubscribe links. Reminders check **transactional** opt-out only — newsletter unsubscribes in Sender do not block reminders. Each reminder includes a signed link to `unsubscribe.php` for reminder-only opt-out.
+   **Sender.net (recommended):** In **Administration → System → Email**, set the Sender API token and **members group ID**. Set `canonical_host` (or `public_base_url`) in `config.php` so reminder emails include working logo and unsubscribe links. Reminders check **transactional** opt-out only — newsletter unsubscribes in Sender do not block reminders. Each reminder includes a signed link to `unsubscribe.php` for reminder-only opt-out.
 
 14. **Monthly board packet (cron, optional)**
-   After running `scripts/migrate_board_packet.sql`, enable automatic delivery in **Administration → Installation → Board packet** (recipients, send day 1–28). Configure a **daily** cron job:
+   After running `scripts/migrate_board_packet.sql`, enable automatic delivery in **Administration → System → Scheduled mail** (recipients, send day 1–28). Configure a **daily** cron job:
    ```bash
    php /path/to/RCFlightOperations/scripts/send_board_packet.php
    ```
    The script sends once per calendar month on the configured day. Use `--dry-run` to preview. Use `--test-email=you@example.com` to verify content without consuming the month's send slot. Use `--force` to bypass send-day and idempotency checks (still requires enabled + recipients unless testing).
 
-15. **Member self-service portal (optional)**
-   After running `scripts/migrate_member_portal.sql`, members can request a magic link at `/membership.php` (or `/membership`). SMTP must work, and email links should resolve via the current host or `public_base_url` / `canonical_host` in `config.php`. Officers can also **Send profile link** from a member’s edit page. Set **Membership email** under Installation → General so profile self-updates notify the membership director. You can link to `/membership` from the public club website (same pattern as `/apply`).
+15. **Weekly Current Members PDF (cron, optional)**
+   After running `scripts/migrate_current_members_digest.sql`, enable delivery in **Administration → System → Scheduled mail** (recipients and weekday). The PDF year follows **Renewal season starts** under Configuration → Membership: on or after that date through December 31 it is next year's roster; otherwise the current calendar year. Configure a **daily** cron job:
+   ```bash
+   php /path/to/RCFlightOperations/scripts/send_current_members_digest.php
+   ```
+   The script sends once per ISO week, on or after the configured weekday. Dompdf must be installed (`composer install`). Use `--dry-run` to preview the year and member count. Use `--test-email=you@example.com` to send one PDF without using the week's slot. Use `--force` to bypass the weekday and weekly idempotency checks.
+
+16. **Member self-service portal (optional)**
+   After running `scripts/migrate_member_portal.sql`, members can request a magic link at `/membership.php` (or `/membership`). SMTP must work, and email links should resolve via the current host or `public_base_url` / `canonical_host` in `config.php`. Officers can also **Send profile link** from a member’s edit page. Set **Membership email** under Configuration → Club so profile self-updates notify the membership director. You can link to `/membership` from the public club website (same pattern as `/apply`).
 
 ---
 
@@ -219,5 +228,5 @@ After uploading files and importing the database:
 
 - **Login URL:** `https://yourdomain.com/yourfolder/login.php` (or document root).
 - **Member profile:** `https://yourdomain.com/yourfolder/membership.php` (or `/membership`).
-- **Installation (admin):** after logging in as admin, **Administration → Installation** — SMTP, Sender.net reminder opt-out, maintenance mode, health, etc.
+- **System (admin):** after logging in as admin, **Administration → System** — SMTP, Sender.net reminder opt-out, maintenance mode, health, etc. Club settings are under **Administration → Configuration**.
 - **Do not commit:** `config.php`, `export_for_cpanel.sql`, `.env`, or uploaded files under `uploads/` (see [.gitignore](.gitignore)). Note: `uploads/.htaccess` is included for hardening.

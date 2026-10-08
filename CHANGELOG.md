@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Weekly Current Members PDF** — Cron emails the Current members report as a branded PDF. The roster year follows the renewal season start (next year from that date through December 31; otherwise the current year). Settings: Administration → System → Scheduled mail. Migration: [`scripts/migrate_current_members_digest.sql`](scripts/migrate_current_members_digest.sql). Cron: `scripts/send_current_members_digest.php`.
 - **Renewal-season reports** — **Signed up for year** lists everyone whose membership runs through the selected year (defaults to next year during the pre-book window) and can email that group. **Renewal progress** summarizes returning renewals, new signups, not yet renewed, and the renewal rate. The dashboard shows a **Signed up** card for next year during renewal season.
 - **Campaign discount codes** — Staff-managed reusable codes on [`discount_codes.php`](discount_codes.php) (percent or dollar off dues, initiation, or both, with optional expiration). Applied on `/apply.php` before Stripe; complimentary invites remain the $0 path. Hardcoded full-waiver coupon codes were removed. Migration: [`scripts/migrate_membership_discount_codes.sql`](scripts/migrate_membership_discount_codes.sql).
 - **Stripe (and waived) payments post to the ledger on approve** — Approving a paid online application writes dues, initiation or late fee, and Stripe processing fee into `payments`, sets the renewal year, and marks fulfillment processed. Staff go to print badge / mailer instead of re-entering the amount. Complimentary/coupon waivers write a $0 complementary row. Cash/check walk-ins are unchanged. Migration: [`scripts/migrate_member_trust_ledger.sql`](scripts/migrate_member_trust_ledger.sql).
@@ -15,11 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Approve-queue checklist** — Application review shows Payment, TRUST, badge photo, and AMA expiration at a glance. Only unfinished Stripe checkout blocks Approve; the rest are reminders plus Request information. Approve asks for confirmation when those reminders (or a payment shortfall) are still off.
 - **Staff idle timeout** — Club-user sessions expire after 30 minutes of inactivity.
 - **Stripe refunds on the ledger** — Cash/check mistakes can still be deleted. Stripe rows use **Record refund** (status, amount, optional Stripe refund id) so revenue reports stay honest. Migration: [`scripts/migrate_payment_refunds.sql`](scripts/migrate_payment_refunds.sql).
-- **AMA lookup health** — Installation → Tools & status can probe AMA.org. Successful lookups are cached; when the scraper is down, staff and applicants get “AMA lookup down; enter expiration manually.”
+- **AMA lookup health** — System → Status can probe AMA.org. Successful lookups are cached; when the scraper is down, staff and applicants get “AMA lookup down; enter expiration manually.”
 - **MySQL integration tests** — CI imports `schema_full.sql` and runs approve/ledger and current-member SQL tests (`composer test:integration`). Optional [`docker-compose.test.yml`](docker-compose.test.yml).
 
 ### Changed
 
+- **Administration screens** — Configuration is the club page: Club (name, logo, colors, support and membership email) and Membership (renewal season start, first complete records year, dues). The old Installation page is **System** (`system.php`) in the menu: Status, Email, Payments, and Scheduled mail. The unused App name field is gone; the navbar uses Club name.
 - **Discount codes can be edited** — Expired and disabled campaign codes (and active ones) can be updated from Discount codes: code text, amount, what it applies to, notes, and expiration. A new expiration date brings an expired code back; a disabled code stays off until it is enabled.
 - **Member CSV export** — Short list is name, email, phone, AMA number, and AMA expiry. The email-only list is gone. Full export, the import sample, and CSV import no longer include FAA number or expiry.
 - **Current members report** — Columns match the short export (name, email, phone, AMA number, AMA expiry). Gate key is no longer listed. The header includes the member count, and a year filter selects which roster to show.
@@ -152,7 +154,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Removed
 
-- **`system_operator/`** — Deprecated redirect stubs, operator-only docs, and CSS. Host-level settings (SMTP, maintenance, health) use **Administration → Installation** in the main app (`installation.php`).
+- **`system_operator/`** — Deprecated redirect stubs, operator-only docs, and CSS. Host-level settings (SMTP, maintenance, health) use **Administration → Installation** in the main app (`system.php`).
 - **`includes/operator_auth.php`** and **`scripts/set_operator_password.php`** — unused after single-club adoption.
 - **`tenantHasFeature()`** in [includes/features.php](includes/features.php) — use `featureEnabled()` only.
 - **`MIGRATE_TO_CPANEL.md`** — removed; cPanel data-move steps live in [DEPLOY.md](DEPLOY.md) under **Moving local data to cPanel**.

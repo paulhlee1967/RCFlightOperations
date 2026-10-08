@@ -33,7 +33,7 @@ This document describes how the application is built and how its parts work toge
 
 - **config.php** — Not in version control. Copy from `config.php.example`. Contains:
   - **db** — `host`, `name`, `user`, `password`, `charset` (optional, default `utf8mb4`)
-  - **email** (optional) — `driver` (`smtp` or `mail`), `from_address`, `from_name`; if `smtp`, then `smtp` with `host`, `port`, `encryption`, `username`, `password`. Often supplemented or overridden by **Administration → Installation** (values stored in `system_config`).
+  - **email** (optional) — `driver` (`smtp` or `mail`), `from_address`, `from_name`; if `smtp`, then `smtp` with `host`, `port`, `encryption`, `username`, `password`. Often supplemented or overridden by **Administration → System → Email** (values stored in `system_config`).
   - **debug** (optional) — if true, database connection errors show details to the browser (development only; errors are always logged)
   - **trust_forwarded_https** (optional) — if true, treat `X-Forwarded-Proto: https` as HTTPS for session cookies and password-reset link URLs (use only behind a trusted reverse proxy)
   - **trusted_proxies** (optional) — when `trust_forwarded_https` is true, an array of IP addresses or IPv4 CIDRs; forwarded proto is honored only if `REMOTE_ADDR` matches (see `includes/trusted_proxy.php`). If omitted or empty, behavior matches a single trusted hop (weaker; set explicit IPs in production when possible)
@@ -41,7 +41,7 @@ This document describes how the application is built and how its parts work toge
   - **public_base_url** (optional) — full public URL (`https://…`) for cron/Sender email image and unsubscribe links; defaults to `https://` + `canonical_host`
   - **external_media_hosts** (optional) — hostnames allowed when downloading legacy external badge/FAA URLs on application approve (default `pvmac.com`, `www.pvmac.com`)
 
-Host-level settings (app name, maintenance mode, SMTP, health checks, admin broadcast) are managed in the main app at **Administration → Installation** (`installation.php`, admin login required), not a separate operator area.
+Host-level settings (maintenance mode, SMTP, Stripe, scheduled mail, health checks, admin broadcast) are managed in the main app at **Administration → System** (`system.php`, admin login required), not a separate operator area. Club name, contacts, dues, and the renewal calendar are on **Administration → Configuration** (`config_site.php`).
 
 ---
 
@@ -111,7 +111,7 @@ Shared code used across the app. Include order matters: `db.php` before `auth.ph
 | **login.php** | Club user login. Session: `user_id`, `user_email`, `user_name`, `user_role`. Uses CSRF and safe redirect. |
 | **logout.php** | Destroys session, redirects to login. |
 | **forgot_password.php** / **reset_password.php** | Password reset flow (tokens in `password_reset_tokens`). |
-| **installation.php** | Host/app settings: SMTP, Sender.net (reminder opt-out), maintenance mode, health, broadcast to admins. **Admin only.** |
+| **system.php** | System settings: SMTP, Sender.net, Stripe, scheduled mail, maintenance, health, broadcast to admins. **Admin only.** Menu label: System. |
 | **members.php** | Member list: pagination, filters (status, type, search). Links to new member wizard, edit, renew, print badge, export. |
 | **member_wizard.php** | Guided new-member workflow (steps 1–3: contact, compliance, membership). POST saves via `member_save.php`, then redirects to `member_process.php?wizard=1`. Membership Manager or Administrator. |
 | **member_edit.php** | Edit existing member (contact, compliance, membership tabs). New members are redirected to `member_wizard.php`. POST handled in page; validation via `validation.php`. |
@@ -159,6 +159,7 @@ Run from project root: `php scripts/script_name.php`.
 | **fetch_vendor_assets.sh** | Downloads pinned Bootstrap, Bootstrap Icons, and Fabric.js into `assets/vendor/`. |
 | **export_db_for_cpanel.php** | Exports SQL dump suitable for cPanel/phpMyAdmin import. |
 | **send_reminders.php** | Sends reminder emails (AMA expiry). Cron-friendly. Skips members with `email_opt_in_expiry_reminders = 0`. When Sender.net is configured, also checks transactional (`temail`) opt-out, ensures subscribers in the members group, sends via Sender API with signed app unsubscribe links. Flags: `--dry-run`, `--test-email=`, `--test-limit=N`, `--dump-sender-payload[=path]`. Requires `canonical_host` or `public_base_url` for logo/unsubscribe URLs. |
+| **send_current_members_digest.php** | Emails the Current members report as a branded PDF. Daily cron; sends once per ISO week on or after the Installation weekday. Roster year follows the renewal pre-book date (`defaultRenewalYear`). Flags: `--dry-run`, `--test-email=`, `--force`. Requires Dompdf. |
 | **mark_expired_inactive.php** | Optional maintenance: mark members as inactive based on rules. |
 | **import_member_photos.php** | Bulk import member photos (e.g. from a directory keyed by member ID or name). |
 | **merge_members.php** | Merge duplicate member records (dry-run or `--execute`; uses `includes/member_merge.php`). |
@@ -188,7 +189,7 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 
 ## Email and PDF
 
-- **Email:** Defaults in `config.php` under `email`; **Administration → Installation** can store SMTP and other keys in `system_config` (see `includes/installation_config.php` and `includes/mail.php`).
+- **Email:** Defaults in `config.php` under `email`; **Administration → System → Email** can store SMTP and other keys in `system_config` (see `includes/installation_config.php` and `includes/mail.php`).
   - **Scheduled reminders:** `scripts/send_reminders.php` (cron) sends AMA expiry templates to members with a non-empty email and `email_opt_in_expiry_reminders = 1` (missing column defaults to allowed for pre-migration rows). When a **Sender.net API token** and **members group ID** are configured, each recipient is ensured in Sender (lowercase email), checked via `GET /v2/subscribers/{email}` (`status.temail` must be `active`; campaign/newsletter opt-out in `status.email` does **not** block reminders), and sent via `POST /v2/message/send` with a signed **reminder-only** unsubscribe link on `unsubscribe.php`. Set `canonical_host` or `public_base_url` in `config.php` so logo and unsubscribe URLs resolve in cron.
   - **Application email opt-in:** `apply.php` stores `email_opt_in_club_events` and `email_opt_in_expiry_reminders` on `member_applications`; approve copies them to `members` and calls `membership_application_sync_sender_email_preferences()` (club events on submit when checked; both channels on approve). See `scripts/migrate_email_opt_in.sql`.
   - **Reminder unsubscribe:** `unsubscribe.php` — HMAC-signed links in reminder footers; POST sets Sender `transactional_email_status` to `UNSUBSCRIBED`.
@@ -231,5 +232,5 @@ There is a single logical club: queries use `club.id = 1` where a club row is ne
 | Change online application review | `applications.php`, `apply.php`, `includes/member_applications.php`, `includes/membership_application.php`, `comp_invites.php`, `discount_codes.php`, [docs/applications.html](docs/applications.html) |
 | Change dues or proration logic | `dues_rules` table, `member_process.php`, `config_site.php`, `includes/dues_helpers.php` |
 | Change email content | `templates/email/`, `includes/email_templates.php` |
-| Change SMTP / installation behaviour | `installation.php`, `system_config`, `config.php` → `email` / `sender` / `canonical_host` / `public_base_url`, `includes/mail.php`, `includes/sender_net.php`, `unsubscribe.php` |
+| Change SMTP / installation behaviour | `system.php`, `system_config`, `config.php` → `email` / `sender` / `canonical_host` / `public_base_url`, `includes/mail.php`, `includes/sender_net.php`, `unsubscribe.php` |
 | Run one-off or scheduled tasks | `scripts/` |

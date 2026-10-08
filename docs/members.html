@@ -165,7 +165,7 @@
           <tr><td>Phone</td><td>One primary phone number for the member.</td></tr>
           <tr><td>Mailing address</td><td>Street, suite/apt, city, state, and postal code — used on badge back, envelopes, and printed letters.</td></tr>
           <tr><td>Emergency contact</td><td>Name, relationship, and phone — collected in the new member wizard and available as badge merge fields.</td></tr>
-          <tr><td>Email preferences (Sender.net)</td><td>When Sender.net is configured under <strong>Administration → Installation</strong>, the contact tab shows a read-only summary of campaign (club events) and transactional (expiry reminder) status, plus a link to open the contact in Sender. Local consent flags from <code>apply.php</code> (<code>email_opt_in_club_events</code>, <code>email_opt_in_expiry_reminders</code>) still drive reminders and application sync — change live Sender status in Sender.net. See <a href="admin.html#sender-opt-out">Administration — Sender.net</a>.</td></tr>
+          <tr><td>Email preferences (Sender.net)</td><td>When Sender.net is configured under <strong>Administration → System → Email</strong>, the contact tab shows a read-only summary of campaign (club events) and transactional (expiry reminder) status, plus a link to open the contact in Sender. Local consent flags from <code>apply.php</code> (<code>email_opt_in_club_events</code>, <code>email_opt_in_expiry_reminders</code>) still drive reminders and application sync — change live Sender status in Sender.net. See <a href="admin.html#sender-opt-out">Administration — Sender.net</a>.</td></tr>
         </tbody>
       </table>
     </div>
@@ -307,7 +307,7 @@
       and payment recording stay staff-only. Successful self-service saves write an
       <code>audit_log</code> entry (<code>member_self_update</code>, <code>user_id = 0</code>)
       with a JSON summary of changed fields, and email the
-      <strong>Membership email</strong> under <strong>Administration → Installation → General</strong>
+      <strong>Membership email</strong> under <strong>Administration → Configuration → Club</strong>
       (falls back to Support email, then the first active admin user) so officers can review the change.
     </p>
     <p>
@@ -317,7 +317,7 @@
       reminder — the member requests a fresh one-hour magic link when they are ready.
       Officers can also click <strong>Send profile link</strong> on a member’s edit page
       (that staff-sent link <em>does</em> expire in about one hour).
-      SMTP must be configured under <strong>Administration → Installation → Email</strong>, and
+      SMTP must be configured under <strong>Administration → System → Email</strong>, and
       <code>public_base_url</code> or <code>canonical_host</code> should be set so cron reminder
       links resolve correctly. Run <code>scripts/migrate_member_portal.sql</code> on existing installs.
     </p>

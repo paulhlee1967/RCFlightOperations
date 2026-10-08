@@ -248,10 +248,10 @@ $_headerBaseHref = $baseHref ?? '';
                 </li>
                 <?php endif; ?>
 
-                <!-- Administration dropdown — Users + Configuration only (admin only) -->
+                <!-- Administration dropdown (admin only) -->
                 <?php if (function_exists('canManageUsers') && canManageUsers()): ?>
                 <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle<?= navActive(['users.php', 'user_edit.php', 'config_site.php', 'installation.php']) ?>"
+                    <a class="nav-link dropdown-toggle<?= navActive(['users.php', 'user_edit.php', 'config_site.php', 'system.php']) ?>"
                        href="#" id="navAdmin" role="button"
                        data-bs-toggle="dropdown" aria-expanded="false">
                         Administration
@@ -266,8 +266,8 @@ $_headerBaseHref = $baseHref ?? '';
                                href="<?= $_headerBaseHref ?>config_site.php">Configuration</a>
                         </li>
                         <li>
-                            <a class="dropdown-item<?= navActive('installation.php') ? ' active' : '' ?>"
-                               href="<?= $_headerBaseHref ?>installation.php">Installation</a>
+                            <a class="dropdown-item<?= navActive('system.php') ? ' active' : '' ?>"
+                               href="<?= $_headerBaseHref ?>system.php">System</a>
                         </li>
                         <li>
                             <a class="dropdown-item<?= navActive('audit_log_viewer.php') ? ' active' : '' ?>"

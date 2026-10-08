@@ -67,7 +67,7 @@ function selected(mixed $current, mixed $option): string {
 /**
  * Default renewal year for the signup/renewal workflow.
  * Uses renewal_prebook_start_month / renewal_prebook_start_day from system_config
- * (see Installation) when $pdo is passed; otherwise defaults to October 15 as the
+ * (Configuration → Membership) when $pdo is passed; otherwise defaults to October 15 as the
  * first day that pre-books the next calendar year.
  *
  * @return int  Four-digit renewal year.

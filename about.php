@@ -92,7 +92,7 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="d-flex flex-wrap gap-2">
                     <a href="docs/index.html" class="btn btn-primary btn-sm">Help &amp; documentation</a>
                     <?php if (isAdmin()): ?>
-                    <a href="installation.php" class="btn btn-outline-primary btn-sm">Installation &amp; health</a>
+                    <a href="system.php" class="btn btn-outline-primary btn-sm">System &amp; health</a>
                     <?php endif; ?>
                 </div>
             </div>

@@ -1,7 +1,7 @@
 <?php
 /**
- * Installation settings — app name, maintenance mode, SMTP, test email, admin broadcast, health.
- * Admin only. Host-level settings for single-club deployments.
+ * System settings — maintenance, SMTP, Stripe, scheduled mail, health, admin broadcast.
+ * Admin only. Club name, dues, and the renewal calendar live on config_site.php.
  *
  * Layout matches Configuration: Bootstrap tabs with per-section save actions.
  */
@@ -12,6 +12,7 @@ require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/flash.php';
 require_once __DIR__ . '/includes/installation_config.php';
 require_once __DIR__ . '/includes/board_packet.php';
+require_once __DIR__ . '/includes/current_members_digest.php';
 
 requireAdmin();
 
@@ -22,31 +23,12 @@ $error      = '';
 $activeTab  = installation_normalize_tab((string) ($_GET['tab'] ?? $_POST['tab'] ?? 'general'));
 
 /**
- * Redirect back to Installation on a specific tab.
+ * Redirect back to System on a specific tab.
  */
 function installation_redirect(string $tab): never
 {
-    header('Location: installation.php?tab=' . urlencode(installation_normalize_tab($tab)));
+    header('Location: system.php?tab=' . urlencode(installation_normalize_tab($tab)));
     exit;
-}
-
-/**
- * Resolve a posted config value for a known system_config key.
- */
-function installation_posted_config_value(string $key, array $post): string
-{
-    return match ($key) {
-        'smtp_port' => (string) max(1, min(65535, (int) ($post['smtp_port'] ?? 587))),
-        'maintenance_mode' => empty($post['maintenance_mode']) ? '0' : '1',
-        'stripe_test_mode' => empty($post['stripe_test_mode']) ? '0' : '1',
-        'board_packet_enabled' => empty($post['board_packet_enabled']) ? '0' : '1',
-        'board_packet_send_day' => (string) max(1, min(28, (int) ($post['board_packet_send_day'] ?? 1))),
-        'board_packet_recipients' => trim((string) ($post['board_packet_recipients'] ?? '')),
-        'renewal_prebook_start_month' => (string) max(1, min(12, (int) ($post['renewal_prebook_start_month'] ?? 10))),
-        'renewal_prebook_start_day' => (string) max(1, min(31, (int) ($post['renewal_prebook_start_day'] ?? 15))),
-        'reports_accurate_from_year' => (string) max(2000, min(2100, (int) ($post['reports_accurate_from_year'] ?? 2027))),
-        default => trim((string) ($post[$key] ?? '')),
-    };
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -84,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         require_once __DIR__ . '/includes/ama_verify.php';
         $health = ama_verify_health_status(true);
         flash($health['ok'] ? $health['message'] : ('AMA lookup down: ' . $health['message']), $health['ok'] ? 'success' : 'warning');
-        installation_redirect('tools');
+        installation_redirect('status');
     }
 
     if ($action === 'broadcast_admins') {
@@ -121,32 +103,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             flash($msg2, $fails > 0 ? 'warning' : 'success');
         }
-        installation_redirect('tools');
+        installation_redirect('status');
     }
 
-    $saveTabs = [
-        'save_general'      => 'general',
-        'save_applications' => 'applications',
-        'save_email'        => 'email',
-        'save_board_packet' => 'board_packet',
+    $saveGroups = [
+        'save_status'        => ['group' => 'status', 'tab' => 'status'],
+        'save_general'       => ['group' => 'status', 'tab' => 'status'],
+        'save_payments'      => ['group' => 'payments', 'tab' => 'payments'],
+        'save_applications'  => ['group' => 'payments', 'tab' => 'payments'],
+        'save_email'         => ['group' => 'email', 'tab' => 'email'],
+        'save_board_packet'  => ['group' => 'board_packet', 'tab' => 'scheduled'],
+        'save_roster_digest' => ['group' => 'roster_digest', 'tab' => 'scheduled'],
     ];
 
-    if (isset($saveTabs[$action])) {
-        $tab  = $saveTabs[$action];
-        $keys = installation_tab_config_keys($tab);
+    if (isset($saveGroups[$action])) {
+        $group = $saveGroups[$action]['group'];
+        $tab   = $saveGroups[$action]['tab'];
+        $keys  = installation_config_group_keys($group);
         $activeTab = $tab;
 
-        if ($tab === 'general') {
-            $appName = trim((string) ($_POST['app_name'] ?? ''));
-            if ($appName === '') {
-                $error = 'App name is required.';
-            }
-        } elseif ($tab === 'email') {
+        if ($group === 'email') {
             $smtpPort = (int) ($_POST['smtp_port'] ?? 587);
             if ($smtpPort < 1 || $smtpPort > 65535) {
                 $error = 'SMTP port must be between 1 and 65535.';
             }
-        } elseif ($tab === 'board_packet') {
+        } elseif ($group === 'board_packet') {
             $boardRecipientsRaw = trim((string) ($_POST['board_packet_recipients'] ?? ''));
             $invalidRecipients  = board_packet_invalid_address_tokens($boardRecipientsRaw);
             if ($invalidRecipients !== []) {
@@ -155,6 +136,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     . implode(', ', $invalidRecipients) . '.';
             } elseif (!empty($_POST['board_packet_enabled']) && board_packet_parse_addresses($boardRecipientsRaw) === []) {
                 $error = 'Board packet is enabled but no valid recipient addresses are configured.';
+            }
+        } elseif ($group === 'roster_digest') {
+            $rosterRecipientsRaw = trim((string) ($_POST['current_members_digest_recipients'] ?? ''));
+            $invalidRoster = board_packet_invalid_address_tokens($rosterRecipientsRaw);
+            if ($invalidRoster !== []) {
+                $error = 'Invalid weekly roster recipient address'
+                    . (count($invalidRoster) !== 1 ? 'es' : '') . ': '
+                    . implode(', ', $invalidRoster) . '.';
+            } elseif (!empty($_POST['current_members_digest_enabled']) && board_packet_parse_addresses($rosterRecipientsRaw) === []) {
+                $error = 'Weekly roster email is enabled but no valid recipient addresses are configured.';
             }
         }
 
@@ -166,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $pdo->commit();
                 $configRows = installation_load_system_config($pdo);
-                flash('Configuration saved.', 'success');
+                flash('Settings saved.', 'success');
                 installation_redirect($tab);
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) {
@@ -195,7 +186,7 @@ $expectedTables = [
     'member_membership_years', 'member_applications', 'membership_comp_invites',
     'membership_discount_codes',
     'member_application_emails', 'member_application_info_requests',
-    'board_packet_deliveries', 'member_magic_links', 'system_config', 'operator_messages',
+    'board_packet_deliveries', 'current_members_digest_deliveries', 'member_magic_links', 'system_config', 'operator_messages',
     'rate_limit_events',
 ];
 foreach ($expectedTables as $tbl) {
@@ -219,29 +210,26 @@ try {
 }
 
 $tabs = installation_tabs();
-$pageTitle   = 'Installation';
+$pageTitle   = 'System';
 $breadcrumbs = [
     ['label' => 'Administration', 'url' => 'users.php'],
-    ['label' => 'Installation', 'url' => ''],
+    ['label' => 'System', 'url' => ''],
 ];
 require_once __DIR__ . '/includes/header.php';
 
-$monthNames = [1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April', 5 => 'May', 6 => 'June', 7 => 'July', 8 => 'August', 9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December'];
-$preMo = isset($configRows['renewal_prebook_start_month'])
-    ? max(1, min(12, (int) $configRows['renewal_prebook_start_month']))
-    : 10;
-$preDay = isset($configRows['renewal_prebook_start_day'])
-    ? max(1, min(31, (int) $configRows['renewal_prebook_start_day']))
-    : 15;
 $bpDay = isset($configRows['board_packet_send_day'])
     ? max(1, min(28, (int) $configRows['board_packet_send_day']))
     : 1;
+$rosterWeekday = isset($configRows['current_members_digest_weekday'])
+    ? max(1, min(7, (int) $configRows['current_members_digest_weekday']))
+    : 1;
+$rosterWeekdayLabels = current_members_digest_weekday_labels();
 ?>
 
 <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
     <div>
-        <h1 class="h2 mb-0">Installation</h1>
-        <p class="text-muted mb-0 small">App-wide email and maintenance settings. Club branding stays under <a href="config_site.php">Configuration</a>.</p>
+        <h1 class="h2 mb-0">System</h1>
+        <p class="text-muted mb-0 small">Mail delivery, online payments, scheduled emails, and server status. Club name, contacts, dues, and the renewal calendar stay under <a href="config_site.php">Configuration</a>.</p>
     </div>
 </div>
 
@@ -267,90 +255,12 @@ $bpDay = isset($configRows['board_packet_send_day'])
 
 <div class="tab-content" id="installTabContent">
 
-    <!-- ── General ───────────────────────────────────────────────────────── -->
-    <div class="tab-pane fade<?= $activeTab === 'general' ? ' show active' : '' ?>" id="general" role="tabpanel" aria-labelledby="general-tab">
-        <form method="post" action="installation.php?tab=general">
+    <!-- ── Payments ──────────────────────────────────────────────────────── -->
+    <div class="tab-pane fade<?= $activeTab === 'payments' ? ' show active' : '' ?>" id="payments" role="tabpanel" aria-labelledby="payments-tab">
+        <form method="post" action="system.php?tab=payments">
             <?= csrf_field() ?>
-            <input type="hidden" name="action" value="save_general">
-            <input type="hidden" name="tab" value="general">
-
-            <div class="card mb-4">
-                <div class="card-header fw-semibold">General</div>
-                <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label class="form-label" for="app_name">App name</label>
-                            <input type="text" class="form-control" id="app_name" name="app_name"
-                                   value="<?= h($configRows['app_name'] ?? 'RC Flight Operations') ?>" required>
-                            <div class="form-text">Shown in the navbar and emails.</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="support_email">Support email</label>
-                            <input type="email" class="form-control" id="support_email" name="support_email"
-                                   value="<?= h($configRows['support_email'] ?? '') ?>">
-                            <div class="form-text">General club support contact.</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="membership_email">Membership email</label>
-                            <input type="email" class="form-control" id="membership_email" name="membership_email"
-                                   value="<?= h($configRows['membership_email'] ?? '') ?>">
-                            <div class="form-text">
-                                New application notices and member self-service profile-update alerts go here.
-                                Falls back to Support email, then the first active admin user, if blank.
-                            </div>
-                            <div class="form-text">New application notifications are sent here. If blank, support email is used.</div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="renewal_prebook_start_month">Renewal year default — pre-book starts</label>
-                            <div class="d-flex gap-2">
-                                <select class="form-select" id="renewal_prebook_start_month" name="renewal_prebook_start_month">
-                                    <?php for ($m = 1; $m <= 12; $m++): ?>
-                                    <option value="<?= $m ?>"<?= $preMo === $m ? ' selected' : '' ?>><?= h($monthNames[$m]) ?></option>
-                                    <?php endfor; ?>
-                                </select>
-                                <select class="form-select w-auto" id="renewal_prebook_start_day" name="renewal_prebook_start_day" aria-label="Pre-book start day">
-                                    <?php for ($d = 1; $d <= 31; $d++): ?>
-                                    <option value="<?= $d ?>"<?= $preDay === $d ? ' selected' : '' ?>><?= $d ?></option>
-                                    <?php endfor; ?>
-                                </select>
-                            </div>
-                            <div class="form-text">
-                                On/after this day, the app’s default “renewal year” is the <strong>next</strong> calendar year
-                                (e.g. October 15 → next year). Earlier dates use the current year. Default: October 15.
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label" for="reports_accurate_from_year">Reports — complete data starting year</label>
-                            <input type="number" class="form-control" id="reports_accurate_from_year" name="reports_accurate_from_year"
-                                   min="2000" max="2100" step="1"
-                                   value="<?= h((string) ($configRows['reports_accurate_from_year'] ?? '2027')) ?>">
-                            <div class="form-text">
-                                The first membership year with complete, trustworthy records. Reports add a footnote
-                                warning that figures for <strong>earlier</strong> years are reconstructed from payment
-                                history and may undercount members or revenue. Default: 2027.
-                            </div>
-                        </div>
-                        <div class="col-12">
-                            <div class="form-check form-switch">
-                                <input type="checkbox" class="form-check-input" id="maintenance_mode" name="maintenance_mode" value="1"
-                                       <?= !empty($configRows['maintenance_mode']) && $configRows['maintenance_mode'] === '1' ? 'checked' : '' ?>>
-                                <label class="form-check-label" for="maintenance_mode">Maintenance mode (banner for logged-in users)</label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary">Save general settings</button>
-        </form>
-    </div>
-
-    <!-- ── Applications ──────────────────────────────────────────────────── -->
-    <div class="tab-pane fade<?= $activeTab === 'applications' ? ' show active' : '' ?>" id="applications" role="tabpanel" aria-labelledby="applications-tab">
-        <form method="post" action="installation.php?tab=applications">
-            <?= csrf_field() ?>
-            <input type="hidden" name="action" value="save_applications">
-            <input type="hidden" name="tab" value="applications">
+            <input type="hidden" name="action" value="save_payments">
+            <input type="hidden" name="tab" value="payments">
 
             <div class="card mb-4">
                 <div class="card-header fw-semibold">Membership application (Stripe)</div>
@@ -389,13 +299,13 @@ $bpDay = isset($configRows['board_packet_send_day'])
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary">Save application settings</button>
+            <button type="submit" class="btn btn-primary">Save payment settings</button>
         </form>
     </div>
 
     <!-- ── Email ─────────────────────────────────────────────────────────── -->
     <div class="tab-pane fade<?= $activeTab === 'email' ? ' show active' : '' ?>" id="email" role="tabpanel" aria-labelledby="email-tab">
-        <form method="post" action="installation.php?tab=email">
+        <form method="post" action="system.php?tab=email">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="save_email">
             <input type="hidden" name="tab" value="email">
@@ -483,7 +393,7 @@ $bpDay = isset($configRows['board_packet_send_day'])
         <div class="card mb-4">
             <div class="card-header fw-semibold">Send test email</div>
             <div class="card-body">
-                <form method="post" action="installation.php?tab=email" class="row g-3 align-items-end"
+                <form method="post" action="system.php?tab=email" class="row g-3 align-items-end"
                       data-email-sending data-email-sending-title="Sending test email">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="send_test_email">
@@ -501,12 +411,14 @@ $bpDay = isset($configRows['board_packet_send_day'])
         </div>
     </div>
 
-    <!-- ── Board packet ──────────────────────────────────────────────────── -->
-    <div class="tab-pane fade<?= $activeTab === 'board_packet' ? ' show active' : '' ?>" id="board_packet" role="tabpanel" aria-labelledby="board_packet-tab">
-        <form method="post" action="installation.php?tab=board_packet">
+    <!-- ── Scheduled mail ────────────────────────────────────────────────── -->
+    <div class="tab-pane fade<?= $activeTab === 'scheduled' ? ' show active' : '' ?>" id="scheduled" role="tabpanel" aria-labelledby="scheduled-tab">
+        <p class="text-muted small">These go out from the daily cron jobs and use the mail settings on the Email tab.</p>
+
+        <form method="post" action="system.php?tab=scheduled">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="save_board_packet">
-            <input type="hidden" name="tab" value="board_packet">
+            <input type="hidden" name="tab" value="scheduled">
 
             <div class="card mb-4">
                 <div class="card-header fw-semibold">Monthly board packet</div>
@@ -545,22 +457,89 @@ $bpDay = isset($configRows['board_packet_send_day'])
                 </div>
             </div>
 
-            <button type="submit" class="btn btn-primary">Save board packet settings</button>
+            <button type="submit" class="btn btn-primary mb-4">Save board packet settings</button>
+        </form>
+
+        <form method="post" action="system.php?tab=scheduled">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="save_roster_digest">
+            <input type="hidden" name="tab" value="scheduled">
+
+            <div class="card mb-4">
+                <div class="card-header fw-semibold">Weekly Current Members PDF</div>
+                <div class="card-body">
+                    <p class="text-muted small">
+                        Automatic email of the <strong>Current members</strong> report as a branded PDF.
+                        Recipients must be listed explicitly. The roster year follows
+                        <strong>Renewal season starts</strong> under
+                        <a href="config_site.php">Configuration → Membership</a>:
+                        on or after that date through December 31 the PDF is next calendar year's roster
+                        (members already signed up); otherwise it is the current calendar year.
+                        Run <code>scripts/migrate_current_members_digest.sql</code> on existing installations before enabling.
+                        PDF export needs Dompdf (<code>composer install</code>).
+                    </p>
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <div class="form-check form-switch">
+                                <input type="checkbox" class="form-check-input" id="current_members_digest_enabled" name="current_members_digest_enabled" value="1"
+                                       <?= !empty($configRows['current_members_digest_enabled']) && $configRows['current_members_digest_enabled'] === '1' ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="current_members_digest_enabled">Enable automatic weekly Current Members PDF</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label" for="current_members_digest_weekday">Send weekday</label>
+                            <select class="form-select" id="current_members_digest_weekday" name="current_members_digest_weekday">
+                                <?php foreach ($rosterWeekdayLabels as $dayNum => $dayLabel): ?>
+                                <option value="<?= (int) $dayNum ?>"<?= $rosterWeekday === (int) $dayNum ? ' selected' : '' ?>><?= h($dayLabel) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <div class="form-text">Cron should run daily. The first run on or after this weekday sends once for that week.</div>
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label" for="current_members_digest_recipients">Recipients</label>
+                            <input type="text" class="form-control" id="current_members_digest_recipients" name="current_members_digest_recipients"
+                                   value="<?= h($configRows['current_members_digest_recipients'] ?? '') ?>"
+                                   placeholder="board@club.org, treasurer@club.org">
+                            <div class="form-text">Comma- or semicolon-separated addresses. Every address is validated when you save.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save weekly roster settings</button>
         </form>
     </div>
 
-    <!-- ── Tools & status ────────────────────────────────────────────────── -->
-    <div class="tab-pane fade<?= $activeTab === 'tools' ? ' show active' : '' ?>" id="tools" role="tabpanel" aria-labelledby="tools-tab">
+    <!-- ── Status ────────────────────────────────────────────────────────── -->
+    <div class="tab-pane fade<?= $activeTab === 'status' ? ' show active' : '' ?>" id="status" role="tabpanel" aria-labelledby="status-tab">
+        <form method="post" action="system.php?tab=status" class="mb-4">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="save_status">
+            <input type="hidden" name="tab" value="status">
+            <div class="card">
+                <div class="card-header fw-semibold">Maintenance</div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-3">
+                        <input type="checkbox" class="form-check-input" id="maintenance_mode" name="maintenance_mode" value="1"
+                               <?= !empty($configRows['maintenance_mode']) && $configRows['maintenance_mode'] === '1' ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="maintenance_mode">Maintenance mode</label>
+                    </div>
+                    <div class="form-text mb-3">Logged-in users see a banner. Turn this on while you run an upgrade.</div>
+                    <button type="submit" class="btn btn-primary">Save maintenance setting</button>
+                </div>
+            </div>
+        </form>
+
         <div class="card mb-4">
             <div class="card-header fw-semibold">Message all admin users</div>
             <div class="card-body">
                 <p class="text-muted small">Sends to every active user with role <strong>admin</strong>. Use <code>{{name}}</code> and <code>{{club_name}}</code>.</p>
-                <form method="post" action="installation.php?tab=tools"
+                <form method="post" action="system.php?tab=status"
                       data-email-sending data-email-sending-title="Broadcasting to admins"
                       data-confirm-submit="Send this message to every active admin user?">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="broadcast_admins">
-                    <input type="hidden" name="tab" value="tools">
+                    <input type="hidden" name="tab" value="status">
                     <div class="mb-3">
                         <label class="form-label" for="broadcast_subject">Subject</label>
                         <input type="text" class="form-control" id="broadcast_subject" name="broadcast_subject" required>
@@ -607,10 +586,10 @@ $bpDay = isset($configRows['board_packet_send_day'])
                         <?php if (!empty($amaHealth['stale'])): ?>
                         <span class="text-muted">(stale)</span>
                         <?php endif; ?>
-                        <form method="post" action="installation.php?tab=tools" class="d-inline ms-2">
+                        <form method="post" action="system.php?tab=status" class="d-inline ms-2">
                             <?= csrf_field() ?>
                             <input type="hidden" name="action" value="probe_ama">
-                            <input type="hidden" name="tab" value="tools">
+                            <input type="hidden" name="tab" value="status">
                             <button type="submit" class="btn btn-outline-secondary btn-sm">Check now</button>
                         </form>
                     </dd>
@@ -645,28 +624,6 @@ $bpDay = isset($configRows['board_packet_send_day'])
 
 <script<?= csp_nonce_attr() ?>>
 (function () {
-    var monthSel = document.getElementById('renewal_prebook_start_month');
-    var daySel   = document.getElementById('renewal_prebook_start_day');
-    if (monthSel && daySel) {
-        var daysInMonth = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-        function syncDays() {
-            var max = daysInMonth[(parseInt(monthSel.value, 10) || 1) - 1];
-            var want = parseInt(daySel.value, 10) || 1;
-            daySel.innerHTML = '';
-            for (var d = 1; d <= max; d++) {
-                var opt = document.createElement('option');
-                opt.value = String(d);
-                opt.textContent = String(d);
-                if (d === Math.min(want, max)) { opt.selected = true; }
-                daySel.appendChild(opt);
-            }
-        }
-
-        monthSel.addEventListener('change', syncDays);
-        syncDays();
-    }
-
     // Keep ?tab= in sync when switching tabs (bookmarkable / refresh-safe).
     var tabButtons = document.querySelectorAll('#installTabs button[data-bs-toggle="tab"]');
     tabButtons.forEach(function (btn) {

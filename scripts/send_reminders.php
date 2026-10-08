@@ -31,7 +31,7 @@
  * --only-staff-digest        Skip member reminders; run digest only.
  *
  * Skips recipients who opted out of transactional (reminder) email in Sender.net
- * when a Sender API token is configured (Administration → Installation).
+ * when a Sender API token is configured (Administration → System → Email).
  * Sends via Sender transactional API when configured (per-recipient unsubscribe links).
  *
  * Member reminders and the staff digest only include current members for the
@@ -188,7 +188,7 @@ if ($isTest) {
     echo "Sender.net opt-out check enabled (transactional / reminder status).\n\n";
 } else {
     echo "WARNING: Sender.net API token not set — reminders will not check opt-out status.\n";
-    echo "         Set it under Administration → Installation.\n\n";
+    echo "         Set it under Administration → System → Email.\n\n";
 }
 
 if ($dumpSenderPayload !== null) {

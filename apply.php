@@ -502,7 +502,7 @@ require_once __DIR__ . '/includes/csp_nonce.php';
                         <?php if ($stripeConfigured): ?>
                         Card details appear here after you click <strong>Submit application</strong> below (your form is validated first).
                         <?php else: ?>
-                        Online payment is not configured yet — add Stripe keys under Installation.
+                        Online payment is not configured yet — add Stripe keys under Administration → System → Payments.
                         <?php endif; ?>
                     </p>
                     <div id="payment-element" class="d-none"></div>

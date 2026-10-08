@@ -167,7 +167,7 @@ Your Mac setup is only for development; production uses the cPanel database and 
 The app can send email (e.g. AMA expiry reminders) via config. In `config.php` you can add an `email` block (see `config.php.example`):
 
 - **`driver` => `'mail'`** – Use PHP `mail()` (no SMTP). Works on many hosts with no extra setup.
-- **`driver` => `'smtp'`** – Use SMTP (e.g. Sender.net, Brevo, cPanel “Email Deliverability”). Set `email.smtp` with host, port, username, password. Club admins can also set SMTP in **Administration → Installation**.
+- **`driver` => `'smtp'`** – Use SMTP (e.g. Sender.net, Brevo, cPanel “Email Deliverability”). Set `email.smtp` with host, port, username, password. Club admins can also set SMTP in **Administration → System → Email**.
 
 Templates live in **`templates/email/`** (e.g. `ama_expiry_60.php`, `ama_expiry_30.php`). You can add or edit these.
 
@@ -175,7 +175,7 @@ Templates live in **`templates/email/`** (e.g. `ama_expiry_60.php`, `ama_expiry_
 
 If your club uses [Sender.net](https://www.sender.net) for newsletters and member list management:
 
-1. **Administration → Installation → Sender.net (reminder opt-out)** — set the API access token (Sender → Settings → API access tokens) and **members group ID** (Subscribers → your members list → group settings).
+1. **Administration → System → Email → Sender.net (reminder opt-out)** — set the API access token (Sender → Settings → API access tokens) and **members group ID** (Subscribers → your members list → group settings).
 2. In `config.php`, set **`canonical_host`** (or **`public_base_url`**) so cron-built emails include HTTPS logo and unsubscribe links.
 3. Reminder cron skips members with `email_opt_in_expiry_reminders = 0` on file, normalizes emails to lowercase, creates missing Sender subscribers (and adds them to the members group), skips contacts who opted out of **transactional** email in Sender, and sends via Sender’s API. Each message includes a signed **reminder-only** unsubscribe link (`unsubscribe.php`); club event mail uses the campaign channel separately.
 4. **`apply.php`** collects optional checkboxes for club events and expiry reminders; preferences sync to Sender on submit (club events) and approve (both). See [docs/applications.html](docs/applications.html#email-preferences). Unsubscribing from a newsletter in Sender does **not** stop AMA reminders — members use the link in reminder emails (or staff can manage status in Sender).

@@ -167,12 +167,13 @@ mysql -u root flightops &lt; schema_full.sql</code></pre>
     <h2 id="next-steps">Next Steps After Install</h2>
     <ol>
       <li>Update club name, logo, and colors in <strong>Administration → Configuration → Design</strong>.</li>
-      <li>Set dues rates in <strong>Administration → Configuration → Membership &amp; Dues</strong>.</li>
+      <li>Set dues rates in <strong>Administration → Configuration → Membership</strong>.</li>
       <li>Add your board members as users in <strong>Administration → Users</strong>.</li>
       <li>Import existing member records via <strong>Members → Import</strong>, or add members one at a time with <strong>Members → New member</strong> (guided wizard).</li>
       <li>Design your ID badge template in <strong>Badge Design</strong> (main navigation).</li>
       <li>Run the <strong>Membership Snapshot</strong> report to confirm your data looks right.</li>
-      <li>If you send AMA expiry reminders, set up cron for <code>scripts/send_reminders.php</code>, set <code>canonical_host</code> in <code>config.php</code>, and configure <strong>Sender.net (reminder opt-out)</strong> under <strong>Administration → Installation</strong> (see <a href="admin.html#sender-opt-out">Administration — Sender.net opt-out</a>).</li>
+      <li>If you send AMA expiry reminders, set up cron for <code>scripts/send_reminders.php</code>, set <code>canonical_host</code> in <code>config.php</code>, and configure <strong>Sender.net (reminder opt-out)</strong> under <strong>Administration → System → Email</strong> (see <a href="admin.html#sender-opt-out">Administration — Sender.net opt-out</a>).</li>
+      <li>Optional: enable the weekly Current Members PDF under <strong>Administration → System → Scheduled mail</strong> and run <code>scripts/send_current_members_digest.php</code> from cron (see <a href="reports.html#weekly-roster">Reports</a>).</li>
     </ol>
 
     <!-- ── File layout ── -->
